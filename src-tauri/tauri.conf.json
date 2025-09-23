@@ -53,11 +53,7 @@
     "longDescription": "A digital life assistant with Live2D character support",
     "macOS": {
       "frameworks": [],
-      "minimumSystemVersion": "10.13",
-      "signingIdentity": "-",
-      "hardenedRuntime": true,
-      "entitlements": "entitlements.plist",
-      "exceptionDomain": null
+      "minimumSystemVersion": "10.13"
     },
     "windows": {
       "certificateThumbprint": null,

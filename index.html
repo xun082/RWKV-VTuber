@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
+    />
+    <title>RWKV-VTuber</title>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="/src/styles/loading.css" />
+    <link rel="stylesheet" href="/src/styles/live2d.css" />
+    <script defer type="module" src="./src/main.tsx"></script>
+  </head>
+  <body style="overflow: hidden">
+    <div id="loading-content">
+      <span style="font-size: 1.2rem">加载中</span>
+      <span id="loading-animation"></span>
+    </div>
+    <script id="loading-script">
+      window.onload = () => {
+        const loadingContent = document.getElementById("loading-content");
+        const loadingScript = document.getElementById("loading-script");
+        loadingContent?.remove();
+        loadingScript?.remove();
+      };
+    </script>
+    <div id="back-container">
+      <img id="back" src="/back.png" alt="background image" />
+    </div>
+    <div id="live2d-container">
+      <canvas id="live2d"></canvas>
+      <div id="live2d-message"></div>
+    </div>
+    <div id="root"></div>
+  </body>
+</html>

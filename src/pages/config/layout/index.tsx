@@ -45,6 +45,27 @@ export default function ConfigLayoutPage() {
     setLive2dScale,
   } = useLive2dApi();
 
+  // 添加ESC键退出全屏功能
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isFullScreen && event.key === "Escape") {
+        event.preventDefault();
+        setIsFullScreen(false);
+        toast.success("已退出全屏模式");
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFullScreen, setIsFullScreen]);
+
+  // 全屏模式下不显示任何配置内容
+  if (isFullScreen) {
+    return null;
+  }
+
   const selfName = "小助手";
 
   // 响应式样式工具函数

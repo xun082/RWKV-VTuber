@@ -7,6 +7,7 @@ import {
   ImperativePanelHandle,
 } from "react-resizable-panels";
 import { Navigation } from "./Navigation";
+import { FullscreenVoiceChat } from "../FullscreenVoiceChat";
 import { useLive2dContainerWidth } from "../../hooks/useLive2dContainerWidth";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useLive2dApi } from "../../stores/useLive2dApi";
@@ -50,19 +51,8 @@ export function DesktopLayout() {
           style={{ width: "100dvw", height: "100dvh" }}
         />
 
-        {/* 透明的内容覆盖层 */}
-        <div className="absolute inset-0 w-full h-full pointer-events-none">
-          <div className="w-full h-full overflow-hidden grid grid-rows-[1fr_auto] pointer-events-auto">
-            <div className="w-full h-full overflow-hidden flex flex-col justify-center items-center py-4 px-6 bg-transparent">
-              <div className="w-full max-w-2xl overflow-hidden bg-white/80 backdrop-blur-sm rounded-lg shadow-lg">
-                <Outlet />
-              </div>
-            </div>
-            <div className="bg-white/90 backdrop-blur-sm">
-              <Navigation />
-            </div>
-          </div>
-        </div>
+        {/* 全屏语音聊天界面 */}
+        <FullscreenVoiceChat />
       </main>
     );
   }

@@ -1,29 +1,30 @@
-import React, { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Mic, MicOff, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useLive2dApi } from "../../stores/useLive2dApi";
-import { useChatApi } from "../../stores/useChatApi";
-import { useSpeakApi } from "../../stores/useSpeakApi";
-import { useListenApi } from "../../stores/useListenApi";
-import { useChatSession } from "../../hooks/useChatSession";
 import { useChatOperations } from "../../hooks/useChatOperations";
+import { useChatSession } from "../../stores/useChatSession";
+import { useListenApi } from "../../stores/useListenApi";
+import { useLive2dApi } from "../../stores/useLive2dApi";
+import { useLive2dTextProcessor } from "../../hooks/useLive2dTextProcessor";
+import { speak_minimax } from "../../lib/api/shared/api.minimax-tts";
 
 export function FullscreenVoiceChat() {
+  const { setIsFullScreen } = useLive2dApi();
+  const { processSentenceSync } = useLive2dTextProcessor();
+
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [lastUserMessage, setLastUserMessage] = useState<string>("");
-  const recordingRef = useRef<boolean>(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const [waitingForAI, setWaitingForAI] = useState(false);
+  const [currentRecognitionText, setCurrentRecognitionText] = useState("");
 
-  const { setIsFullScreen } = useLive2dApi();
-  const { chat } = useChatApi();
-  const { speak } = useSpeakApi();
-  const { listen } = useListenApi();
+  const recognitionRef = useRef<any>(null);
+  const lastMessageCountRef = useRef(0);
+  const messageStabilityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isCancelledRef = useRef(false); // 取消标志位
 
-  // 使用聊天会话Hook
+  // 使用全局聊天会话状态
   const {
     messages,
     currentSessionId,
@@ -32,9 +33,9 @@ export function FullscreenVoiceChat() {
     saveMessage,
     clearMessages,
     setMessages,
+    isInitialized,
   } = useChatSession();
 
-  // 使用聊天操作Hook
   const { onChat } = useChatOperations({
     currentSessionId,
     messages,
@@ -43,276 +44,428 @@ export function FullscreenVoiceChat() {
     saveMessage,
     clearMessages,
     setMessages,
-    onClearInput: () => {}, // 全屏模式下不需要清除输入
+    autoTTS: false, // 全屏模式不使用自动TTS，有自己的语音处理
+    isFullscreen: true, // 全屏模式
   });
 
-  // 监听消息变化，当AI回复时自动播放语音
-  React.useEffect(() => {
-    const latestMessage = messages[messages.length - 1];
-    if (
-      latestMessage &&
-      latestMessage.role === "assistant" &&
-      speak &&
-      lastUserMessage &&
-      isProcessing // 确保是在处理过程中生成的回复
-    ) {
-      setIsSpeaking(true);
-      speak(latestMessage.content)
-        .then(() => {
-          setIsSpeaking(false);
-          setIsProcessing(false);
-        })
-        .catch((error) => {
-          console.error("语音播放失败:", error);
-          toast.error("语音播放失败");
-          setIsSpeaking(false);
-          setIsProcessing(false);
-        });
-    }
-  }, [messages, speak, lastUserMessage, isProcessing]);
+  const { listen } = useListenApi();
 
-  // ESC键退出全屏
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setIsFullScreen(false);
-        toast.success("已退出全屏模式");
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [setIsFullScreen]);
+  // 监控会话状态变化
+  useEffect(() => {
+    console.log("🔄 FullscreenVoiceChat 会话状态:", {
+      isInitialized,
+      currentSessionId,
+      messagesCount: messages.length,
+    });
+  }, [isInitialized, currentSessionId, messages.length]);
 
   // 开始录音
   const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/wav",
-        });
-        await processAudio(audioBlob);
-
-        // 清理资源
-        stream.getTracks().forEach((track) => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      recordingRef.current = true;
-    } catch (error) {
-      toast.error("无法访问麦克风，请检查权限设置");
-      console.error("Recording error:", error);
+    if (!listen) {
+      toast.error("语音识别服务未配置");
+      return;
     }
-  }, []);
+
+    try {
+      // 重置取消标志位
+      isCancelledRef.current = false;
+      // 清空之前的识别文本
+      setCurrentRecognitionText("");
+
+      setIsRecording(true);
+      console.log("开始语音识别...");
+
+      const recognition = listen((text: string) => {
+        console.log("实时识别结果:", text);
+        setCurrentRecognitionText(text);
+      });
+
+      recognitionRef.current = recognition;
+      recognition.start();
+
+      const result = await recognition.result;
+      setIsRecording(false);
+      // 清空实时显示的文本
+      setCurrentRecognitionText("");
+
+      // 检查是否已被取消
+      if (isCancelledRef.current) {
+        console.log("🚫 语音识别已被取消，不处理结果");
+        return;
+      }
+
+      if (result && result.trim()) {
+        console.log("最终识别结果:", result);
+        await handleUserMessage(result);
+      } else {
+        toast.warning("未识别到语音内容，请重试");
+      }
+    } catch (error) {
+      console.error("语音识别失败:", error);
+      setIsRecording(false);
+      setCurrentRecognitionText("");
+
+      const errorMsg = error instanceof Error ? error.message : "未知错误";
+      if (errorMsg.includes("not-allowed")) {
+        toast.error("请允许麦克风权限");
+      } else if (errorMsg.includes("network")) {
+        toast.error("网络错误，请检查网络连接");
+      } else {
+        toast.error(`语音识别失败: ${errorMsg}`);
+      }
+    }
+  }, [listen]);
 
   // 停止录音
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && recordingRef.current) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      recordingRef.current = false;
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
     }
+    setIsRecording(false);
   }, []);
 
-  // 处理音频
-  const processAudio = useCallback(
-    async (audioBlob: Blob) => {
-      setIsProcessing(true);
+  // 简单的语音播放消息
+  const speakMessage = useCallback(
+    async (text: string) => {
       try {
-        // 使用现有的语音识别API
-        let recognizedText = "";
+        setIsSpeaking(true);
+        console.log("开始语音合成:", text);
 
-        if (listen) {
-          try {
-            recognizedText = await listen(audioBlob);
-          } catch (error) {
-            console.warn("语音识别失败，使用模拟识别:", error);
-            recognizedText = await simulateVoiceRecognition(audioBlob);
+        // 同时启动Live2D口型同步
+        processSentenceSync(text, {
+          mode: "detailed",
+          intensity: 0.9,
+          speed: 75,
+        });
+
+        // 语音合成
+        const result = await speak_minimax(text);
+
+        if (result.audio.length > 0) {
+          await playAudioData(result.audio);
+        }
+
+        setIsSpeaking(false);
+      } catch (error) {
+        console.error("语音合成失败:", error);
+        setIsSpeaking(false);
+        toast.error(
+          `语音合成失败: ${error instanceof Error ? error.message : "未知错误"}`
+        );
+      }
+    },
+    [processSentenceSync]
+  );
+
+  // 监听消息变化，检测AI回复完成（现在是即时的）
+  useEffect(() => {
+    if (waitingForAI && messages.length >= lastMessageCountRef.current + 2) {
+      const lastMessage = messages[messages.length - 1];
+
+      if (lastMessage && lastMessage.role === "assistant") {
+        console.log("检测到AI回复完成:", {
+          length: lastMessage.content.length,
+          content: lastMessage.content.substring(0, 50) + "...",
+        });
+
+        // 检查是否已被取消
+        if (isCancelledRef.current) {
+          console.log("🚫 AI回复处理已被取消");
+          setWaitingForAI(false);
+          setIsProcessing(false);
+          return;
+        }
+
+        // 清除之前的定时器
+        if (messageStabilityTimerRef.current) {
+          clearTimeout(messageStabilityTimerRef.current);
+        }
+
+        // AI回复现在是即时完成的，直接检查内容长度
+        if (lastMessage.content && lastMessage.content.trim().length > 3) {
+          console.log("AI回复已完成，准备语音同步显示:", lastMessage.content);
+          setWaitingForAI(false);
+          setIsProcessing(false);
+
+          // 再次检查是否已被取消
+          if (isCancelledRef.current) {
+            console.log("🚫 语音合成已被取消");
+            return;
+          }
+
+          // 确保这不是超时消息
+          if (
+            !lastMessage.content.includes("超时") &&
+            !lastMessage.content.includes("抱歉")
+          ) {
+            // 开始语音合成
+            speakMessage(lastMessage.content);
+          } else {
+            console.log("跳过超时或错误消息的语音合成");
           }
         } else {
-          // 如果没有配置语音识别API，使用模拟识别
-          recognizedText = await simulateVoiceRecognition(audioBlob);
-        }
-
-        if (recognizedText) {
-          toast.success(`识别到: ${recognizedText}`);
-
-          // 保存用户消息用于后续语音播放判断
-          setLastUserMessage(recognizedText);
-
-          // 使用现有的聊天操作发送消息
-          await onChat(recognizedText);
-
-          // 注意：AI回复的语音播放由useEffect处理
-        } else {
-          toast.error("未能识别到语音内容，请重试");
+          console.warn("AI回复内容太短:", lastMessage.content);
+          setWaitingForAI(false);
           setIsProcessing(false);
         }
-      } catch (error) {
-        toast.error("语音处理失败，请重试");
-        console.error("Audio processing error:", error);
-        setIsProcessing(false);
       }
-      // 注意：如果识别成功，setIsProcessing(false)会在语音播放完成后执行
-    },
-    [listen, onChat, speak]
-  );
-
-  // 模拟语音识别（实际项目中应该调用真实的API）
-  const simulateVoiceRecognition = async (audioBlob: Blob): Promise<string> => {
-    // 模拟API调用延迟
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // 返回模拟的识别结果
-    const mockResponses = [
-      "你好，今天天气怎么样？",
-      "帮我介绍一下这个项目",
-      "我想了解更多功能",
-      "谢谢你的帮助",
-    ];
-
-    return mockResponses[Math.floor(Math.random() * mockResponses.length)];
-  };
-
-  // 处理按钮按下
-  const handleMouseDown = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
-      if (!isRecording && !isProcessing) {
-        startRecording();
-      }
-    },
-    [isRecording, isProcessing, startRecording]
-  );
-
-  // 处理按钮释放
-  const handleMouseUp = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault();
-      if (isRecording) {
-        stopRecording();
-      }
-    },
-    [isRecording, stopRecording]
-  );
-
-  // 处理触摸事件
-  const handleTouchStart = useCallback(
-    (event: React.TouchEvent) => {
-      event.preventDefault();
-      if (!isRecording && !isProcessing) {
-        startRecording();
-      }
-    },
-    [isRecording, isProcessing, startRecording]
-  );
-
-  const handleTouchEnd = useCallback(
-    (event: React.TouchEvent) => {
-      event.preventDefault();
-      if (isRecording) {
-        stopRecording();
-      }
-    },
-    [isRecording, stopRecording]
-  );
-
-  // 停止当前播放的语音
-  const handleStopSpeaking = useCallback(() => {
-    if (isSpeaking) {
-      // 这里需要实现停止语音播放的功能
-      // 由于现有的speak API可能没有stop方法，我们使用一个简单的方式
-      setIsSpeaking(false);
-      setIsProcessing(false);
-      toast.info("已停止语音播放");
     }
-  }, [isSpeaking]);
+  }, [messages, waitingForAI, speakMessage]);
+
+  // 处理用户消息
+  const handleUserMessage = useCallback(
+    async (message: string) => {
+      try {
+        // 检查是否已被取消
+        if (isCancelledRef.current) {
+          console.log("🚫 消息处理已被取消");
+          return;
+        }
+
+        // 检查会话是否已初始化
+        if (!currentSessionId) {
+          toast.error("会话未初始化，请稍候重试");
+          return;
+        }
+
+        console.log("🎤 用户说话:", message);
+        console.log("📊 当前消息数量:", messages.length);
+        console.log("🔗 会话ID:", currentSessionId);
+
+        setIsProcessing(true);
+        setWaitingForAI(true);
+
+        // 记录当前消息数量（发送前）
+        lastMessageCountRef.current = messages.length;
+
+        // 发送消息给AI
+        await onChat(message);
+
+        // 检查是否在AI处理过程中被取消
+        if (isCancelledRef.current) {
+          console.log("🚫 AI处理过程中被取消");
+          setWaitingForAI(false);
+          setIsProcessing(false);
+          return;
+        }
+
+        // 设置超时保护（不进行语音合成）
+        setTimeout(() => {
+          if (waitingForAI && !isCancelledRef.current) {
+            console.warn("AI回复超时");
+            setWaitingForAI(false);
+            setIsProcessing(false);
+            // 不对超时消息进行语音合成
+          }
+        }, 15000); // 增加到15秒超时
+      } catch (error) {
+        console.error("处理消息失败:", error);
+        setIsProcessing(false);
+        setWaitingForAI(false);
+        toast.error("处理消息失败");
+      }
+    },
+    [currentSessionId, onChat, messages, waitingForAI, speakMessage]
+  );
+
+  // 播放音频数据
+  const playAudioData = useCallback(async (audioData: Uint8Array) => {
+    return new Promise<void>((resolve, reject) => {
+      try {
+        const blob = new Blob([new Uint8Array(audioData)], {
+          type: "audio/wav",
+        });
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+
+        audio.onerror = () => {
+          URL.revokeObjectURL(audioUrl);
+          reject(new Error("音频播放失败"));
+        };
+
+        audio.play();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }, []);
+
+  // 强制退出所有状态
+  const forceExit = useCallback(() => {
+    // 设置取消标志位
+    isCancelledRef.current = true;
+
+    // 停止录音
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+
+    // 清理定时器
+    if (messageStabilityTimerRef.current) {
+      clearTimeout(messageStabilityTimerRef.current);
+    }
+
+    // 重置所有状态
+    setIsRecording(false);
+    setIsProcessing(false);
+    setIsSpeaking(false);
+    setWaitingForAI(false);
+    setCurrentRecognitionText("");
+
+    // 退出全屏模式
+    setIsFullScreen(false);
+
+    console.log("🚫 强制退出全屏语音模式，取消所有处理");
+  }, [setIsFullScreen]);
+
+  // 按键事件处理
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // ESC键强制退出（任何状态下都可以退出）
+      if (event.key === "Escape") {
+        event.preventDefault();
+        forceExit();
+        return;
+      }
+
+      // 空格键说话（只有在空闲状态才允许）
+      if (
+        event.code === "Space" &&
+        !isRecording &&
+        !isProcessing &&
+        !isSpeaking
+      ) {
+        event.preventDefault();
+        startRecording();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isRecording, isProcessing, isSpeaking, startRecording, forceExit]);
+
+  // 组件卸载时清理
+  useEffect(() => {
+    return () => {
+      // 设置取消标志位
+      isCancelledRef.current = true;
+
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      if (messageStabilityTimerRef.current) {
+        clearTimeout(messageStabilityTimerRef.current);
+      }
+    };
+  }, []);
+
+  // 更新isActive的计算，加入会话状态
+  const isActive =
+    isRecording || isProcessing || isSpeaking || !currentSessionId;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent">
-      {/* 语音交互按钮 */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center space-y-4">
-        {/* 状态指示器 */}
-        <div className="text-center space-y-2">
-          {isProcessing && (
-            <div className="text-white bg-blue-600/80 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium">
-              正在处理语音...
+    <div className="fixed inset-0 z-40 pointer-events-none">
+      {/* 状态指示器 - 右上角 */}
+      {isActive && (
+        <div className="absolute top-4 right-4 pointer-events-auto">
+          <div className="flex items-center space-x-3">
+            <div className="bg-black/80 backdrop-blur-md rounded-lg px-4 py-2 text-white">
+              {!currentSessionId && (
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm">初始化中</span>
+                </div>
+              )}
+              {currentSessionId && isRecording && (
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm">正在聆听</span>
+                </div>
+              )}
+              {currentSessionId && isProcessing && (
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm">AI思考中</span>
+                </div>
+              )}
+              {currentSessionId && isSpeaking && (
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm">正在播放</span>
+                </div>
+              )}
             </div>
-          )}
-          {isSpeaking && (
-            <div className="text-white bg-green-600/80 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
-              <Volume2 className="h-4 w-4 animate-pulse" />
-              AI正在回复...
-            </div>
-          )}
-          {!isProcessing && !isSpeaking && (
-            <div className="text-white bg-gray-600/80 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium">
-              {isRecording ? "松开停止录音" : "按住说话"}
-            </div>
-          )}
-        </div>
 
-        {/* 主要交互按钮 */}
-        <div className="flex items-center space-x-4">
-          {/* 语音输入按钮 */}
-          <Button
-            size="lg"
-            className={`
-              w-20 h-20 rounded-full transition-all duration-200 shadow-2xl
-              ${
-                isRecording
-                  ? "bg-red-600 hover:bg-red-700 scale-110"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }
-              ${isProcessing ? "opacity-50 cursor-not-allowed" : ""}
-            `}
-            onMouseDown={handleMouseDown}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            disabled={isProcessing}
-          >
-            {isRecording ? (
-              <Mic className="h-8 w-8 text-white animate-pulse" />
-            ) : (
-              <MicOff className="h-8 w-8 text-white" />
-            )}
-          </Button>
-
-          {/* 停止语音播放按钮 */}
-          {isSpeaking && (
+            {/* 强制退出按钮 */}
             <Button
-              size="lg"
-              variant="outline"
-              className="w-16 h-16 rounded-full bg-white/90 backdrop-blur-sm border-2 border-gray-300 shadow-xl"
-              onClick={handleStopSpeaking}
+              onClick={forceExit}
+              className="bg-red-500/80 hover:bg-red-600 text-white border-0 w-8 h-8 rounded-full p-0"
+              title="强制退出 (ESC)"
             >
-              <VolumeX className="h-6 w-6 text-gray-700" />
+              <X className="h-4 w-4" />
             </Button>
-          )}
+          </div>
         </div>
+      )}
 
-        {/* 退出提示 */}
-        <div className="text-white/70 bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full text-xs">
-          按 ESC 键退出全屏
+      {/* 控制按钮 - 底部中央 */}
+      {!isActive && (
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-events-auto">
+          <Button
+            onClick={startRecording}
+            disabled={!currentSessionId}
+            className={`text-white border-0 w-16 h-16 rounded-full shadow-lg ${
+              currentSessionId
+                ? "bg-blue-500 hover:bg-blue-600"
+                : "bg-gray-500 cursor-not-allowed"
+            }`}
+          >
+            <Mic className="h-6 w-6" />
+          </Button>
         </div>
-      </div>
+      )}
+
+      {/* 实时识别文本显示 */}
+      {isRecording && currentRecognitionText && (
+        <div className="absolute bottom-28 left-1/2 transform -translate-x-1/2 pointer-events-auto max-w-4xl w-full px-4">
+          <div className="bg-black/80 backdrop-blur-md rounded-2xl px-6 py-4 text-white text-center">
+            <div className="text-sm text-gray-300 mb-2">正在识别...</div>
+            <div className="text-lg font-medium leading-relaxed">
+              {currentRecognitionText}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 录音中的停止按钮 */}
+      {isRecording && (
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-events-auto">
+          <Button
+            onClick={stopRecording}
+            className="bg-red-500 hover:bg-red-600 text-white border-0 w-16 h-16 rounded-full shadow-lg animate-pulse"
+          >
+            <MicOff className="h-6 w-6" />
+          </Button>
+        </div>
+      )}
+
+      {/* 帮助提示 - 左下角 */}
+      {!isActive && (
+        <div className="absolute bottom-4 left-4 pointer-events-auto">
+          <div className="bg-black/60 backdrop-blur-md rounded-lg px-3 py-2 text-white text-xs">
+            <p>空格键：开始说话</p>
+            <p>ESC键：退出模式</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

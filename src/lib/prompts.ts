@@ -33,18 +33,18 @@ export const BASE_SYSTEM_PROMPT = `你是一个友善的AI助手。你可以通�
 - 中等回复（3-5句）：开头+中间+结尾各一个动作  
 - 长回复（6句以上）：开头+多个中间转折点+结尾，保持动作丰富
 
-请在回复中自然地使用这些动作指令，让对话更加生动有趣。动作要与内容情感匹配，在关键时刻增强表达效果。`;
+请在回复中自然地使用这些动作指令，让对话更加生动有趣。动作要与内容情感匹配，在关键时刻增强表达效果。`
 
 /**
  * 记忆助手系统提示词
  */
-export const MEMORY_SYSTEM_PROMPT = "你是记忆助手，负责整理和总结对话内容。";
+export const MEMORY_SYSTEM_PROMPT = '你是记忆助手，负责整理和总结对话内容。'
 
 /**
  * 生成对话摘要的用户提示词模板
  */
 export const SUMMARY_PROMPT_TEMPLATE = (conversation: string) =>
-  `请为以下对话生成一个简洁的摘要，突出重要信息：\n\n${conversation}`;
+	`请为以下对话生成一个简洁的摘要，突出重要信息：\n\n${conversation}`
 
 /**
  * 构建完整的系统提示词
@@ -52,26 +52,26 @@ export const SUMMARY_PROMPT_TEMPLATE = (conversation: string) =>
  * @returns 完整的系统提示词
  */
 export function buildSystemPrompt(
-  relevantMemories: Array<{ summary: string }>
+	relevantMemories: Array<{ summary: string }>,
 ): string {
-  let systemPrompt = BASE_SYSTEM_PROMPT;
+	let systemPrompt = BASE_SYSTEM_PROMPT
 
-  if (relevantMemories.length > 0) {
-    systemPrompt +=
-      "\n\n相关记忆：\n" +
-      relevantMemories.map((m) => `- ${m.summary}`).join("\n");
-  }
+	if (relevantMemories.length > 0) {
+		systemPrompt +=
+			'\n\n相关记忆：\n' +
+			relevantMemories.map((m) => `- ${m.summary}`).join('\n')
+	}
 
-  return systemPrompt;
+	return systemPrompt
 }
 
 /**
  * 动作指令正则表达式
  */
-export const MOTION_COMMAND_REGEX = /\[MOTION:\w+(?::\d+)?\]/g;
+export const MOTION_COMMAND_REGEX = /\[MOTION:\w+(?::\d+)?\]/g
 
 /**
  * 文本分割正则表达式 - 用于逐字显示效果
  */
 export const TEXT_SPLIT_REGEX =
-  /。|？|！|,|，|;|；|~|～|!|\?|\. |…|\n|\r|\r\n|:|：|……/;
+	/。|？|！|,|，|;|；|~|～|!|\?|\. |…|\n|\r|\r\n|:|：|……/

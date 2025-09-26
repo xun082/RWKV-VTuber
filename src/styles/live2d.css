@@ -1,150 +1,150 @@
 /* Live2D 相关样式 */
 @keyframes up-down {
-  0% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0);
-  }
+	0% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-10px);
+	}
+	100% {
+		transform: translateY(0);
+	}
 }
 
 #live2d-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1;
-  transition: width 0.2s ease-in-out;
-  overflow: visible;
-  /* 确保模型不会被截取 */
-  padding: 50px;
-  box-sizing: border-box;
-  /* 确保不会阻挡右侧面板的交互 */
-  pointer-events: none;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 1;
+	transition: width 0.2s ease-in-out;
+	overflow: visible;
+	/* 确保模型不会被截取 */
+	padding: 50px;
+	box-sizing: border-box;
+	/* 确保不会阻挡右侧面板的交互 */
+	pointer-events: none;
 }
 
 #live2d-container #live2d {
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  overflow: visible;
-  position: relative;
-  /* 设置变换原点为中心，避免缩放时被截取 */
-  transform-origin: center center;
-  /* 添加最大尺寸限制，防止模型过大 */
-  max-width: calc(100% - 20px);
-  max-height: calc(100% - 20px);
-  /* 允许模型响应鼠标事件 */
-  pointer-events: auto;
+	width: 100%;
+	height: 100%;
+	z-index: 2;
+	overflow: visible;
+	position: relative;
+	/* 设置变换原点为中心，避免缩放时被截取 */
+	transform-origin: center center;
+	/* 添加最大尺寸限制，防止模型过大 */
+	max-width: calc(100% - 20px);
+	max-height: calc(100% - 20px);
+	/* 允许模型响应鼠标事件 */
+	pointer-events: auto;
 }
 
 #live2d-container #live2d-message {
-  opacity: 0;
-  transition: opacity 0.5s;
-  position: absolute;
-  top: 0;
-  width: 200px;
-  height: 100px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 3;
-  color: #1f1f1f;
-  background-color: white;
-  border: 1px solid #233889;
-  border-radius: 10px;
-  animation: up-down 2.5s ease-in-out infinite;
-  padding: 8px;
-  font-size: 0.9rem;
-  overflow: hidden;
-  text-align: center;
-  pointer-events: auto;
+	opacity: 0;
+	transition: opacity 0.5s;
+	position: absolute;
+	top: 0;
+	width: 200px;
+	height: 100px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 3;
+	color: #1f1f1f;
+	background-color: white;
+	border: 1px solid #233889;
+	border-radius: 10px;
+	animation: up-down 2.5s ease-in-out infinite;
+	padding: 8px;
+	font-size: 0.9rem;
+	overflow: hidden;
+	text-align: center;
+	pointer-events: auto;
 }
 
 #back-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 0;
-  transition: width 0.2s ease-in-out;
-  pointer-events: none;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 0;
+	transition: width 0.2s ease-in-out;
+	pointer-events: none;
 }
 
 #back-container #back {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: center;
 }
 
 /* 响应式调整 */
 @media (max-width: 1200px) {
-  #live2d-container {
-    /* 小屏幕上减少 padding 以节省空间 */
-    padding: 30px;
-  }
+	#live2d-container {
+		/* 小屏幕上减少 padding 以节省空间 */
+		padding: 30px;
+	}
 
-  #live2d-container #live2d-message {
-    width: 150px;
-    height: 80px;
-    font-size: 0.8rem;
-  }
+	#live2d-container #live2d-message {
+		width: 150px;
+		height: 80px;
+		font-size: 0.8rem;
+	}
 }
 
 @media (max-width: 800px) {
-  #live2d-container {
-    /* 更小屏幕上进一步减少 padding */
-    padding: 20px;
-  }
+	#live2d-container {
+		/* 更小屏幕上进一步减少 padding */
+		padding: 20px;
+	}
 
-  #live2d-container #live2d-message {
-    width: 120px;
-    height: 60px;
-    font-size: 0.7rem;
-    padding: 6px;
-  }
+	#live2d-container #live2d-message {
+		width: 120px;
+		height: 60px;
+		font-size: 0.7rem;
+		padding: 6px;
+	}
 }
 
 /* 针对高分辨率或大屏幕的优化 */
 @media (min-width: 1920px) {
-  #live2d-container {
-    /* 大屏幕上增加 padding 以更好地居中显示 */
-    padding: 80px;
-  }
+	#live2d-container {
+		/* 大屏幕上增加 padding 以更好地居中显示 */
+		padding: 80px;
+	}
 }
 
 /* 针对超宽屏幕的优化 */
-@media (min-aspect-ratio: 16/9) {
-  #live2d-container #live2d {
-    /* 在超宽屏上限制模型最大高度 */
-    max-height: 90vh;
-  }
+@media (min-aspect-ratio: 16 / 9) {
+	#live2d-container #live2d {
+		/* 在超宽屏上限制模型最大高度 */
+		max-height: 90vh;
+	}
 }
 
 /* 确保桌面布局中的右侧面板不会被Live2D遮挡 */
 .desktop-layout .bg-white {
-  background-color: white !important;
-  position: relative;
-  z-index: 10;
+	background-color: white !important;
+	position: relative;
+	z-index: 10;
 }
 
 /* 确保拖拽手柄在正确的层级 */
 .desktop-layout .cursor-col-resize {
-  z-index: 15;
-  position: relative;
+	z-index: 15;
+	position: relative;
 }

@@ -11,6 +11,21 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      "/api/minimax": {
+        target: "https://api.minimaxi.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/minimax/, ""),
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers":
+            "Content-Type, Authorization, GroupId",
+        },
+      },
+    },
+  },
   build: {
     target: "esnext",
     rollupOptions: {

@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
-import { MobileLayout } from "./components/Layout/MobileLayout";
+import { ChatSessionProvider } from "./components/ChatSessionProvider";
 import { DesktopLayout } from "./components/Layout/DesktopLayout";
+import { MobileLayout } from "./components/Layout/MobileLayout";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { useLive2dEffects } from "./hooks/useLive2dEffects";
 import { useWelcomeMessage } from "./hooks/useWelcomeMessage";
@@ -17,17 +18,17 @@ export default function App() {
   // 根据设备类型选择布局
   if (isMobile) {
     return (
-      <>
+      <ChatSessionProvider>
         <MobileLayout />
         <Toaster />
-      </>
+      </ChatSessionProvider>
     );
   }
 
   return (
-    <>
+    <ChatSessionProvider>
       <DesktopLayout />
       <Toaster />
-    </>
+    </ChatSessionProvider>
   );
 }

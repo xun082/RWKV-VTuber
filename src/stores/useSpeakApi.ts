@@ -1,10 +1,12 @@
 import { create } from "zustand";
 import { get, set, speakApiList } from "../lib/utils.ts";
+import type { MinimaxTTSConfig } from "../lib/api/shared/api.minimax-tts";
+import { DEFAULT_MINIMAX_CONFIG } from "../lib/api/shared/api.minimax-tts";
 
 type API = {
   speak: SpeakApi | null;
   testSpeak: SpeakApiTest | null;
-  speakApiList: string[];
+  speakApiList: SpeakApiList;
   currentSpeakApi: string;
   setSpeakApi: (name: string) => Promise<void>;
 
@@ -17,40 +19,18 @@ type API = {
     audio: Uint8Array;
   }) => Promise<void>;
 
-  fishSpeechEndpoint: string;
-  setFishSpeechEndpoint: (endpoint?: string) => Promise<void>;
-  f5TtsEndpoint: string;
-  setF5TtsEndpoint: (endpoint?: string) => Promise<void>;
-  webSpeechConfig: WebSpeechConfig;
-  setWebSpeechConfig: (config?: Partial<WebSpeechConfig>) => Promise<void>;
-};
-
-const DEFAULT_FISH_SPEECH_ENDPOINT = "http://127.0.0.1:8080";
-const DEFAULT_F5_TTS_ENDPOINT = "http://127.0.0.1:5010/api";
-const DEFAULT_WEB_SPEECH_CONFIG: WebSpeechConfig = {
-  voice: "",
-  lang: "zh-CN",
-  rate: 1.0,
-  pitch: 1.0,
-  volume: 1.0,
+  minimaxConfig: MinimaxTTSConfig;
+  setMinimaxConfig: (config: Partial<MinimaxTTSConfig>) => Promise<void>;
 };
 
 const localSpeakApi = await get("default_speak_api");
-const localFishSpeechEndpoint =
-  (await get("fish_speech_endpoint")) ?? DEFAULT_FISH_SPEECH_ENDPOINT;
-const localF5TtsEndpoint =
-  (await get("f5_tts_endpoint")) ?? DEFAULT_F5_TTS_ENDPOINT;
-const localWebSpeechConfig =
-  (await get("web_speech_config")) ?? DEFAULT_WEB_SPEECH_CONFIG;
+const localMinimaxConfig =
+  (await get("minimax_tts_config")) ?? DEFAULT_MINIMAX_CONFIG;
 const localAudiosCache = (await get("audios_cache")) ?? [];
 
 const defaultLoad =
   speakApiList.find(({ name }) => name === localSpeakApi) ?? speakApiList[0];
-const defaultApi = defaultLoad.api?.({
-  fishSpeechEndpoint: localFishSpeechEndpoint,
-  f5TtsEndpoint: localF5TtsEndpoint,
-  webSpeechConfig: localWebSpeechConfig,
-});
+const defaultApi = defaultLoad.api?.({});
 
 export const useSpeakApi = create<API>()((setState, getState) => ({
   audiosCache: localAudiosCache,
@@ -66,17 +46,12 @@ export const useSpeakApi = create<API>()((setState, getState) => ({
   },
   speak: defaultApi?.api || null,
   testSpeak: defaultApi?.test || null,
-  speakApiList: speakApiList.map(({ name }) => name),
+  speakApiList: speakApiList,
   currentSpeakApi: defaultLoad.name,
   setSpeakApi: async (name) => {
     const item = speakApiList.find((api) => api.name === name);
     if (item) {
-      const { fishSpeechEndpoint, f5TtsEndpoint, webSpeechConfig } = getState();
-      const api = item.api?.({
-        fishSpeechEndpoint,
-        f5TtsEndpoint,
-        webSpeechConfig,
-      });
+      const api = item.api?.({});
       setState({
         currentSpeakApi: name,
         speak: api?.api || null,
@@ -86,67 +61,20 @@ export const useSpeakApi = create<API>()((setState, getState) => ({
     }
     return;
   },
-  fishSpeechEndpoint: localFishSpeechEndpoint,
-  setFishSpeechEndpoint: async (endpoint) => {
-    const { f5TtsEndpoint, webSpeechConfig, currentSpeakApi } = getState();
-    const v = endpoint || DEFAULT_FISH_SPEECH_ENDPOINT;
-    const item = speakApiList.find((api) => api.name === currentSpeakApi);
-    if (!item) {
-      throw new Error("Invalid speak api name");
+  minimaxConfig: localMinimaxConfig,
+  setMinimaxConfig: async (config) => {
+    const newConfig = { ...getState().minimaxConfig, ...config };
+    const item = speakApiList.find(
+      (api) => api.name === getState().currentSpeakApi
+    );
+    if (item) {
+      const api = item.api?.({});
+      setState({
+        minimaxConfig: newConfig,
+        speak: api?.api || null,
+        testSpeak: api?.test || null,
+      });
     }
-    const api = item.api?.({
-      fishSpeechEndpoint: v,
-      f5TtsEndpoint,
-      webSpeechConfig,
-    });
-    setState({
-      fishSpeechEndpoint: v,
-      speak: api?.api || null,
-      testSpeak: api?.test || null,
-    });
-    await set("fish_speech_endpoint", v);
-    sessionStorage.removeItem("fish_speech_test");
-  },
-  f5TtsEndpoint: localF5TtsEndpoint,
-  setF5TtsEndpoint: async (endpoint) => {
-    const { fishSpeechEndpoint, webSpeechConfig, currentSpeakApi } = getState();
-    const v = endpoint || DEFAULT_F5_TTS_ENDPOINT;
-    const item = speakApiList.find((api) => api.name === currentSpeakApi);
-    if (!item) {
-      throw new Error("Invalid speak api name");
-    }
-    const api = item.api?.({
-      fishSpeechEndpoint,
-      f5TtsEndpoint: v,
-      webSpeechConfig,
-    });
-    setState({
-      f5TtsEndpoint: v,
-      speak: api?.api || null,
-      testSpeak: api?.test || null,
-    });
-    await set("f5_tts_endpoint", v);
-    sessionStorage.removeItem("f5_tts_test");
-  },
-  webSpeechConfig: localWebSpeechConfig,
-  setWebSpeechConfig: async (config) => {
-    const { fishSpeechEndpoint, f5TtsEndpoint, currentSpeakApi } = getState();
-    const newConfig =
-      { ...getState().webSpeechConfig, ...config } || DEFAULT_WEB_SPEECH_CONFIG;
-    const item = speakApiList.find((api) => api.name === currentSpeakApi);
-    if (!item) {
-      throw new Error("Invalid speak api name");
-    }
-    const api = item.api?.({
-      fishSpeechEndpoint,
-      f5TtsEndpoint,
-      webSpeechConfig: newConfig,
-    });
-    setState({
-      webSpeechConfig: newConfig,
-      speak: api?.api || null,
-      testSpeak: api?.test || null,
-    });
-    await set("web_speech_config", newConfig);
+    await set("minimax_tts_config", newConfig);
   },
 }));

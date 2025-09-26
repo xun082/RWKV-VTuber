@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useAIMotionProcessor } from "../../hooks/useAIMotionProcessor.ts";
-import { useChatSession } from "../../hooks/useChatSession.ts";
 import { useChatOperations } from "../../hooks/useChatOperations.ts";
+import { useChatSession } from "../../stores/useChatSession.ts";
 import { useListenApi } from "../../stores/useListenApi.ts";
+import { useSpeakApi } from "../../stores/useSpeakApi.ts";
 import { useStates } from "../../stores/useStates.ts";
 import "../../styles/chat.css";
 
-import { PromptBox } from "../../components/chatgpt-prompt-input/";
-import { EmptyState, MessageItem, LoadingStates } from "../../components/chat";
 import { toast } from "sonner";
+import { EmptyState, LoadingStates, MessageItem } from "../../components/chat";
+import { PromptBox } from "../../components/chatgpt-prompt-input/";
 
 export default function ChatPage() {
   const disabled = useStates((state) => state.disabled);
@@ -18,6 +19,12 @@ export default function ChatPage() {
   useAIMotionProcessor();
 
   const listen = useListenApi((state) => state.listen);
+  const currentSpeakApi = useSpeakApi((state) => state.currentSpeakApi);
+
+  // 状态管理
+  const [recognition, setRecognition] = useState<any | null>(null);
+  const [inputValue, setInputValue] = useState<string>("");
+  const [autoTTS, setAutoTTS] = useState<boolean>(true); // 自动TTS开关
 
   // 使用自定义Hooks
   const {
@@ -39,10 +46,9 @@ export default function ChatPage() {
     clearMessages,
     setMessages,
     onClearInput: () => setInputValue(""),
+    autoTTS, // 传递自动TTS状态
+    isFullscreen: false, // 普通模式
   });
-
-  const [recognition, setRecognition] = useState<any | null>(null);
-  const [inputValue, setInputValue] = useState<string>("");
 
   const senderRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -85,6 +91,15 @@ export default function ChatPage() {
             <div className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/40 dark:via-indigo-900/40 dark:to-purple-900/40 border border-blue-200/60 dark:border-blue-700/60 shadow-sm">
               <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
                 Token: {usedToken}
+              </span>
+            </div>
+            {/* TTS状态指示 */}
+            <div className="px-3 py-2 rounded-xl bg-gradient-to-r from-green-50 via-emerald-50 to-teal-50 dark:from-green-900/40 dark:via-emerald-900/40 dark:to-teal-900/40 border border-green-200/60 dark:border-green-700/60 shadow-sm">
+              <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                TTS:{" "}
+                {currentSpeakApi === "关闭"
+                  ? "关闭"
+                  : currentSpeakApi || "未配置"}
               </span>
             </div>
           </div>
@@ -184,6 +199,8 @@ export default function ChatPage() {
               usedToken: usedToken,
               onUpdateMemory: updateMemory,
               onClearChat: clearChat,
+              autoTTS: autoTTS,
+              onToggleAutoTTS: () => setAutoTTS(!autoTTS),
             }}
           />
         </div>

@@ -1,5 +1,3 @@
-import React from "react";
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,9 +14,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { BarChart3, RotateCcw, Trash2, Volume2, VolumeX } from "lucide-react";
-import { useSpeakApi } from "../../stores/useSpeakApi.ts";
+import React from "react";
 import { toast } from "sonner";
+import { useSpeakApi } from "../../stores/useSpeakApi.ts";
 // Dialog removed
 
 type ClassValue = string | number | boolean | null | undefined;
@@ -111,6 +111,8 @@ interface ChatActionsProps {
   usedToken?: number;
   onUpdateMemory: () => void;
   onClearChat: () => void;
+  autoTTS: boolean;
+  onToggleAutoTTS: () => void;
 }
 
 interface PromptBoxProps
@@ -154,36 +156,10 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
     const [isComposing, setIsComposing] = React.useState(false);
 
     // Chat actions logic
-    const speak = useSpeakApi((state) => state.speak);
-    const currentSpeakApi = useSpeakApi((state) => state.currentSpeakApi);
-    const speakApiList = useSpeakApi((state) => state.speakApiList);
-    const setSpeakApi = useSpeakApi((state) => state.setSpeakApi);
-
-    const isSpeechEnabled = speak && currentSpeakApi !== "关闭";
     const hasMessages = chatActions ? chatActions.messagesLength > 0 : false;
     const isActionsDisabled = chatActions
       ? chatActions.disabled || !hasMessages
       : false;
-
-    const toggleSpeech = async () => {
-      try {
-        if (isSpeechEnabled) {
-          await setSpeakApi("关闭");
-          toast.success("语音播放已关闭");
-        } else {
-          const availableService = speakApiList.find((name) => name !== "关闭");
-          if (availableService) {
-            await setSpeakApi(availableService);
-            toast.success(`语音播放已开启 (${availableService})`);
-          } else {
-            toast.warning("没有可用的语音服务");
-          }
-        }
-      } catch (error) {
-        console.error("切换语音服务失败:", error);
-        toast.error("切换语音服务失败");
-      }
-    };
 
     // Use external value if provided, otherwise use internal state
     const value = externalValue !== undefined ? externalValue : internalValue;
@@ -323,28 +299,30 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                   </>
                 )}
 
-                {/* 语音开关按钮 */}
-                <button
-                  onClick={toggleSpeech}
-                  disabled={disabled}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent ${
-                    isSpeechEnabled
-                      ? "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:border-emerald-200 dark:hover:border-emerald-700/50"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-200 dark:hover:border-gray-600/50"
-                  }`}
-                  title={
-                    isSpeechEnabled
-                      ? `语音播放已开启 (${currentSpeakApi})`
-                      : "语音播放已关闭"
-                  }
-                >
-                  {isSpeechEnabled ? (
-                    <Volume2 size={14} />
-                  ) : (
-                    <VolumeX size={14} />
-                  )}
-                  <span>{isSpeechEnabled ? "语音开启" : "语音关闭"}</span>
-                </button>
+                {/* 自动播放开关按钮 */}
+                {chatActions && (
+                  <button
+                    onClick={chatActions.onToggleAutoTTS}
+                    disabled={disabled}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent ${
+                      chatActions.autoTTS
+                        ? "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:border-emerald-200 dark:hover:border-emerald-700/50"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-200 dark:hover:border-gray-600/50"
+                    }`}
+                    title={
+                      chatActions.autoTTS
+                        ? "AI回复时自动播放语音"
+                        : "AI回复时不自动播放语音"
+                    }
+                  >
+                    {chatActions.autoTTS ? (
+                      <Volume2 size={14} />
+                    ) : (
+                      <VolumeX size={14} />
+                    )}
+                    <span>{chatActions.autoTTS ? "自动播放" : "手动播放"}</span>
+                  </button>
+                )}
 
                 {/* Token统计 */}
                 {chatActions &&

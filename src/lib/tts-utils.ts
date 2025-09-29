@@ -3,22 +3,39 @@ import { toast } from "sonner";
 import { db } from "./db/index.ts";
 import { useSpeakApi } from "../stores/useSpeakApi.ts";
 
+// 检测是否在 Tauri 环境中
+const isTauri = typeof window !== "undefined" && window.__TAURI_INTERNALS__;
+
 // 全局音频播放管理器
 class AudioPlaybackManager {
+  private currentAudio: HTMLAudioElement | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
   private isPlaying: boolean = false;
 
   // 停止当前播放的音频
   stopCurrent(): void {
-    if (this.currentSource && this.isPlaying) {
+    if (this.currentAudio) {
       try {
-        this.currentSource.stop();
-        console.log("🛑 停止之前的音频播放");
+        this.currentAudio.pause();
+        this.currentAudio.currentTime = 0;
+        URL.revokeObjectURL(this.currentAudio.src);
+        console.log("🛑 停止之前的 HTML Audio 播放");
       } catch (error) {
         // 音频已经结束或已停止，忽略错误
       }
+      this.currentAudio = null;
     }
-    this.currentSource = null;
+
+    if (this.currentSource && this.isPlaying) {
+      try {
+        this.currentSource.stop();
+        console.log("🛑 停止之前的 AudioContext 播放");
+      } catch (error) {
+        // 音频已经结束或已停止，忽略错误
+      }
+      this.currentSource = null;
+    }
+
     this.isPlaying = false;
   }
 
@@ -27,26 +44,138 @@ class AudioPlaybackManager {
     // 先停止当前播放的音频
     this.stopCurrent();
 
+    // 在 Tauri 环境中优先使用 HTML Audio Element
+    if (isTauri) {
+      return this.playAudioWithHtmlElement(audioBuffer);
+    } else {
+      // 在浏览器中优先使用 AudioContext
+      try {
+        return await this.playAudioWithContext(audioBuffer);
+      } catch (error) {
+        console.warn("AudioContext 播放失败，尝试使用 HTML Audio:", error);
+        return this.playAudioWithHtmlElement(audioBuffer);
+      }
+    }
+  }
+
+  // 使用 HTML Audio Element 播放（兼容性更好）
+  private playAudioWithHtmlElement(audioBuffer: ArrayBuffer): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      try {
+        // 尝试多种音频格式，提高兼容性
+        const audioFormats = [
+          "audio/wav",
+          "audio/mpeg",
+          "audio/mp3",
+          "audio/ogg",
+          "audio/*",
+        ];
+
+        let audioUrl: string | null = null;
+        let audio: HTMLAudioElement | null = null;
+        let formatIndex = 0;
+
+        const tryNextFormat = () => {
+          if (formatIndex >= audioFormats.length) {
+            reject(new Error("所有音频格式都不被支持"));
+            return;
+          }
+
+          const format = audioFormats[formatIndex];
+          formatIndex++;
+
+          try {
+            const blob = new Blob([audioBuffer], { type: format });
+            audioUrl = URL.createObjectURL(blob);
+            audio = new HTMLAudioElement();
+
+            this.currentAudio = audio;
+            this.isPlaying = true;
+
+            audio.onended = () => {
+              if (audioUrl) URL.revokeObjectURL(audioUrl);
+              this.isPlaying = false;
+              this.currentAudio = null;
+              console.log(`✅ HTML Audio 播放完成 (格式: ${format})`);
+              resolve();
+            };
+
+            audio.onerror = (e) => {
+              if (audioUrl) URL.revokeObjectURL(audioUrl);
+              this.isPlaying = false;
+              this.currentAudio = null;
+              console.warn(`❌ 格式 ${format} 播放失败:`, e);
+
+              // 尝试下一个格式
+              setTimeout(tryNextFormat, 10);
+            };
+
+            // 设置音频源并尝试播放
+            audio.src = audioUrl;
+            audio.play().catch((playError) => {
+              if (audioUrl) URL.revokeObjectURL(audioUrl);
+              this.isPlaying = false;
+              this.currentAudio = null;
+              console.warn(`❌ 格式 ${format} 播放失败:`, playError.message);
+
+              // 尝试下一个格式
+              setTimeout(tryNextFormat, 10);
+            });
+
+            console.log(
+              `🎵 尝试使用 HTML Audio Element 播放音频 (格式: ${format})`
+            );
+          } catch (error) {
+            console.warn(`❌ 格式 ${format} 创建失败:`, error);
+            // 尝试下一个格式
+            setTimeout(tryNextFormat, 10);
+          }
+        };
+
+        // 开始尝试第一个格式
+        tryNextFormat();
+      } catch (error) {
+        this.isPlaying = false;
+        this.currentAudio = null;
+        reject(error);
+      }
+    });
+  }
+
+  // 使用 AudioContext 播放（更高级但兼容性问题）
+  private async playAudioWithContext(audioBuffer: ArrayBuffer): Promise<void> {
     const audioContext = new (window.AudioContext ||
       (window as any).webkitAudioContext)();
 
-    const decodedBuffer = await audioContext.decodeAudioData(audioBuffer);
-    const source = audioContext.createBufferSource();
-    source.buffer = decodedBuffer;
-    source.connect(audioContext.destination);
+    try {
+      const decodedBuffer = await audioContext.decodeAudioData(audioBuffer);
+      const source = audioContext.createBufferSource();
+      source.buffer = decodedBuffer;
+      source.connect(audioContext.destination);
 
-    this.currentSource = source;
-    this.isPlaying = true;
+      this.currentSource = source;
+      this.isPlaying = true;
 
-    // 设置结束回调
-    return new Promise<void>((resolve) => {
-      source.onended = () => {
-        this.isPlaying = false;
-        this.currentSource = null;
-        resolve();
-      };
-      source.start();
-    });
+      // 设置结束回调
+      return new Promise<void>((resolve) => {
+        source.onended = () => {
+          this.isPlaying = false;
+          this.currentSource = null;
+          console.log("✅ AudioContext 播放完成");
+          resolve();
+        };
+        source.start();
+        console.log("🎵 使用 AudioContext 播放音频");
+      });
+    } catch (error) {
+      this.isPlaying = false;
+      this.currentSource = null;
+      throw new Error(
+        `AudioContext 解码失败: ${
+          error instanceof Error ? error.message : error
+        }`
+      );
+    }
   }
 
   // 检查是否正在播放

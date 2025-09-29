@@ -272,23 +272,41 @@ export function FullscreenVoiceChat() {
   const playAudioData = useCallback(async (audioData: Uint8Array) => {
     return new Promise<void>((resolve, reject) => {
       try {
-        const blob = new Blob([new Uint8Array(audioData)], {
-          type: "audio/wav",
-        });
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
+        // 转换为 ArrayBuffer
+        const arrayBuffer = audioData.buffer.slice(
+          audioData.byteOffset,
+          audioData.byteOffset + audioData.byteLength
+        );
 
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          resolve();
-        };
+        // 使用统一的音频播放管理器
+        import("../../lib/tts-utils.ts")
+          .then(({ playAudioFromBuffer }) => {
+            playAudioFromBuffer(arrayBuffer)
+              .then(() => resolve())
+              .catch((error) => reject(error));
+          })
+          .catch((error) => {
+            // 如果导入失败，回退到原始方法
+            console.warn("无法导入音频播放器，使用回退方法:", error);
+            const blob = new Blob([audioData], { type: "audio/wav" });
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
 
-        audio.onerror = () => {
-          URL.revokeObjectURL(audioUrl);
-          reject(new Error("音频播放失败"));
-        };
+            audio.onended = () => {
+              URL.revokeObjectURL(audioUrl);
+              resolve();
+            };
 
-        audio.play();
+            audio.onerror = (e) => {
+              URL.revokeObjectURL(audioUrl);
+              reject(new Error(`音频播放失败: ${e}`));
+            };
+
+            audio.play().catch((playError) => {
+              URL.revokeObjectURL(audioUrl);
+              reject(new Error(`音频播放失败: ${playError.message}`));
+            });
+          });
       } catch (error) {
         reject(error);
       }

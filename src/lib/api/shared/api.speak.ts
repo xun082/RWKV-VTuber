@@ -2,7 +2,9 @@ import type { SpeakApiList } from "../../stores/useSpeakApi";
 import { speak_minimax, test_minimax } from "./api.minimax-tts";
 
 // 检查是否在 Tauri 环境中
-const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
+const isTauri =
+  typeof window !== "undefined" &&
+  ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
 
 // 动态导入 Tauri API（懒加载）
 let tauriMinimax: any = null;
@@ -34,12 +36,27 @@ export const speakApiList: SpeakApiList = [
     name: "MiniMax TTS",
     api: () => ({
       api: async (text: string) => {
+        console.log("🔍 Environment check:", {
+          isTauri,
+          hasTauriWindow:
+            typeof window !== "undefined" && !!(window as any).__TAURI__,
+          hasTauriInternals:
+            typeof window !== "undefined" &&
+            !!(window as any).__TAURI_INTERNALS__,
+          windowKeys:
+            typeof window !== "undefined"
+              ? Object.keys(window).filter((k) => k.includes("TAURI"))
+              : "no window",
+        });
+
         const tauri = await loadTauriMinimax();
+        console.log("📦 Tauri module loaded:", !!tauri);
+
         if (isTauri && tauri) {
           console.log("🦀 Using Tauri MiniMax TTS");
           return tauri.speak_minimax_tauri(text);
         } else {
-          console.log("🌐 Using Web MiniMax TTS");
+          console.log("🌐 Using Web MiniMax TTS (fallback)");
           return speak_minimax(text);
         }
       },

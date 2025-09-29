@@ -1,19 +1,18 @@
 // 使用Tauri 2.x 的正确导入方式
 declare global {
   interface Window {
-    __TAURI__?: {
-      core: {
-        invoke: (cmd: string, args?: any) => Promise<any>;
-      };
+    __TAURI_INTERNALS__?: {
+      invoke: (cmd: string, args?: any) => Promise<any>;
     };
   }
 }
 
 const invoke = async (cmd: string, args?: any): Promise<any> => {
-  if (typeof window !== "undefined" && window.__TAURI__) {
-    return window.__TAURI__.core.invoke(cmd, args);
+  if (typeof window !== "undefined" && window.__TAURI_INTERNALS__) {
+    console.log("🦀 Calling Tauri command:", cmd, "with args:", args);
+    return window.__TAURI_INTERNALS__.invoke(cmd, args);
   }
-  throw new Error("Tauri is not available");
+  throw new Error("Tauri internals not available");
 };
 import emojiReg from "emoji-regex";
 import { get } from "../../utils.ts";

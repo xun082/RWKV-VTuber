@@ -8,6 +8,7 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = show_window(app);
         }))
@@ -69,8 +70,14 @@ async fn minimax_tts(
     sample_rate: u32,
     audio_format: String,
 ) -> Result<MinimaxTTSResponse, String> {
-    let client = reqwest::Client::new();
+    // 创建带有自定义配置的HTTP客户端
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("RWKV-VTuber/1.0")
+        .build()
+        .map_err(|e| format!("创建HTTP客户端失败: {}", e))?;
     
+    let text_len = text.len();
     let request_body = MinimaxTTSRequest {
         model,
         text,
@@ -87,6 +94,8 @@ async fn minimax_tts(
         },
     };
 
+    log::info!("开始调用 MiniMax TTS API，文本长度: {}", text_len);
+    
     let response = client
         .post("https://api.minimaxi.com/v1/t2a_v2")
         .header("Content-Type", "application/json")
@@ -95,7 +104,12 @@ async fn minimax_tts(
         .json(&request_body)
         .send()
         .await
-        .map_err(|e| format!("请求失败: {}", e))?;
+        .map_err(|e| {
+            log::error!("HTTP请求失败: {}", e);
+            format!("网络请求失败: {}。请检查网络连接和API配置。", e)
+        })?;
+    
+    log::info!("收到 MiniMax API 响应，状态码: {}", response.status());
 
     if !response.status().is_success() {
         let status = response.status();

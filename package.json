@@ -62,7 +62,8 @@
         {
           "target": "dmg",
           "arch": [
-            "universal"
+            "x64",
+            "arm64"
           ]
         }
       ],
@@ -70,7 +71,10 @@
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "entitlements": null,
-      "entitlementsInherit": null
+      "entitlementsInherit": null,
+      "asarUnpack": [
+        "**/*.node"
+      ]
     },
     "win": {
       "target": [

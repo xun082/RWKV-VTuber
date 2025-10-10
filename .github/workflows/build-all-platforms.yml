@@ -121,7 +121,7 @@ jobs:
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-universal-artifacts
+          name: macos-artifacts
           path: |
             dist/**/*.dmg
             dist/**/*.zip
@@ -204,11 +204,18 @@ jobs:
           VERSION='${{ steps.version.outputs.version }}'
           mkdir -p ./release-files/{macos,windows,linux}
 
-          # macOS
-          MAC_DMG=$(find ./artifacts -name "*.dmg" | head -n 1 || echo "")
-          if [ -n "$MAC_DMG" ] && [ -f "$MAC_DMG" ]; then
-            cp "$MAC_DMG" "./release-files/macos/rwkv-vtuber_${VERSION}_mac.dmg"
-            echo "✅ Found macOS DMG: $MAC_DMG"
+          # macOS - x64
+          MAC_DMG_X64=$(find ./artifacts -name "*-x64.dmg" | head -n 1 || echo "")
+          if [ -n "$MAC_DMG_X64" ] && [ -f "$MAC_DMG_X64" ]; then
+            cp "$MAC_DMG_X64" "./release-files/macos/rwkv-vtuber_${VERSION}_mac_x64.dmg"
+            echo "✅ Found macOS x64 DMG: $MAC_DMG_X64"
+          fi
+
+          # macOS - arm64
+          MAC_DMG_ARM64=$(find ./artifacts -name "*-arm64.dmg" | head -n 1 || echo "")
+          if [ -n "$MAC_DMG_ARM64" ] && [ -f "$MAC_DMG_ARM64" ]; then
+            cp "$MAC_DMG_ARM64" "./release-files/macos/rwkv-vtuber_${VERSION}_mac_arm64.dmg"
+            echo "✅ Found macOS arm64 DMG: $MAC_DMG_ARM64"
           fi
 
           # Windows
@@ -245,9 +252,10 @@ jobs:
 
             ### 📦 Downloads
 
-            **🍎 macOS (Universal)**
-            - DMG 安装包: `rwkv-vtuber_${{ steps.version.outputs.version }}_mac.dmg`
-            - 支持 Apple Silicon (M1/M2/M3/M4) 和 Intel 芯片
+            **🍎 macOS**
+            - Intel (x64) DMG: `rwkv-vtuber_${{ steps.version.outputs.version }}_mac_x64.dmg`
+            - Apple Silicon (arm64) DMG: `rwkv-vtuber_${{ steps.version.outputs.version }}_mac_arm64.dmg`
+            - 根据你的 Mac 芯片类型选择对应版本
 
             **🪟 Windows (x64)**
             - EXE 安装程序: `rwkv-vtuber_${{ steps.version.outputs.version }}_windows_x64.exe`

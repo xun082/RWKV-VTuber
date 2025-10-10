@@ -1,13 +1,19 @@
-name: Create Release
+name: Build All Platforms
 
 on:
-  workflow_run:
-    workflows: ["Build Windows", "Build Unix (macOS & Linux)"]
-    types:
-      - completed
-    branches: [main]
+  push:
+    branches: ['main']
+    tags: ['v*.*.*']
+  pull_request:
+    branches: ['main']
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
+      create_release:
+        description: 'Create GitHub Release'
+        required: false
+        default: true
+        type: boolean
       draft:
         description: 'Create as draft release'
         required: false
@@ -18,11 +24,141 @@ permissions:
   contents: write
 
 jobs:
+  build-all:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Configure Git to use HTTPS instead of SSH
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://".insteadOf "git://"
+
+      - name: Setup npm config for CI
+        run: |
+          cat > .npmrc << 'EOF'
+          registry=https://registry.npmjs.org/
+          @jsr:registry=https://npm.jsr.io
+          git-depth=1
+          prefer-offline=false
+          EOF
+          echo "✅ CI npmrc configuration:"
+          cat .npmrc
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: macos-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            macos-pnpm-store-
+
+      - name: Cache Whisper model
+        id: cache-whisper
+        uses: actions/cache@v4
+        with:
+          path: electron/models/ggml-small.bin
+          key: whisper-model-ggml-small-v1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download Whisper model
+        if: steps.cache-whisper.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p electron/models
+          echo "📥 Downloading Whisper model (ggml-small.bin) - 465MB..."
+          curl -L --progress-bar -o electron/models/ggml-small.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
+          echo "✅ Model downloaded successfully"
+          ls -lh electron/models/
+
+      - name: Verify Whisper model
+        run: |
+          if [ -f electron/models/ggml-small.bin ]; then
+            echo "✅ Whisper model ready: $(ls -lh electron/models/ggml-small.bin | awk '{print $5}')"
+          else
+            echo "❌ Whisper model not found!"
+            exit 1
+          fi
+
+      - name: Get package version
+        id: version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const version = JSON.parse(fs.readFileSync('./package.json','utf8')).version;
+            core.setOutput('version', version);
+            return version;
+
+      - name: Build All Platforms
+        run: pnpm run electron:build:all
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Display build artifacts
+        run: |
+          echo "📦 Build artifacts:"
+          ls -lh dist/
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal-artifacts
+          path: |
+            dist/**/*.dmg
+            dist/**/*.zip
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-artifacts
+          path: |
+            dist/**/*.exe
+            dist/**/*.msi
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64-artifacts
+          path: |
+            dist/**/*.AppImage
+            dist/**/*.deb
+            dist/**/*.rpm
+          retention-days: 30
+          if-no-files-found: warn
+
   create-release:
+    needs: build-all
     runs-on: ubuntu-latest
     if: >
-      github.event.workflow_run.conclusion == 'success' ||
-      github.event_name == 'workflow_dispatch'
+      always() &&
+      needs.build-all.result == 'success' &&
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' ||
+       startsWith(github.ref, 'refs/tags/') ||
+       github.event.inputs.create_release == 'true')
 
     steps:
       - name: Checkout repository
@@ -190,4 +326,48 @@ jobs:
             ./release-files/**/*
             ./SHA256SUMS.txt
           retention-days: 90
+
+  pr-summary:
+    needs: build-all
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && always()
+    
+    steps:
+      - name: PR Build Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const buildResult = '${{ needs.build-all.result }}';
+            const success = buildResult === 'success';
+            
+            const summary = success 
+              ? '✅ **Build Successful** - All platforms built successfully!'
+              : '❌ **Build Failed** - Check the build logs for details.';
+            
+            const details = `
+            ## 🏗️ Build Summary
+            
+            ${summary}
+            
+            ### 📦 Platforms Built
+            - 🍎 macOS (Universal)
+            - 🪟 Windows (x64)
+            - 🐧 Linux (x64)
+            
+            ### ✨ Features Included
+            - 🎤 Local Whisper speech recognition (Chinese + 99 languages)
+            - 🔊 TTS text-to-speech
+            - 💬 AI conversation with RWKV
+            - 🎨 Live2D character support
+            
+            ### 📋 Next Steps
+            ${success 
+              ? '- Merge this PR to trigger a release build\n- The release will be created automatically after merge' 
+              : '- Fix the build errors and push again\n- Check the Actions tab for detailed error logs'
+            }
+            `;
+            
+            console.log(details);
+            core.summary.addRaw(details);
+            await core.summary.write();
 

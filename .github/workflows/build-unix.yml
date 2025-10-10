@@ -1,0 +1,149 @@
+name: Build Unix (macOS & Linux)
+
+on:
+  push:
+    branches: ['main']
+    tags: ['v*.*.*']
+  pull_request:
+    branches: ['main']
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            arch: universal
+            os-name: mac
+          - platform: ubuntu-latest
+            arch: x64
+            os-name: linux
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Configure Git to use HTTPS instead of SSH
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://".insteadOf "git://"
+
+      - name: Setup npm config for CI
+        run: |
+          cat > .npmrc << 'EOF'
+          registry=https://registry.npmjs.org/
+          @jsr:registry=https://npm.jsr.io
+          git-depth=1
+          prefer-offline=false
+          EOF
+          echo "✅ CI npmrc configuration:"
+          cat .npmrc
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Cache Whisper model
+        id: cache-whisper
+        uses: actions/cache@v4
+        with:
+          path: electron/models/ggml-small.bin
+          key: whisper-model-ggml-small-v1
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev librsvg2-dev
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download Whisper model
+        if: steps.cache-whisper.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p electron/models
+          echo "📥 Downloading Whisper model (ggml-small.bin) - 465MB..."
+          curl -L --progress-bar -o electron/models/ggml-small.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
+          echo "✅ Model downloaded successfully"
+          ls -lh electron/models/
+
+      - name: Verify Whisper model
+        run: |
+          if [ -f electron/models/ggml-small.bin ]; then
+            echo "✅ Whisper model ready: $(ls -lh electron/models/ggml-small.bin | awk '{print $5}')"
+          else
+            echo "❌ Whisper model not found!"
+            exit 1
+          fi
+
+      - name: Get package version
+        id: version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const version = JSON.parse(fs.readFileSync('./package.json','utf8')).version;
+            core.setOutput('version', version);
+            return version;
+
+      - name: Build Electron App (macOS)
+        if: runner.os == 'macOS'
+        run: pnpm run electron:build:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Build Electron App (Linux)
+        if: runner.os == 'Linux'
+        run: pnpm run electron:build:linux
+
+      - name: Upload Build Artifacts (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os-name }}-${{ matrix.arch }}-artifacts
+          path: |
+            dist/**/*.dmg
+            dist/**/*.zip
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Build Artifacts (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os-name }}-${{ matrix.arch }}-artifacts
+          path: |
+            dist/**/*.AppImage
+            dist/**/*.deb
+            dist/**/*.rpm
+          retention-days: 30
+          if-no-files-found: warn
+

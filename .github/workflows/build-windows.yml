@@ -1,0 +1,118 @@
+name: Build Windows
+
+on:
+  push:
+    branches: ['main']
+    tags: ['v*.*.*']
+  pull_request:
+    branches: ['main']
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Configure Git to use HTTPS instead of SSH
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://".insteadOf "git://"
+
+      - name: Setup npm config for CI
+        shell: pwsh
+        run: |
+          @"
+          registry=https://registry.npmjs.org/
+          @jsr:registry=https://npm.jsr.io
+          git-depth=1
+          prefer-offline=false
+          "@ | Out-File -FilePath .npmrc -Encoding utf8
+          Write-Host "✅ CI npmrc configuration:"
+          Get-Content .npmrc
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: pwsh
+        run: |
+          $storePath = pnpm store path
+          "STORE_PATH=$storePath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: windows-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            windows-pnpm-store-
+
+      - name: Cache Whisper model
+        id: cache-whisper
+        uses: actions/cache@v4
+        with:
+          path: electron/models/ggml-small.bin
+          key: whisper-model-ggml-small-v1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download Whisper model
+        if: steps.cache-whisper.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "electron/models" | Out-Null
+          Write-Host "📥 Downloading Whisper model (ggml-small.bin) - 465MB..."
+          Invoke-WebRequest -Uri "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin" -OutFile "electron/models/ggml-small.bin"
+          Write-Host "✅ Model downloaded successfully"
+          Get-ChildItem "electron/models/" | Format-Table Name, Length
+
+      - name: Verify Whisper model
+        shell: pwsh
+        run: |
+          if (Test-Path "electron/models/ggml-small.bin") {
+            $fileSize = (Get-Item "electron/models/ggml-small.bin").Length / 1MB
+            Write-Host "✅ Whisper model ready: $([math]::Round($fileSize, 2)) MB"
+          } else {
+            Write-Host "❌ Whisper model not found!"
+            exit 1
+          }
+
+      - name: Get package version
+        id: version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const version = JSON.parse(fs.readFileSync('./package.json','utf8')).version;
+            core.setOutput('version', version);
+            return version;
+
+      - name: Build Electron App (Windows)
+        run: pnpm run electron:build:win
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-artifacts
+          path: |
+            dist/**/*.exe
+            dist/**/*.msi
+          retention-days: 30
+          if-no-files-found: warn
+

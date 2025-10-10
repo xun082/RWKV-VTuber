@@ -1,7 +1,7 @@
 {
   "name": "rwkv-vtuber",
   "private": true,
-  "version": "0.0.6",
+  "version": "1.0.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -31,13 +31,30 @@
     "productName": "RWKV-VTuber",
     "copyright": "Copyright © 2024 leafyee.xyz",
     "directories": {
-      "output": "release",
+      "output": "dist",
       "buildResources": "electron/resources"
     },
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "!electron/**/*"
+      "!electron/**/*",
+      "!**/.DS_Store"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-electron/native",
+        "to": "native",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "dist-electron/models",
+        "to": "models",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "mac": {
       "category": "public.app-category.productivity",
@@ -45,39 +62,25 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
+            "universal"
           ]
         }
       ],
-      "icon": "src-tauri/icons/icon.icns",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": null,
+      "entitlementsInherit": null
     },
     "win": {
       "target": [
         {
           "target": "nsis",
           "arch": [
-            "x64",
-            "ia32"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64",
-            "ia32"
+            "x64"
           ]
         }
       ],
-      "icon": "src-tauri/icons/icon.ico",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
@@ -87,15 +90,8 @@
           "arch": [
             "x64"
           ]
-        },
-        {
-          "target": "deb",
-          "arch": [
-            "x64"
-          ]
         }
       ],
-      "icon": "src-tauri/icons/icon.png",
       "category": "Utility",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
@@ -103,7 +99,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName}-${version}-${arch}-Setup.${ext}"
     }
   },
   "commit-and-tag-version": {

@@ -28,3 +28,7 @@ dist-ssr
 
 dist-web
 public-web
+
+# Whisper models (large binary files)
+electron/models/*.bin
+dist-electron/models/*.bin

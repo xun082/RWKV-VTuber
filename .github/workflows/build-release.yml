@@ -20,7 +20,6 @@ on:
         default: false
         type: boolean
 
-# 给予 GITHUB_TOKEN 写仓库内容的权限，避免 403
 permissions:
   contents: write
 
@@ -30,40 +29,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS arm64
+          # macOS
           - platform: macos-latest
-            target: aarch64-apple-darwin
-            arch: arm64
-            bundle: dmg
-            rust-targets: aarch64-apple-darwin
-          # macOS x64
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-            arch: x64
-            bundle: dmg
-            rust-targets: x86_64-apple-darwin
+            arch: universal
+            os-name: mac
           # Windows x64
           - platform: windows-latest
-            target: x86_64-pc-windows-msvc
             arch: x64
-            bundle: msi,nsis
-            rust-targets: x86_64-pc-windows-msvc
+            os-name: windows
+          # Linux x64
+          - platform: ubuntu-latest
+            arch: x64
+            os-name: linux
 
     runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-targets }}
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -89,33 +72,39 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - name: Cache Whisper model
+        id: cache-whisper
+        uses: actions/cache@v4
+        with:
+          path: electron/models/ggml-small.bin
+          key: whisper-model-ggml-small-v1
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev librsvg2-dev
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Switch to Tauri mode
-        run: pnpm run switch:tauri
-
-      - name: Configure signing for CI (macOS)
-        if: runner.os == 'macOS'
+      - name: Download Whisper model
+        if: steps.cache-whisper.outputs.cache-hit != 'true'
         run: |
-          echo "✅ macOS 环境：使用临时开发签名"
-          echo "当前 macOS 签名配置："
-          cat src-tauri/tauri.conf.json | grep -A 5 '"macOS"' || echo "未找到 macOS 配置"
+          mkdir -p electron/models
+          echo "📥 Downloading Whisper model (ggml-small.bin) - 465MB..."
+          curl -L --progress-bar -o electron/models/ggml-small.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin
+          echo "✅ Model downloaded successfully"
+          ls -lh electron/models/
 
-      - name: Configure signing for CI (Windows)
-        if: runner.os == 'Windows'
+      - name: Verify Whisper model
         run: |
-          echo "✅ Windows 环境：无需签名配置"
-          echo "当前平台: Windows"
-
-      - name: Configure signing for CI (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          echo "✅ Linux 环境：无需签名配置"
-          echo "当前平台: Linux"
-
-      - name: Build frontend
-        run: pnpm run build
+          if [ -f electron/models/ggml-small.bin ]; then
+            echo "✅ Whisper model ready: $(ls -lh electron/models/ggml-small.bin | awk '{print $5}')"
+          else
+            echo "❌ Whisper model not found!"
+            exit 1
+          fi
 
       - name: Get package version
         id: version
@@ -127,33 +116,51 @@ jobs:
             core.setOutput('version', version);
             return version;
 
-      - name: Build Tauri App (No Release)
-        if: github.event_name == 'pull_request'
-        uses: tauri-apps/tauri-action@v0
+      - name: Build Electron App (macOS)
+        if: runner.os == 'macOS'
+        run: pnpm run electron:build:mac
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --verbose
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Build Tauri App (With Release)
-        if: github.event_name != 'pull_request'
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }} --verbose
+      - name: Build Electron App (Windows)
+        if: runner.os == 'Windows'
+        run: pnpm run electron:build:win
 
-      - name: Upload Build Artifacts
+      - name: Build Electron App (Linux)
+        if: runner.os == 'Linux'
+        run: pnpm run electron:build:linux
+
+      - name: Upload Build Artifacts (macOS)
+        if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-${{ matrix.arch }}-artifacts
+          name: ${{ matrix.os-name }}-${{ matrix.arch }}-artifacts
           path: |
-            src-tauri/target/**/release/bundle/**/*.dmg
-            src-tauri/target/**/release/bundle/**/*.msi
-            src-tauri/target/**/release/bundle/**/*.exe
-            src-tauri/target/**/release/bundle/**/*.app.tar.gz
+            dist/**/*.dmg
+            dist/**/*.zip
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Build Artifacts (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os-name }}-${{ matrix.arch }}-artifacts
+          path: |
+            dist/**/*.exe
+            dist/**/*.msi
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Build Artifacts (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os-name }}-${{ matrix.arch }}-artifacts
+          path: |
+            dist/**/*.AppImage
+            dist/**/*.deb
+            dist/**/*.rpm
           retention-days: 30
           if-no-files-found: warn
 
@@ -210,42 +217,27 @@ jobs:
         run: |
           set -e
           VERSION='${{ steps.version.outputs.version }}'
-          mkdir -p ./release-files/{macos,windows}
+          mkdir -p ./release-files/{macos,windows,linux}
 
-          # macOS: 将 arm64 / x64 分开并重命名
-          ARM_DMG=$(find ./artifacts -name "*.dmg" -path "*arm64*" | head -n 1 || echo "")
-          X64_DMG=$(find ./artifacts -name "*.dmg" -path "*x64*" | head -n 1 || echo "")
-
-          if [ -n "$ARM_DMG" ] && [ -f "$ARM_DMG" ]; then
-            cp "$ARM_DMG" "./release-files/macos/rwkv-vtuber_${VERSION}_mac_arm64.dmg"
-            echo "✅ Found ARM64 DMG: $ARM_DMG"
-          else
-            echo "⚠️ ARM64 DMG not found"
-          fi
-          
-          if [ -n "$X64_DMG" ] && [ -f "$X64_DMG" ]; then
-            cp "$X64_DMG" "./release-files/macos/rwkv-vtuber_${VERSION}_mac_x64.dmg"
-            echo "✅ Found X64 DMG: $X64_DMG"
-          else
-            echo "⚠️ X64 DMG not found"
+          # macOS
+          MAC_DMG=$(find ./artifacts -name "*.dmg" | head -n 1 || echo "")
+          if [ -n "$MAC_DMG" ] && [ -f "$MAC_DMG" ]; then
+            cp "$MAC_DMG" "./release-files/macos/rwkv-vtuber_${VERSION}_mac.dmg"
+            echo "✅ Found macOS DMG: $MAC_DMG"
           fi
 
-          # Windows files
-          WIN_MSI=$(find ./artifacts -name "*.msi" | head -n 1 || echo "")
-          WIN_EXE=$(find ./artifacts -name "*.exe" | head -n 1 || echo "")
-          
-          if [ -n "$WIN_MSI" ] && [ -f "$WIN_MSI" ]; then
-            cp "$WIN_MSI" "./release-files/windows/rwkv-vtuber_${VERSION}_windows_x64.msi"
-            echo "✅ Found Windows MSI: $WIN_MSI"
-          else
-            echo "⚠️ Windows MSI not found"
-          fi
-          
+          # Windows
+          WIN_EXE=$(find ./artifacts -name "*.exe" ! -name "*Uninstall*" | head -n 1 || echo "")
           if [ -n "$WIN_EXE" ] && [ -f "$WIN_EXE" ]; then
             cp "$WIN_EXE" "./release-files/windows/rwkv-vtuber_${VERSION}_windows_x64.exe"
             echo "✅ Found Windows EXE: $WIN_EXE"
-          else
-            echo "⚠️ Windows EXE not found"
+          fi
+
+          # Linux
+          LINUX_APPIMAGE=$(find ./artifacts -name "*.AppImage" | head -n 1 || echo "")
+          if [ -n "$LINUX_APPIMAGE" ] && [ -f "$LINUX_APPIMAGE" ]; then
+            cp "$LINUX_APPIMAGE" "./release-files/linux/rwkv-vtuber_${VERSION}_linux_x64.AppImage"
+            echo "✅ Found Linux AppImage: $LINUX_APPIMAGE"
           fi
 
           echo "📁 Final organized release files:"
@@ -254,7 +246,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd ./release-files
-          find . -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.exe" \) -exec sha256sum {} \; > ../SHA256SUMS.txt
+          find . -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" \) -exec sha256sum {} \; > ../SHA256SUMS.txt
           echo "🔐 Generated checksums:"
           cat ../SHA256SUMS.txt
 
@@ -268,13 +260,22 @@ jobs:
 
             ### 📦 Downloads
 
-            **🍎 macOS**
-            - Apple Silicon (ARM64): `rwkv-vtuber_${{ steps.version.outputs.version }}_mac_arm64.dmg`
-            - Intel (x64): `rwkv-vtuber_${{ steps.version.outputs.version }}_mac_x64.dmg`
+            **🍎 macOS (Universal)**
+            - DMG 安装包: `rwkv-vtuber_${{ steps.version.outputs.version }}_mac.dmg`
+            - 支持 Apple Silicon (M1/M2/M3/M4) 和 Intel 芯片
 
             **🪟 Windows (x64)**
-            - MSI Installer (推荐): `rwkv-vtuber_${{ steps.version.outputs.version }}_windows_x64.msi`
-            - EXE Setup: `rwkv-vtuber_${{ steps.version.outputs.version }}_windows_x64.exe`
+            - EXE 安装程序: `rwkv-vtuber_${{ steps.version.outputs.version }}_windows_x64.exe`
+
+            **🐧 Linux (x64)**
+            - AppImage: `rwkv-vtuber_${{ steps.version.outputs.version }}_linux_x64.AppImage`
+
+            ### ✨ 主要功能
+            - 🎤 **本地 Whisper 语音识别**：支持中文及 99 种语言
+            - 🔊 **TTS 文本转语音**：多种语音引擎支持
+            - 💬 **AI 对话**：集成 RWKV 模型
+            - 🎨 **Live2D 角色**：虚拟形象展示
+            - 📱 **跨平台**：macOS、Windows、Linux 全支持
 
             ### 📋 Build Information
             - 🌿 Branch: `${{ github.ref_name }}`
@@ -289,7 +290,7 @@ jobs:
             
             **🍎 macOS 安装说明**
             
-            1. **下载 DMG 文件**：下载对应你 Mac 芯片的版本（ARM64 或 x64）
+            1. **下载 DMG 文件**
             
             2. **安装应用**：
                - 双击 DMG 文件打开
@@ -306,8 +307,21 @@ jobs:
                ```
             
             **🪟 Windows 安装说明**
-            - 推荐下载 MSI 安装包
+            - 下载 EXE 安装程序并运行
             - 如果 SmartScreen 提示警告，点击"更多信息"然后"仍要运行"
+            
+            **🐧 Linux 安装说明**
+            - 下载 AppImage 文件
+            - 添加执行权限：`chmod +x rwkv-vtuber_*.AppImage`
+            - 运行：`./rwkv-vtuber_*.AppImage`
+
+            ### 📦 Whisper 模型说明
+            
+            应用内置 **ggml-small.bin** 中文多语言模型：
+            - 支持中文及 99 种语言
+            - 模型大小：487MB
+            - 完全本地运行，无需联网
+            - 首次启动会自动加载模型
 
             ### 📋 Changelog
             查看 [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) 了解详细更新内容。
@@ -328,7 +342,6 @@ jobs:
             ./SHA256SUMS.txt
           retention-days: 90
 
-  # 为 PR 提供构建状态反馈
   pr-summary:
     needs: build
     runs-on: ubuntu-latest
@@ -352,8 +365,15 @@ jobs:
             ${summary}
             
             ### 📦 Platforms Built
-            - 🍎 macOS (ARM64 + x64)
+            - 🍎 macOS (Universal)
             - 🪟 Windows (x64)
+            - 🐧 Linux (x64)
+            
+            ### ✨ Features Included
+            - 🎤 Local Whisper speech recognition (Chinese + 99 languages)
+            - 🔊 TTS text-to-speech
+            - 💬 AI conversation with RWKV
+            - 🎨 Live2D character support
             
             ### 📋 Next Steps
             ${success 

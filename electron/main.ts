@@ -339,8 +339,16 @@ interface WhisperTranscribeArgs {
 const require = createRequire(import.meta.url);
 let whisperModule: any = null;
 
+// 获取正确的资源路径（开发环境 vs 生产环境）
+const resourcesPath = isDev
+  ? path.join(__dirname, "..")
+  : process.resourcesPath;
+
 try {
-  const addonPath = path.join(__dirname, "native", "whisper", "addon.node");
+  const addonPath = isDev
+    ? path.join(__dirname, "native", "whisper", "addon.node")
+    : path.join(resourcesPath, "native", "whisper", "addon.node");
+
   console.log(`[Electron] 加载 Whisper 原生模块: ${addonPath}`);
   whisperModule = require(addonPath);
   console.log("[Electron] ✅ Whisper 原生模块加载成功");
@@ -359,43 +367,35 @@ ipcMain.handle(
         );
       }
 
-      console.log(
-        `[Electron] Whisper 转录，音频大小: ${args.audioData.length} bytes`
-      );
-
       // 将音频数据写入临时文件
       const tmpDir = app.getPath("temp");
       const audioPath = path.join(tmpDir, `whisper-${Date.now()}.wav`);
-
       await fs.writeFile(audioPath, Buffer.from(args.audioData));
-      console.log(`[Electron] 音频文件已保存: ${audioPath}`);
 
-      // 模型文件路径（使用中文多语言模型）
-      const modelPath = path.join(__dirname, "models", "ggml-small.bin");
-      console.log(`[Electron] 模型路径: ${modelPath}`);
+      // 模型文件路径（中文多语言模型）
+      const modelPath = isDev
+        ? path.join(__dirname, "models", "ggml-small.bin")
+        : path.join(resourcesPath, "models", "ggml-small.bin");
 
       // 使用原生模块进行转录
       const { promisify } = await import("util");
       const whisperAsync = promisify(whisperModule.whisper);
 
-      console.log("[Electron] 开始 Whisper 转录（中文模式）...");
       const result = await whisperAsync({
-        language: args.language || "zh", // 中文
+        language: args.language || "zh",
         model: modelPath,
         fname_inp: audioPath,
-        use_gpu: false, // 根据需要启用 GPU
+        use_gpu: false,
       });
-
-      console.log("[Electron] Whisper 原始返回:", result);
 
       // 清理临时文件
       try {
         await fs.unlink(audioPath);
       } catch (cleanupError) {
-        console.warn("[Electron] 清理临时文件失败:", cleanupError);
+        // 忽略清理错误
       }
 
-      // 提取转录文本（处理多种返回格式）
+      // 提取转录文本
       let transcript = "";
 
       if (typeof result === "string") {
@@ -403,26 +403,15 @@ ipcMain.handle(
       } else if (result?.text) {
         transcript = result.text;
       } else if (result?.transcription && Array.isArray(result.transcription)) {
-        // 格式: { transcription: [ [ 'start', 'end', 'text' ], ... ] }
         transcript = result.transcription
           .map((item: any) => (Array.isArray(item) ? item[2] || "" : ""))
           .join(" ")
           .trim();
       }
 
-      console.log(`[Electron] ✅ Whisper 转录成功: "${transcript}"`);
       return { transcript: transcript.trim() };
     } catch (error: any) {
-      console.error("[Electron] Whisper 转录失败:", error);
-
-      let errorMessage = "Whisper 转录失败: ";
-      if (error.message) {
-        errorMessage += error.message;
-      } else {
-        errorMessage += String(error);
-      }
-
-      throw new Error(errorMessage);
+      throw new Error(error.message || "Whisper 转录失败");
     }
   }
 );

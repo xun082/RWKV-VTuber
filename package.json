@@ -36,7 +36,10 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*",
+      "dist-electron/main.js",
+      "dist-electron/preload.js",
+      "!dist-electron/models/**/*",
+      "!dist-electron/native/**/*",
       "!electron/**/*",
       "!**/.DS_Store"
     ],

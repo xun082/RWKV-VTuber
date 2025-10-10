@@ -1,10 +1,6 @@
 import emojiReg from "emoji-regex";
-import { toast } from "sonner";
 import { db } from "./db/index.ts";
 import { useSpeakApi } from "../stores/useSpeakApi.ts";
-
-// 检测是否在 Tauri 环境中
-const isTauri = typeof window !== "undefined" && window.__TAURI_INTERNALS__;
 
 // 全局音频播放管理器
 class AudioPlaybackManager {
@@ -44,17 +40,15 @@ class AudioPlaybackManager {
     // 先停止当前播放的音频
     this.stopCurrent();
 
-    // 在 Tauri 环境中优先使用 HTML Audio Element
-    if (isTauri) {
+    // Electron 和浏览器统一策略：优先 AudioContext，失败则用 HTML Audio
+    try {
+      return await this.playAudioWithContext(audioBuffer);
+    } catch (error) {
+      console.warn(
+        "AudioContext 播放失败，尝试使用 HTML Audio (Blob URL):",
+        error
+      );
       return this.playAudioWithHtmlElement(audioBuffer);
-    } else {
-      // 在浏览器中优先使用 AudioContext
-      try {
-        return await this.playAudioWithContext(audioBuffer);
-      } catch (error) {
-        console.warn("AudioContext 播放失败，尝试使用 HTML Audio:", error);
-        return this.playAudioWithHtmlElement(audioBuffer);
-      }
     }
   }
 
@@ -87,7 +81,7 @@ class AudioPlaybackManager {
           try {
             const blob = new Blob([audioBuffer], { type: format });
             audioUrl = URL.createObjectURL(blob);
-            audio = new HTMLAudioElement();
+            audio = new Audio(); // 修复: 使用 new Audio() 而不是 new HTMLAudioElement()
 
             this.currentAudio = audio;
             this.isPlaying = true;
@@ -148,6 +142,18 @@ class AudioPlaybackManager {
       (window as any).webkitAudioContext)();
 
     try {
+      // 打印音频数据前16字节用于调试
+      const debugView = new Uint8Array(
+        audioBuffer.slice(0, Math.min(16, audioBuffer.byteLength))
+      );
+      console.log(
+        "🔍 音频数据前16字节:",
+        Array.from(debugView)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join(" ")
+      );
+      console.log("🔍 音频数据总大小:", audioBuffer.byteLength, "bytes");
+
       const decodedBuffer = await audioContext.decodeAudioData(audioBuffer);
       const source = audioContext.createBufferSource();
       source.buffer = decodedBuffer;
@@ -195,12 +201,11 @@ export async function generateAndPlayTTS(
   text: string,
   timestamp: number,
   options: {
-    showToasts?: boolean;
     onGeneratingChange?: (generating: boolean) => void;
     onPlayingChange?: (playing: boolean) => void;
   } = {}
 ) {
-  const { showToasts = true, onGeneratingChange, onPlayingChange } = options;
+  const { onGeneratingChange, onPlayingChange } = options;
 
   const speak = useSpeakApi.getState().speak;
   const currentSpeakApi = useSpeakApi.getState().currentSpeakApi;
@@ -211,14 +216,8 @@ export async function generateAndPlayTTS(
     // 尝试启用TTS服务
     try {
       await setSpeakApi("MiniMax TTS");
-      if (showToasts) {
-        toast.info("已启用 MiniMax TTS 服务，请重新点击播放");
-      }
       return;
     } catch (error) {
-      if (showToasts) {
-        toast.error("启用TTS服务失败，请前往配置页面设置");
-      }
       return;
     }
   }
@@ -227,9 +226,6 @@ export async function generateAndPlayTTS(
   const cleanContent = text.replace(emoji, "").trim();
 
   if (!cleanContent) {
-    if (showToasts) {
-      toast.warning("没有可播放的文本内容");
-    }
     return;
   }
 
@@ -242,23 +238,14 @@ export async function generateAndPlayTTS(
 
     if (cachedAudio && cachedAudio.audio) {
       console.log("✅ 找到缓存音频，直接播放");
-      if (showToasts) {
-        toast.info("正在播放缓存音频");
-      }
       await playAudioFromBuffer(cachedAudio.audio);
       console.log("✅ 缓存音频播放完成");
-      if (showToasts) {
-        toast.success("语音播放完成");
-      }
       return;
     }
 
     // 2. 没有缓存，生成新的音频
     console.log("🔊 缓存中无音频，开始生成...");
     onGeneratingChange?.(true);
-    if (showToasts) {
-      toast.info("正在生成语音...");
-    }
 
     const result = await speak(cleanContent);
 
@@ -287,26 +274,11 @@ export async function generateAndPlayTTS(
       });
 
       console.log("✅ 音频已生成并缓存，开始播放");
-      if (showToasts) {
-        toast.success("语音生成完成，开始播放");
-      }
       await playAudioFromBuffer(audioBuffer);
       console.log("✅ 新生成音频播放完成");
-      if (showToasts) {
-        toast.success("语音播放完成");
-      }
-    } else {
-      if (showToasts) {
-        toast.warning("语音合成返回了空数据");
-      }
     }
   } catch (error) {
     console.error("❌ 语音播放失败:", error);
-    if (showToasts) {
-      toast.error(
-        `语音播放失败: ${error instanceof Error ? error.message : "未知错误"}`
-      );
-    }
   } finally {
     onPlayingChange?.(false);
     onGeneratingChange?.(false);

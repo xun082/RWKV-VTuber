@@ -40,7 +40,6 @@ export function MessageItem({
     if (isPlaying || isGenerating) return;
 
     await generateAndPlayTTS(content, timestamp, {
-      showToasts: true,
       onGeneratingChange: setIsGenerating,
       onPlayingChange: setIsPlaying,
     });

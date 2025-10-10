@@ -58,6 +58,20 @@ jobs:
         with:
           version: 9
 
+      - name: Configure Git to use HTTPS instead of SSH
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://".insteadOf "git://"
+
+      - name: Setup npm config for CI
+        run: |
+          echo "registry=https://registry.npmjs.org/" > .npmrc.ci
+          echo "@jsr:registry=https://npm.jsr.io" >> .npmrc.ci
+          echo "git-depth=1" >> .npmrc.ci
+          echo "prefer-offline=false" >> .npmrc.ci
+          cat .npmrc.ci
+          mv .npmrc.ci .npmrc
+
       - name: Get pnpm store directory
         id: pnpm-cache
         shell: bash

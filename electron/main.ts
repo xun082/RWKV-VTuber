@@ -11,6 +11,15 @@ const __dirname = path.dirname(__filename);
 // 检测是否在开发模式
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
+// 在应用启动前设置动态库路径（必须在 app.whenReady 之前）
+if (!isDev && process.platform === "darwin") {
+  const dylibPath = path.join(process.resourcesPath, "native", "whisper");
+  process.env.DYLD_LIBRARY_PATH =
+    dylibPath +
+    (process.env.DYLD_LIBRARY_PATH ? `:${process.env.DYLD_LIBRARY_PATH}` : "");
+  console.log(`[Electron] 预设置动态库路径: ${dylibPath}`);
+}
+
 // 设置命令行参数以优化语音识别和性能
 // 关键：确保 Web Speech API 能正常工作
 app.commandLine.appendSwitch("--enable-speech-input");
@@ -46,13 +55,13 @@ function createWindow(): void {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: !isDev, // 开发环境禁用，生产环境启用
+      webSecurity: false, // 禁用 web 安全限制以允许本地文件访问
       // 允许音频自动播放
       autoplayPolicy: "no-user-gesture-required",
       // 网络相关设置
       experimentalFeatures: true,
-      // 允许不安全内容（用于开发环境）
-      allowRunningInsecureContent: isDev,
+      // 允许不安全内容（需要加载本地资源）
+      allowRunningInsecureContent: true,
       // 启用媒体功能
       enableWebSQL: false,
       // 允许跨域
@@ -66,15 +75,31 @@ function createWindow(): void {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
   );
 
-  // 允许 Google 服务的请求
+  // 设置安全响应头和 CSP（允许本地资源和外部 API）
   mainWindow.webContents.session.webRequest.onHeadersReceived(
     (details, callback) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          "Access-Control-Allow-Origin": ["*"],
-        },
-      });
+      const responseHeaders: Record<string, string[]> = {
+        ...details.responseHeaders,
+        "Access-Control-Allow-Origin": ["*"],
+      };
+
+      // 在生产环境添加适当的 CSP，允许本地文件和必要的外部资源
+      if (!isDev) {
+        responseHeaders["Content-Security-Policy"] = [
+          [
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: file:",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob: file: https:",
+            "font-src 'self' data: blob: file:",
+            "connect-src 'self' https: wss: ws:",
+            "media-src 'self' data: blob: file: https:",
+            "worker-src 'self' blob:",
+          ].join("; "),
+        ];
+      }
+
+      callback({ responseHeaders });
     }
   );
 
@@ -87,6 +112,8 @@ function createWindow(): void {
   } else {
     // 生产模式：加载打包后的文件
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+    // 生产环境也打开开发者工具以便调试
+    mainWindow.webContents.openDevTools();
   }
 
   // 窗口关闭事件
@@ -100,11 +127,27 @@ function createWindow(): void {
     return { action: "deny" };
   });
 
-  // 监听语音识别相关的控制台消息
-  mainWindow.webContents.on("console-message", (event, level, message) => {
-    if (message.includes("语音识别") || message.includes("speech")) {
-      console.log(`[WebContents] ${message}`);
+  // 监听所有控制台消息（生产环境调试）
+  mainWindow.webContents.on(
+    "console-message",
+    (event, level, message, line, sourceId) => {
+      const logPrefix =
+        level === 1 ? "⚠️ [WARN]" : level === 2 ? "❌ [ERROR]" : "ℹ️ [INFO]";
+      console.log(`${logPrefix} [Renderer] ${message}`);
+      if (line && sourceId) {
+        console.log(`  └─ ${sourceId}:${line}`);
+      }
     }
+  );
+
+  // 监听渲染进程崩溃
+  mainWindow.webContents.on("render-process-gone", (event, details) => {
+    console.error("❌ [Electron] 渲染进程崩溃:", details);
+  });
+
+  // 监听页面未响应
+  mainWindow.on("unresponsive", () => {
+    console.error("❌ [Electron] 页面未响应");
   });
 }
 
@@ -122,6 +165,15 @@ app.whenReady().then(() => {
   const userAgent = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36`;
   session.defaultSession.setUserAgent(userAgent);
   console.log("[Electron] User-Agent 已设置");
+
+  // 注册 file:// 协议处理器，允许访问本地文件
+  session.defaultSession.protocol.registerFileProtocol(
+    "file",
+    (request, callback) => {
+      const pathname = decodeURI(request.url.replace("file:///", ""));
+      callback(pathname);
+    }
+  );
 
   // 只记录语音识别相关的网络请求
   session.defaultSession.webRequest.onBeforeRequest(
@@ -345,16 +397,93 @@ const resourcesPath = isDev
   : process.resourcesPath;
 
 try {
-  const addonPath = isDev
-    ? path.join(__dirname, "native", "whisper", "addon.node")
-    : path.join(resourcesPath, "native", "whisper", "addon.node");
+  // 尝试多个可能的路径
+  const possiblePaths = isDev
+    ? [path.join(__dirname, "native", "whisper", "addon.node")]
+    : [
+        // 标准 extraResources 路径（最优先）
+        path.join(process.resourcesPath, "native", "whisper", "addon.node"),
+        // 打包后从 asar.unpacked 中加载
+        path.join(
+          process.resourcesPath,
+          "app.asar.unpacked",
+          "dist-electron",
+          "native",
+          "whisper",
+          "addon.node"
+        ),
+        // 备用路径
+        path.join(resourcesPath, "native", "whisper", "addon.node"),
+      ];
 
-  console.log(`[Electron] 加载 Whisper 原生模块: ${addonPath}`);
+  console.log(`[Electron] 尝试加载 Whisper 原生模块...`);
+  console.log(`[Electron] 开发模式: ${isDev}`);
+  console.log(`[Electron] 资源路径: ${resourcesPath}`);
+  console.log(`[Electron] process.resourcesPath: ${process.resourcesPath}`);
+  console.log(`[Electron] __dirname: ${__dirname}`);
+
+  let addonPath: string | null = null;
+  for (const testPath of possiblePaths) {
+    console.log(`[Electron] 尝试路径: ${testPath}`);
+    if (require("fs").existsSync(testPath)) {
+      addonPath = testPath;
+      console.log(`[Electron] ✅ 找到文件: ${testPath}`);
+      break;
+    } else {
+      console.log(`[Electron] ❌ 文件不存在: ${testPath}`);
+    }
+  }
+
+  if (!addonPath) {
+    throw new Error("找不到 Whisper 原生模块文件");
+  }
+
+  // 设置动态库搜索路径（macOS）
+  const dylibPath = path.dirname(addonPath);
+  console.log(`[Electron] 设置动态库路径: ${dylibPath}`);
+
+  // 设置环境变量，让 dyld 能找到 .dylib 文件
+  if (process.platform === "darwin") {
+    process.env.DYLD_LIBRARY_PATH =
+      dylibPath +
+      (process.env.DYLD_LIBRARY_PATH
+        ? `:${process.env.DYLD_LIBRARY_PATH}`
+        : "");
+    console.log(
+      `[Electron] DYLD_LIBRARY_PATH: ${process.env.DYLD_LIBRARY_PATH}`
+    );
+  }
+
+  // 在 require 前再次确认环境变量和路径
+  console.log(`[Electron] 即将加载: ${addonPath}`);
+  console.log(
+    `[Electron] 当前 DYLD_LIBRARY_PATH: ${process.env.DYLD_LIBRARY_PATH}`
+  );
+
+  // 确保所有 dylib 文件都存在
+  const dylibFiles = require("fs").readdirSync(path.dirname(addonPath));
+  console.log(`[Electron] 同目录文件列表: ${dylibFiles.join(", ")}`);
+
+  // 检查 rpath 设置（调试用）
+  try {
+    const { execSync } = require("child_process");
+    const rpathOutput = execSync(
+      `otool -l "${addonPath}" | grep -A 3 "LC_RPATH"`,
+      { encoding: "utf-8" }
+    );
+    console.log(`[Electron] addon.node的rpath:\n${rpathOutput}`);
+  } catch (e) {
+    console.log(`[Electron] 无法检查rpath: ${e}`);
+  }
+
   whisperModule = require(addonPath);
   console.log("[Electron] ✅ Whisper 原生模块加载成功");
   console.log("[Electron] 可用方法:", Object.keys(whisperModule));
 } catch (error) {
   console.error("[Electron] ❌ 无法加载 Whisper 原生模块:", error);
+  console.log(
+    "[Electron] 💡 提示: 请确保 addon.node 和相关 .dylib 文件已正确打包"
+  );
 }
 
 ipcMain.handle(
@@ -362,8 +491,10 @@ ipcMain.handle(
   async (_event, args: WhisperTranscribeArgs) => {
     try {
       if (!whisperModule || !whisperModule.whisper) {
+        console.error("[Electron] ❌ Whisper 模块未加载");
+        console.log("[Electron] 💡 语音识别功能不可用，请使用其他输入方式");
         throw new Error(
-          "Whisper 原生模块未加载。请确保 addon.node 文件存在于 electron/native/ 目录"
+          "Whisper 语音识别模块未加载。该功能当前不可用，请使用文字输入。"
         );
       }
 
@@ -373,9 +504,35 @@ ipcMain.handle(
       await fs.writeFile(audioPath, Buffer.from(args.audioData));
 
       // 模型文件路径（中文多语言模型）
-      const modelPath = isDev
-        ? path.join(__dirname, "models", "ggml-small.bin")
-        : path.join(resourcesPath, "models", "ggml-small.bin");
+      const modelPossiblePaths = isDev
+        ? [path.join(__dirname, "models", "ggml-small.bin")]
+        : [
+            // 标准 extraResources 路径（最优先）
+            path.join(process.resourcesPath, "models", "ggml-small.bin"),
+            // 打包后从 asar.unpacked 中加载
+            path.join(
+              process.resourcesPath,
+              "app.asar.unpacked",
+              "dist-electron",
+              "models",
+              "ggml-small.bin"
+            ),
+            // 备用路径
+            path.join(resourcesPath, "models", "ggml-small.bin"),
+          ];
+
+      let modelPath: string | null = null;
+      for (const testPath of modelPossiblePaths) {
+        if (require("fs").existsSync(testPath)) {
+          modelPath = testPath;
+          console.log(`[Electron] ✅ 找到模型文件: ${testPath}`);
+          break;
+        }
+      }
+
+      if (!modelPath) {
+        throw new Error("找不到 Whisper 模型文件 (ggml-small.bin)");
+      }
 
       // 使用原生模块进行转录
       const { promisify } = await import("util");

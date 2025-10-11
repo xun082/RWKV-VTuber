@@ -18,7 +18,7 @@
     "electron:compile": "tsc -p electron/tsconfig.json && npm run electron:copy-native",
     "electron:dev": "npm run electron:compile && concurrently \"cross-env NODE_ENV=development npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "npm run electron:compile && npm run build && electron-builder",
-    "electron:build:mac": "npm run electron:compile && npm run build && electron-builder --mac",
+    "electron:build:mac": "npm run electron:compile && npm run build && electron-builder --mac --arm64",
     "electron:build:win": "npm run electron:compile && npm run build && electron-builder --win",
     "electron:build:linux": "npm run electron:compile && npm run build && electron-builder --linux",
     "electron:build:all": "npm run electron:compile && npm run build && electron-builder --mac --win --linux",
@@ -30,6 +30,7 @@
     "appId": "com.leafyee.rwkv-vtuber",
     "productName": "RWKV-VTuber",
     "copyright": "Copyright © 2024 leafyee.xyz",
+    "afterPack": "./scripts/fix-dylib.mjs",
     "directories": {
       "output": "dist",
       "buildResources": "electron/resources"
@@ -76,7 +77,8 @@
       "entitlements": null,
       "entitlementsInherit": null,
       "asarUnpack": [
-        "**/*.node"
+        "**/*.node",
+        "**/*.bin"
       ]
     },
     "win": {
@@ -90,7 +92,13 @@
       ],
       "artifactName": "${productName}-${version}-${arch}-Setup.${ext}",
       "icon": "electron/resources/icon.ico",
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "asarUnpack": [
+        "**/*.node",
+        "**/*.bin",
+        "**/*.dylib",
+        "**/*.dll"
+      ]
     },
     "linux": {
       "target": [

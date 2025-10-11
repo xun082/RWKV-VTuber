@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createHashRouter } from 'react-router-dom'
 import App from '../App'
 import ChatPage from '../pages/chat/index'
 import ConfigLayoutPage from '../pages/config/layout/index'
@@ -6,7 +6,7 @@ import ConfigMainPage from '../pages/config/main/index'
 import ConfigServicePage from '../pages/config/service/index'
 import MemoryPage from '../pages/memory/index'
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
 	{
 		path: '/',
 		element: <App />,

@@ -180,7 +180,11 @@ async function transcribeWithWhisper(audioBlob: Blob): Promise<string> {
 
     return result.transcript.trim();
   } catch (error) {
-    throw error;
+    console.error("❌ Whisper 语音识别失败:", error);
+    // 提示用户使用浏览器语音识别作为替代
+    throw new Error(
+      '本地语音识别不可用。请在配置中切换到"浏览器语音识别"，或使用文字输入。'
+    );
   }
 }
 

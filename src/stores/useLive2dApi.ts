@@ -32,7 +32,7 @@ type API = {
 	setIsFullScreen: (isFullScreen: boolean) => Promise<void>
 }
 
-const DAFAULT_BACKGROUND = '/back.png'
+const DAFAULT_BACKGROUND = './back.png'
 
 const background = (await get('background_image')) || DAFAULT_BACKGROUND
 const localLive2d = await get('default_live2d')

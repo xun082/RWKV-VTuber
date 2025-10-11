@@ -88,7 +88,9 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}-Setup.${ext}",
+      "icon": "electron/resources/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
     },
     "linux": {
       "target": [
@@ -105,8 +107,13 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "shortcutName": "RWKV-VTuber",
+      "perMachine": false,
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
       "artifactName": "${productName}-${version}-${arch}-Setup.${ext}"
     }
   },

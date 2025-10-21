@@ -29,6 +29,14 @@ dist-ssr
 dist-web
 public-web
 
-# Whisper models (large binary files)
+# AI Models (large binary files - users should download separately)
+# Whisper models
 electron/models/*.bin
 dist-electron/models/*.bin
+
+# Sherpa-ONNX models
+sherpa/*.onnx
+sherpa/*.txt
+sherpa/.gitkeep
+electron/models/sherpa/*.onnx
+electron/models/sherpa/*.txt

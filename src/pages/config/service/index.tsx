@@ -1,4 +1,12 @@
-import { Info, Mic, RotateCcw, Save, Settings, Volume2 } from "lucide-react";
+import {
+  Info,
+  Mic,
+  RotateCcw,
+  Save,
+  Settings,
+  Volume2,
+  Brain,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "../../../components/ui/badge";
@@ -28,6 +36,7 @@ import {
 import { useResponsive } from "../../../hooks/useResponsive";
 import { useListenApi } from "../../../stores/useListenApi.ts";
 import { useSpeakApi } from "../../../stores/useSpeakApi.ts";
+import { useSherpaConfig } from "../../../stores/useSherpaConfig.ts";
 import {
   DEFAULT_MINIMAX_CONFIG,
   MINIMAX_VOICE_OPTIONS,
@@ -45,7 +54,12 @@ export default function ConfigServicePage() {
   const listenApiList = useListenApi((state) => state.listenApiList);
   const currentListenApi = useListenApi((state) => state.currentListenApi);
 
+  const sherpaConfig = useSherpaConfig((state) => state.config);
+  const setSherpaConfig = useSherpaConfig((state) => state.setConfig);
+  const resetSherpaConfig = useSherpaConfig((state) => state.resetConfig);
+
   const [minimaxConfigModified, setMinimaxConfigModified] = useState(false);
+  const [sherpaConfigModified, setSherpaConfigModified] = useState(false);
 
   // 测试MiniMax连接
   const testMinimaxConnection = async () => {
@@ -527,6 +541,246 @@ export default function ConfigServicePage() {
                     </Select>
                   </div>
                 </div>
+
+                {/* Sherpa-ONNX Configuration (仅在 Electron 环境显示) */}
+                {currentListenApi === "sherpa" && (
+                  <div
+                    className={`border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-blue-50/50 to-purple-50/50 ${
+                      isMobile ? "space-y-4" : "space-y-6"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 pb-2 border-b border-gray-200">
+                      <div
+                        className={`bg-blue-100 rounded-full ${
+                          isMobile ? "p-1.5" : "p-2"
+                        }`}
+                      >
+                        <Brain
+                          className={`text-blue-600 ${
+                            isMobile ? "h-4 w-4" : "h-5 w-5"
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <h3
+                          className={`font-semibold text-gray-800 ${
+                            isMobile ? "text-base" : "text-lg"
+                          }`}
+                        >
+                          Sherpa-ONNX 模型配置
+                        </h3>
+                        <p
+                          className={`text-gray-600 ${
+                            isMobile ? "text-xs" : "text-sm"
+                          }`}
+                        >
+                          配置本地语音识别模型路径（需自行下载）
+                        </p>
+                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground hover:text-blue-600 transition-colors ml-auto cursor-pointer" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-semibold mb-1">
+                            Sherpa-ONNX 离线语音识别
+                          </p>
+                          <p className="text-xs mb-2">
+                            请从以下地址下载模型文件：
+                          </p>
+                          <a
+                            href="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-2024-03-09.tar.bz2"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-500 hover:underline block break-all"
+                          >
+                            下载模型 (约70MB)
+                          </a>
+                          <p className="text-xs mt-2">
+                            解压后需要: model.int8.onnx 和 tokens.txt
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-4">
+                        <Label className="text-sm font-semibold">
+                          模型文件路径
+                        </Label>
+                        <Input
+                          type="text"
+                          value={sherpaConfig.modelPath}
+                          onChange={(e) => {
+                            setSherpaConfig({
+                              modelPath: e.target.value,
+                            });
+                            setSherpaConfigModified(true);
+                          }}
+                          placeholder="sherpa/model.int8.onnx"
+                          className={`border-2 focus:border-blue-500 transition-colors ${
+                            isMobile ? "h-10 text-sm" : "h-11"
+                          }`}
+                        />
+                        <p className="text-xs text-gray-500">
+                          模型文件的绝对路径或相对路径
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <Label className="text-sm font-semibold">
+                          词表文件路径
+                        </Label>
+                        <Input
+                          type="text"
+                          value={sherpaConfig.tokensPath}
+                          onChange={(e) => {
+                            setSherpaConfig({
+                              tokensPath: e.target.value,
+                            });
+                            setSherpaConfigModified(true);
+                          }}
+                          placeholder="sherpa/tokens.txt"
+                          className={`border-2 focus:border-blue-500 transition-colors ${
+                            isMobile ? "h-10 text-sm" : "h-11"
+                          }`}
+                        />
+                        <p className="text-xs text-gray-500">
+                          词表文件的绝对路径或相对路径
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <Label className="text-sm font-semibold">
+                          线程数: {sherpaConfig.numThreads}
+                        </Label>
+                        <Slider
+                          value={[sherpaConfig.numThreads]}
+                          min={1}
+                          max={8}
+                          step={1}
+                          color="blue"
+                          variant="gradient"
+                          showLabels
+                          leftLabel={"1"}
+                          rightLabel={"8"}
+                          currentValue={`${sherpaConfig.numThreads}`}
+                          onValueChange={(v) => {
+                            setSherpaConfig({ numThreads: v[0] });
+                            setSherpaConfigModified(true);
+                          }}
+                          onValueCommit={(v) => {
+                            setSherpaConfig({ numThreads: v[0] });
+                            setSherpaConfigModified(true);
+                          }}
+                        />
+                        <p className="text-xs text-gray-500">
+                          推理线程数（建议 2-4）
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <Label className="text-sm font-semibold flex items-center gap-2">
+                          模型类型
+                        </Label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="use-int8-model"
+                            checked={sherpaConfig.useInt8Model}
+                            onChange={(e) => {
+                              const useInt8 = e.target.checked;
+                              setSherpaConfig({
+                                useInt8Model: useInt8,
+                                modelPath: useInt8
+                                  ? "sherpa/model.int8.onnx"
+                                  : "sherpa/model.onnx",
+                              });
+                              setSherpaConfigModified(true);
+                            }}
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label
+                            htmlFor="use-int8-model"
+                            className="text-sm text-gray-700"
+                          >
+                            使用 INT8 量化模型（更快，体积更小）
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 操作按钮 */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
+                      <Button
+                        onClick={async () => {
+                          try {
+                            // 保存配置到本地存储
+                            await setSherpaConfig(sherpaConfig);
+
+                            // 如果在 Electron 环境，通知主进程重新加载配置
+                            const electronAPI = (window as any).electronAPI;
+                            if (electronAPI) {
+                              try {
+                                await electronAPI.invoke(
+                                  "sherpa_reload_config",
+                                  {
+                                    modelPath: sherpaConfig.modelPath,
+                                    tokensPath: sherpaConfig.tokensPath,
+                                    numThreads: sherpaConfig.numThreads,
+                                  }
+                                );
+                                toast.success("Sherpa-ONNX 配置已保存并应用");
+                              } catch (reloadError: any) {
+                                console.error("重新加载配置失败:", reloadError);
+                                toast.warning(
+                                  `配置已保存，但重新加载失败: ${
+                                    reloadError.message || "未知错误"
+                                  }`
+                                );
+                              }
+                            } else {
+                              toast.success("Sherpa-ONNX 配置已保存");
+                            }
+
+                            setSherpaConfigModified(false);
+                          } catch (error) {
+                            console.error("保存配置失败:", error);
+                            toast.error("保存配置失败");
+                          }
+                        }}
+                        disabled={!sherpaConfigModified}
+                        className={`
+                          bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium transition-all duration-200
+                          ${isMobile ? "w-full h-10" : "h-11"} 
+                          ${
+                            !sherpaConfigModified
+                              ? "opacity-50 cursor-not-allowed"
+                              : "cursor-pointer"
+                          }
+                        `}
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        保存配置
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          await resetSherpaConfig();
+                          setSherpaConfigModified(true);
+                          toast.success("Sherpa-ONNX 配置已重置");
+                        }}
+                        className={`
+                          border-2 hover:bg-gray-50 font-medium transition-all duration-200
+                          ${isMobile ? "w-full h-10" : "h-11"} cursor-pointer
+                        `}
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        恢复默认
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TooltipProvider>

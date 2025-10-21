@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell, session } from "electron";
 import * as path from "path";
 import * as fs from "fs/promises";
+import * as fsSync from "fs";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
 // ES 模块中获取 __dirname 和 __filename
@@ -8,14 +9,58 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // 检测是否在开发模式
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
-// 在应用启动前设置动态库路径（必须在 app.whenReady 之前）
-if (!isDev && process.platform === "darwin") {
-    const dylibPath = path.join(process.resourcesPath, "native", "whisper");
-    process.env.DYLD_LIBRARY_PATH =
-        dylibPath +
-            (process.env.DYLD_LIBRARY_PATH ? `:${process.env.DYLD_LIBRARY_PATH}` : "");
-    console.log(`[Electron] 预设置动态库路径: ${dylibPath}`);
-}
+// Sherpa-ONNX 动态库加载 - 特殊处理 macOS SIP 问题
+// macOS SIP 会清除 DYLD_LIBRARY_PATH，所以我们需要使用其他方法
+const setupSherpaOnnxPaths = () => {
+    const platform = process.platform;
+    const arch = process.arch;
+    let platformPackage = "";
+    if (platform === "darwin") {
+        platformPackage =
+            arch === "arm64" ? "sherpa-onnx-darwin-arm64" : "sherpa-onnx-darwin-x64";
+    }
+    else if (platform === "linux") {
+        platformPackage =
+            arch === "arm64" ? "sherpa-onnx-linux-arm64" : "sherpa-onnx-linux-x64";
+    }
+    else if (platform === "win32") {
+        platformPackage =
+            arch === "x64" ? "sherpa-onnx-win-x64" : "sherpa-onnx-win-ia32";
+    }
+    if (!platformPackage) {
+        console.error(`[Electron] ❌ 不支持的平台: ${platform}-${arch}`);
+        return null;
+    }
+    // 尝试多个可能的路径
+    const possibleRoots = [
+        process.cwd(),
+        path.join(__dirname, ".."),
+        path.join(__dirname, "..", ".."),
+        app.getAppPath(),
+    ];
+    for (const root of possibleRoots) {
+        const tryPath = path.join(root, "node_modules", ".pnpm", `${platformPackage}@1.12.14`, "node_modules", platformPackage);
+        if (fsSync.existsSync(tryPath)) {
+            console.log(`[Electron] ✅ 找到 Sherpa-ONNX 库: ${tryPath}`);
+            // Windows: 直接设置 PATH
+            if (platform === "win32") {
+                process.env.PATH = `${tryPath};${process.env.PATH || ""}`;
+                return tryPath;
+            }
+            // Linux: 设置 LD_LIBRARY_PATH
+            if (platform === "linux") {
+                process.env.LD_LIBRARY_PATH = `${tryPath}:${process.env.LD_LIBRARY_PATH || ""}`;
+                return tryPath;
+            }
+            // macOS: 直接返回路径，稍后手动加载
+            return tryPath;
+        }
+    }
+    console.error(`[Electron] ❌ 找不到 Sherpa-ONNX 库`);
+    return null;
+};
+const sherpaLibPath = setupSherpaOnnxPaths();
+console.log(`[Electron] 平台: ${process.platform}, 架构: ${process.arch}`);
 // 设置命令行参数以优化语音识别和性能
 // 关键：确保 Web Speech API 能正常工作
 app.commandLine.appendSwitch("--enable-speech-input");
@@ -266,147 +311,237 @@ ipcMain.handle("minimax_tts", async (_event, params) => {
         throw error;
     }
 });
-// 加载 Whisper 原生模块（使用 createRequire 支持 ES 模块）
+// 加载 Sherpa-ONNX 原生模块
 const require = createRequire(import.meta.url);
-let whisperModule = null;
-// 获取正确的资源路径（开发环境 vs 生产环境）
-const resourcesPath = isDev
-    ? path.join(__dirname, "..")
-    : process.resourcesPath;
-try {
-    // 尝试多个可能的路径
-    const possiblePaths = isDev
-        ? [path.join(__dirname, "native", "whisper", "addon.node")]
-        : [
-            // 标准 extraResources 路径（最优先）
-            path.join(process.resourcesPath, "native", "whisper", "addon.node"),
-            // 打包后从 asar.unpacked 中加载
-            path.join(process.resourcesPath, "app.asar.unpacked", "dist-electron", "native", "whisper", "addon.node"),
-            // 备用路径
-            path.join(resourcesPath, "native", "whisper", "addon.node"),
+let sherpa_onnx = null;
+let recognizer = null;
+// macOS 特殊处理：手动预加载动态库
+if (process.platform === "darwin" && sherpaLibPath) {
+    try {
+        console.log("[Electron] macOS 检测到，尝试预加载动态库...");
+        // 使用 process.dlopen 手动加载 dylib
+        const dylibs = [
+            "libsherpa-onnx-core.dylib",
+            "libonnxruntime.1.17.1.dylib",
+            "libsherpa-onnx-c-api.dylib",
         ];
-    console.log(`[Electron] 尝试加载 Whisper 原生模块...`);
-    console.log(`[Electron] 开发模式: ${isDev}`);
-    console.log(`[Electron] 资源路径: ${resourcesPath}`);
-    console.log(`[Electron] process.resourcesPath: ${process.resourcesPath}`);
-    console.log(`[Electron] __dirname: ${__dirname}`);
-    let addonPath = null;
-    for (const testPath of possiblePaths) {
-        console.log(`[Electron] 尝试路径: ${testPath}`);
-        if (require("fs").existsSync(testPath)) {
-            addonPath = testPath;
-            console.log(`[Electron] ✅ 找到文件: ${testPath}`);
-            break;
-        }
-        else {
-            console.log(`[Electron] ❌ 文件不存在: ${testPath}`);
-        }
-    }
-    if (!addonPath) {
-        throw new Error("找不到 Whisper 原生模块文件");
-    }
-    // 设置动态库搜索路径（macOS）
-    const dylibPath = path.dirname(addonPath);
-    console.log(`[Electron] 设置动态库路径: ${dylibPath}`);
-    // 设置环境变量，让 dyld 能找到 .dylib 文件
-    if (process.platform === "darwin") {
-        process.env.DYLD_LIBRARY_PATH =
-            dylibPath +
-                (process.env.DYLD_LIBRARY_PATH
-                    ? `:${process.env.DYLD_LIBRARY_PATH}`
-                    : "");
-        console.log(`[Electron] DYLD_LIBRARY_PATH: ${process.env.DYLD_LIBRARY_PATH}`);
-    }
-    // 在 require 前再次确认环境变量和路径
-    console.log(`[Electron] 即将加载: ${addonPath}`);
-    console.log(`[Electron] 当前 DYLD_LIBRARY_PATH: ${process.env.DYLD_LIBRARY_PATH}`);
-    // 确保所有 dylib 文件都存在
-    const dylibFiles = require("fs").readdirSync(path.dirname(addonPath));
-    console.log(`[Electron] 同目录文件列表: ${dylibFiles.join(", ")}`);
-    // 检查 rpath 设置（调试用）
-    try {
-        const { execSync } = require("child_process");
-        const rpathOutput = execSync(`otool -l "${addonPath}" | grep -A 3 "LC_RPATH"`, { encoding: "utf-8" });
-        console.log(`[Electron] addon.node的rpath:\n${rpathOutput}`);
-    }
-    catch (e) {
-        console.log(`[Electron] 无法检查rpath: ${e}`);
-    }
-    whisperModule = require(addonPath);
-    console.log("[Electron] ✅ Whisper 原生模块加载成功");
-    console.log("[Electron] 可用方法:", Object.keys(whisperModule));
-}
-catch (error) {
-    console.error("[Electron] ❌ 无法加载 Whisper 原生模块:", error);
-    console.log("[Electron] 💡 提示: 请确保 addon.node 和相关 .dylib 文件已正确打包");
-}
-ipcMain.handle("whisper_transcribe", async (_event, args) => {
-    try {
-        if (!whisperModule || !whisperModule.whisper) {
-            console.error("[Electron] ❌ Whisper 模块未加载");
-            console.log("[Electron] 💡 语音识别功能不可用，请使用其他输入方式");
-            throw new Error("Whisper 语音识别模块未加载。该功能当前不可用，请使用文字输入。");
-        }
-        // 将音频数据写入临时文件
-        const tmpDir = app.getPath("temp");
-        const audioPath = path.join(tmpDir, `whisper-${Date.now()}.wav`);
-        await fs.writeFile(audioPath, Buffer.from(args.audioData));
-        // 模型文件路径（中文多语言模型）
-        const modelPossiblePaths = isDev
-            ? [path.join(__dirname, "models", "ggml-small.bin")]
-            : [
-                // 标准 extraResources 路径（最优先）
-                path.join(process.resourcesPath, "models", "ggml-small.bin"),
-                // 打包后从 asar.unpacked 中加载
-                path.join(process.resourcesPath, "app.asar.unpacked", "dist-electron", "models", "ggml-small.bin"),
-                // 备用路径
-                path.join(resourcesPath, "models", "ggml-small.bin"),
-            ];
-        let modelPath = null;
-        for (const testPath of modelPossiblePaths) {
-            if (require("fs").existsSync(testPath)) {
-                modelPath = testPath;
-                console.log(`[Electron] ✅ 找到模型文件: ${testPath}`);
-                break;
+        for (const lib of dylibs) {
+            const libPath = path.join(sherpaLibPath, "lib", lib);
+            if (fsSync.existsSync(libPath)) {
+                try {
+                    // 使用 ffi-napi 或直接 dlopen
+                    const module = { exports: {} };
+                    process.dlopen(module, libPath);
+                    console.log(`[Electron] ✅ 预加载: ${lib}`);
+                }
+                catch (e) {
+                    console.log(`[Electron] ⚠️  跳过: ${lib} (${e.message})`);
+                }
             }
         }
-        if (!modelPath) {
-            throw new Error("找不到 Whisper 模型文件 (ggml-small.bin)");
+    }
+    catch (e) {
+        console.log(`[Electron] ⚠️  预加载失败: ${e.message}`);
+    }
+}
+try {
+    console.log(`[Electron] 尝试加载 Sherpa-ONNX 语音识别模块...`);
+    console.log(`[Electron] 开发模式: ${isDev}`);
+    console.log(`[Electron] 当前工作目录: ${process.cwd()}`);
+    if (sherpaLibPath) {
+        console.log(`[Electron] Sherpa 库路径: ${sherpaLibPath}`);
+    }
+    // 尝试加载模块
+    try {
+        sherpa_onnx = require("sherpa-onnx-node");
+        console.log("[Electron] ✅ Sherpa-ONNX 模块加载成功");
+        console.log(`[Electron] Sherpa-ONNX 版本: ${sherpa_onnx.version || "未知"}`);
+    }
+    catch (requireError) {
+        console.error("[Electron] ❌ require 失败:", requireError.message);
+        // macOS 特殊处理：尝试直接加载 .node 文件
+        if (process.platform === "darwin" && sherpaLibPath) {
+            try {
+                console.log("[Electron] 尝试直接加载 .node 文件...");
+                const nodeFile = path.join(sherpaLibPath, "sherpa-onnx.node");
+                if (fsSync.existsSync(nodeFile)) {
+                    sherpa_onnx = require(nodeFile);
+                    console.log("[Electron] ✅ 直接加载成功");
+                }
+                else {
+                    console.error(`[Electron] ❌ .node 文件不存在: ${nodeFile}`);
+                    sherpa_onnx = null;
+                }
+            }
+            catch (directError) {
+                console.error("[Electron] ❌ 直接加载失败:", directError.message);
+                sherpa_onnx = null;
+            }
         }
-        // 使用原生模块进行转录
-        const { promisify } = await import("util");
-        const whisperAsync = promisify(whisperModule.whisper);
-        const result = await whisperAsync({
-            language: args.language || "zh",
-            model: modelPath,
-            fname_inp: audioPath,
-            use_gpu: false,
-        });
-        // 清理临时文件
-        try {
-            await fs.unlink(audioPath);
+        else {
+            sherpa_onnx = null;
         }
-        catch (cleanupError) {
-            // 忽略清理错误
+    }
+    // 默认模型路径
+    const defaultModelFile = path.join(process.cwd(), "sherpa", "model.int8.onnx");
+    const defaultTokensFile = path.join(process.cwd(), "sherpa", "tokens.txt");
+    console.log(`[Electron] 默认模型文件路径: ${defaultModelFile}`);
+    console.log(`[Electron] 默认词表文件路径: ${defaultTokensFile}`);
+    // 检查默认模型文件是否存在
+    if (fsSync.existsSync(defaultModelFile) &&
+        fsSync.existsSync(defaultTokensFile)) {
+        console.log("[Electron] ✅ 找到默认模型文件");
+        // 配置 Paraformer 离线识别器
+        const config = {
+            featConfig: {
+                sampleRate: 16000,
+                featureDim: 80,
+            },
+            modelConfig: {
+                paraformer: {
+                    model: defaultModelFile,
+                },
+                tokens: defaultTokensFile,
+                numThreads: 2,
+                provider: "cpu",
+                debug: 0,
+                modelType: "paraformer",
+            },
+        };
+        console.log("[Electron] 正在初始化识别器...");
+        recognizer = new sherpa_onnx.OfflineRecognizer(config);
+        console.log("[Electron] ✅ Sherpa-ONNX 识别器初始化成功");
+        console.log(`[Electron] 平台: ${process.platform}`);
+        console.log(`[Electron] 架构: ${process.arch}`);
+    }
+    else {
+        console.log("[Electron] ⚠️  默认模型文件不存在，将在收到配置后初始化");
+        recognizer = null;
+    }
+    // 最终检查
+    if (!sherpa_onnx) {
+        console.error("[Electron] ❌ Sherpa-ONNX 模块加载失败");
+        if (process.platform === "darwin") {
+            console.log("\n[Electron] 💡 macOS 解决方案：\n" +
+                "   1. 使用启动脚本: ./scripts/start-electron.sh\n" +
+                "   2. 或手动设置环境变量后启动:\n" +
+                '      export DYLD_LIBRARY_PATH="$(pwd)/node_modules/.pnpm/sherpa-onnx-darwin-arm64@1.12.14/node_modules/sherpa-onnx-darwin-arm64:$DYLD_LIBRARY_PATH"\n' +
+                "      npm run electron:dev\n" +
+                "   3. 或切换到浏览器语音识别\n");
         }
-        // 提取转录文本
-        let transcript = "";
-        if (typeof result === "string") {
-            transcript = result;
+        else if (process.platform === "win32") {
+            console.log("\n[Electron] 💡 Windows 解决方案：\n" +
+                "   1. 确保已安装依赖: pnpm install\n" +
+                "   2. Windows 通常可以自动加载 DLL，如果失败请检查 PATH\n");
         }
-        else if (result?.text) {
-            transcript = result.text;
+        else {
+            console.log("\n[Electron] 💡 Linux 解决方案：\n" +
+                "   1. 确保已安装依赖: pnpm install\n" +
+                "   2. 设置 LD_LIBRARY_PATH 后启动\n");
         }
-        else if (result?.transcription && Array.isArray(result.transcription)) {
-            transcript = result.transcription
-                .map((item) => (Array.isArray(item) ? item[2] || "" : ""))
-                .join(" ")
-                .trim();
+    }
+    else {
+        console.log("[Electron] ✅ Sherpa-ONNX 完全就绪");
+    }
+}
+catch (error) {
+    console.error("[Electron] ❌ 加载 Sherpa-ONNX 时发生意外错误");
+    console.error(`[Electron] 错误类型: ${error.name}`);
+    console.error(`[Electron] 错误消息: ${error.message}`);
+    if (error.stack) {
+        console.error(`[Electron] 错误堆栈:\n${error.stack}`);
+    }
+    // 重置为 null，防止后续使用
+    sherpa_onnx = null;
+    recognizer = null;
+}
+ipcMain.handle("sherpa_reload_config", async (_event, args) => {
+    try {
+        if (!sherpa_onnx) {
+            throw new Error("Sherpa-ONNX 模块未加载");
         }
-        return { transcript: transcript.trim() };
+        const modelFile = path.resolve(process.cwd(), args.modelPath);
+        const tokensFile = path.resolve(process.cwd(), args.tokensPath);
+        console.log(`[Electron] 重新加载配置...`);
+        console.log(`[Electron] 模型: ${modelFile}`);
+        console.log(`[Electron] 词表: ${tokensFile}`);
+        console.log(`[Electron] 线程数: ${args.numThreads}`);
+        // 验证文件存在
+        if (!fsSync.existsSync(modelFile)) {
+            throw new Error(`模型文件不存在: ${modelFile}`);
+        }
+        if (!fsSync.existsSync(tokensFile)) {
+            throw new Error(`词表文件不存在: ${tokensFile}`);
+        }
+        // 重新创建识别器
+        const config = {
+            featConfig: {
+                sampleRate: 16000,
+                featureDim: 80,
+            },
+            modelConfig: {
+                paraformer: {
+                    model: modelFile,
+                },
+                tokens: tokensFile,
+                numThreads: args.numThreads,
+                provider: "cpu",
+                debug: 0,
+                modelType: "paraformer",
+            },
+        };
+        recognizer = new sherpa_onnx.OfflineRecognizer(config);
+        console.log("[Electron] ✅ Sherpa-ONNX 配置重新加载成功");
+        return { success: true };
     }
     catch (error) {
-        throw new Error(error.message || "Whisper 转录失败");
+        console.error("[Electron] ❌ 重新加载配置失败:", error);
+        throw new Error(error.message || "重新加载配置失败");
+    }
+});
+ipcMain.handle("sherpa_transcribe", async (_event, args) => {
+    try {
+        if (!sherpa_onnx || !recognizer) {
+            console.error("[Electron] ❌ Sherpa-ONNX 模块未加载");
+            throw new Error("Sherpa-ONNX 语音识别模块未加载。请确保模型文件已正确配置。");
+        }
+        console.log(`[Electron] 开始语音识别，音频数据长度: ${args.audioData.length}`);
+        const startTime = Date.now();
+        // 将音频数据转换为 Float32Array
+        // 假设输入是 16-bit PCM，需要转换为 [-1, 1] 范围的浮点数
+        const samples = new Float32Array(args.audioData.length / 2);
+        for (let i = 0; i < samples.length; i++) {
+            // 16-bit PCM: 每个样本占 2 字节
+            const int16 = (args.audioData[i * 2 + 1] << 8) | args.audioData[i * 2];
+            // 转换为有符号整数
+            const signed = int16 > 32767 ? int16 - 65536 : int16;
+            // 归一化到 [-1, 1]
+            samples[i] = signed / 32768.0;
+        }
+        console.log(`[Electron] 音频样本数: ${samples.length}, 时长: ${(samples.length / 16000).toFixed(2)}秒`);
+        // 创建识别流
+        const stream = recognizer.createStream();
+        // 提交音频数据
+        stream.acceptWaveform({
+            sampleRate: 16000,
+            samples: samples,
+        });
+        // 执行识别
+        recognizer.decode(stream);
+        const result = recognizer.getResult(stream);
+        const elapsed = Date.now() - startTime;
+        const duration = samples.length / 16000;
+        const rtf = elapsed / 1000 / duration;
+        console.log(`[Electron] ✅ 识别完成`);
+        console.log(`[Electron]   - 识别结果: ${result.text}`);
+        console.log(`[Electron]   - 音频时长: ${duration.toFixed(2)}秒`);
+        console.log(`[Electron]   - 处理时间: ${(elapsed / 1000).toFixed(2)}秒`);
+        console.log(`[Electron]   - 实时率(RTF): ${rtf.toFixed(3)}`);
+        return { transcript: result.text.trim() };
+    }
+    catch (error) {
+        console.error("[Electron] ❌ Sherpa-ONNX 识别失败:", error);
+        throw new Error(error.message || "语音识别失败");
     }
 });
 // 优雅退出

@@ -1,0 +1,5 @@
+# Sherpa-ONNX Paraformer 模型文件
+# 请将以下文件放置在此目录：
+# - model.onnx (或 model.int8.onnx)
+# - tokens.txt
+

@@ -98,6 +98,15 @@ importers:
       react-router-dom:
         specifier: ^7.8.2
         version: 7.9.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      sherpa-onnx-darwin-arm64:
+        specifier: 1.12.14
+        version: 1.12.14
+      sherpa-onnx-node:
+        specifier: ^1.12.14
+        version: 1.12.14
+      sherpa-onnx-win-x64:
+        specifier: 1.12.14
+        version: 1.12.14
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -498,8 +507,8 @@ packages:
     resolution: {integrity: sha512-Qkzpg2s9GnVV2I2BjRksUi43U5e6+zaQMcjoJy0C+C5oxaKl+fmckGDQFtRpZpZV0NQekuZZ+tGz7EA9TVnQtQ==}
     engines: {node: '>=12'}
 
-  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {commit: 06b29aafb7708acef8b3669835c8a7857ebc92d2, repo: git@github.com:electron/node-gyp.git, type: git}
+  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
+    resolution: {tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -3867,6 +3876,38 @@ packages:
     resolution: {integrity: sha512-ObmnIF4hXNg1BqhnHmgbDETF8dLPCggZWBjkQfhZpbszZnYur5DUljTcCHii5LC3J5E0yeO/1LIMyH+UvHQgyw==}
     engines: {node: '>= 0.4'}
 
+  sherpa-onnx-darwin-arm64@1.12.14:
+    resolution: {integrity: sha512-C0ZooPBl4u8SGxt2tx7lvQKpupsfgIBML+9LH+GE44IEhEHn3XLl6D3frEGSnzGnftFAErFtHHKOE+6mOiczjw==}
+    os: [darwin]
+
+  sherpa-onnx-darwin-x64@1.12.14:
+    resolution: {integrity: sha512-Z5TmWvZrIAq1jzqWpY19TkXDZ1Dqr8QMtXa+TLeSQmKZSfk2uBbFdKAKs8ZeWq4XX7+LY0SN0/BHE0mORNYDzQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  sherpa-onnx-linux-arm64@1.12.14:
+    resolution: {integrity: sha512-cjijdVB2+k2Hj8RplpCI5xCiP2QFCdMVTUrvK4Di4zfN5485ZeZIiJn8eB5X3YUyKQbKTjYOtbgSHcTNo2cQJA==}
+    cpu: [arm64]
+    os: [linux]
+
+  sherpa-onnx-linux-x64@1.12.14:
+    resolution: {integrity: sha512-rU5H5LlIskfe7QSd0jOwtgux+WJggB5HJ/ykqoGavPGl7Br3VQXGFdv55f06zmCXupzPRZAaeOtRL6su7gLhaA==}
+    cpu: [x64]
+    os: [linux]
+
+  sherpa-onnx-node@1.12.14:
+    resolution: {integrity: sha512-n4IRhKq9goWZskPa30o+aomeLgxhdiUpfBBWCnwSttiN5RwNB0IsbJz2Lr+Kv4GMs16r9dWVhtjEpSnYIDY27Q==}
+
+  sherpa-onnx-win-ia32@1.12.14:
+    resolution: {integrity: sha512-xtmK4B1yNbXbBFxJJx5u/Zir3ZX6AB7Nk+4HLu9g2tpD29FAAuBROXeAzhD8C9CuE0R5t6jR9flJOhdqwHOmDw==}
+    cpu: [ia32]
+    os: [win32]
+
+  sherpa-onnx-win-x64@1.12.14:
+    resolution: {integrity: sha512-RvzTPOrUs9SWRG2jv+csoNzrVLHsNZTLaMRdEabIkSgywz486VkIirIktyLBHs+NBULrbahDQFg1ulP8iF0zGA==}
+    cpu: [x64]
+    os: [win32]
+
   signal-exit@3.0.7:
     resolution: {integrity: sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==}
 
@@ -5027,7 +5068,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
+  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
     dependencies:
       env-paths: 2.2.1
       exponential-backoff: 3.1.2
@@ -5064,7 +5105,7 @@ snapshots:
 
   '@electron/rebuild@3.7.0':
     dependencies:
-      '@electron/node-gyp': git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2
+      '@electron/node-gyp': https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2
       '@malept/cross-spawn-promise': 2.0.0
       chalk: 4.1.2
       debug: 4.4.3
@@ -8747,6 +8788,31 @@ snapshots:
   shebang-regex@3.0.0: {}
 
   shell-quote@1.8.3: {}
+
+  sherpa-onnx-darwin-arm64@1.12.14: {}
+
+  sherpa-onnx-darwin-x64@1.12.14:
+    optional: true
+
+  sherpa-onnx-linux-arm64@1.12.14:
+    optional: true
+
+  sherpa-onnx-linux-x64@1.12.14:
+    optional: true
+
+  sherpa-onnx-node@1.12.14:
+    optionalDependencies:
+      sherpa-onnx-darwin-arm64: 1.12.14
+      sherpa-onnx-darwin-x64: 1.12.14
+      sherpa-onnx-linux-arm64: 1.12.14
+      sherpa-onnx-linux-x64: 1.12.14
+      sherpa-onnx-win-ia32: 1.12.14
+      sherpa-onnx-win-x64: 1.12.14
+
+  sherpa-onnx-win-ia32@1.12.14:
+    optional: true
+
+  sherpa-onnx-win-x64@1.12.14: {}
 
   signal-exit@3.0.7: {}
 

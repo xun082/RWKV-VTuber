@@ -14,9 +14,8 @@
     "release:create": "commit-and-tag-version",
     "release:push": "git push --follow-tags",
     "switch:web": "tsx ./scripts/switch-to-web.ts",
-    "electron:copy-native": "mkdir -p dist-electron/native/whisper dist-electron/models && cp -r electron/native/whisper/* dist-electron/native/whisper/ && cp -r electron/models/* dist-electron/models/",
-    "electron:compile": "tsc -p electron/tsconfig.json && npm run electron:copy-native",
-    "electron:dev": "npm run electron:compile && concurrently \"cross-env NODE_ENV=development npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "electron:compile": "tsc -p electron/tsconfig.json",
+    "electron:dev": "npm run electron:compile && concurrently \"cross-env NODE_ENV=development npm run dev\" \"wait-on http://localhost:5173 && cross-env DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:./node_modules/.pnpm/sherpa-onnx-darwin-arm64@1.12.14/node_modules/sherpa-onnx-darwin-arm64 electron .\"",
     "electron:build": "npm run electron:compile && npm run build && electron-builder",
     "electron:build:mac": "npm run electron:compile && npm run build && electron-builder --mac --arm64",
     "electron:build:win": "npm run electron:compile && npm run build && electron-builder --win",
@@ -30,7 +29,6 @@
     "appId": "com.leafyee.rwkv-vtuber",
     "productName": "RWKV-VTuber",
     "copyright": "Copyright © 2024 leafyee.xyz",
-    "afterPack": "./scripts/fix-dylib.mjs",
     "directories": {
       "output": "dist",
       "buildResources": "electron/resources"
@@ -40,26 +38,10 @@
       "dist-electron/main.js",
       "dist-electron/preload.js",
       "!dist-electron/models/**/*",
-      "!dist-electron/native/**/*",
       "!electron/**/*",
       "!**/.DS_Store"
     ],
-    "extraResources": [
-      {
-        "from": "dist-electron/native",
-        "to": "native",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "dist-electron/models",
-        "to": "models",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
+    "extraResources": [],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -76,10 +58,7 @@
       "gatekeeperAssess": false,
       "entitlements": null,
       "entitlementsInherit": null,
-      "asarUnpack": [
-        "**/*.node",
-        "**/*.bin"
-      ]
+      "asarUnpack": []
     },
     "win": {
       "target": [
@@ -93,12 +72,7 @@
       "artifactName": "${productName}-${version}-${arch}-Setup.${ext}",
       "icon": "electron/resources/icon.ico",
       "requestedExecutionLevel": "asInvoker",
-      "asarUnpack": [
-        "**/*.node",
-        "**/*.bin",
-        "**/*.dylib",
-        "**/*.dll"
-      ]
+      "asarUnpack": []
     },
     "linux": {
       "target": [
@@ -176,6 +150,9 @@
     "react-dom": "^19.0.0",
     "react-resizable-panels": "^3.0.5",
     "react-router-dom": "^7.8.2",
+    "sherpa-onnx-darwin-arm64": "1.12.14",
+    "sherpa-onnx-win-x64": "1.12.14",
+    "sherpa-onnx-node": "^1.12.14",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "uuid": "^13.0.0",

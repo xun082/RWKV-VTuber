@@ -1,5 +1,5 @@
-// Electron 专用的 Whisper 语音识别
-// 使用本地 Whisper 模型
+// Electron 专用的 Sherpa-ONNX Paraformer 语音识别
+// 使用本地 Sherpa-ONNX 模型
 
 export type ListenApi = (callback?: (text: string) => void) => {
   result: Promise<string>;
@@ -46,7 +46,7 @@ function createWavBlob(samples: Float32Array, sampleRate: number): Blob {
 }
 
 // 使用 AudioContext 录制原始音频（16kHz 单声道 PCM）
-const listen_whisper: ListenApi = (callback) => {
+const listen_sherpa: ListenApi = (callback) => {
   let audioContext: AudioContext | null = null;
   let mediaStreamSource: MediaStreamAudioSourceNode | null = null;
   let scriptProcessor: ScriptProcessorNode | null = null;
@@ -79,8 +79,8 @@ const listen_whisper: ListenApi = (callback) => {
       // 转换为 16kHz 单声道 WAV
       const wavBlob = createWavBlob(combinedBuffer, 16000);
 
-      // 调用 Whisper
-      const transcript = await transcribeWithWhisper(wavBlob);
+      // 调用 Sherpa-ONNX
+      const transcript = await transcribeWithSherpa(wavBlob);
 
       if (callback && transcript.trim()) {
         callback(transcript);
@@ -158,8 +158,8 @@ const listen_whisper: ListenApi = (callback) => {
   };
 };
 
-// 调用本地 Whisper 进行转录
-async function transcribeWithWhisper(audioBlob: Blob): Promise<string> {
+// 调用本地 Sherpa-ONNX 进行转录
+async function transcribeWithSherpa(audioBlob: Blob): Promise<string> {
   try {
     const arrayBuffer = await audioBlob.arrayBuffer();
     const audioData = Array.from(new Uint8Array(arrayBuffer));
@@ -169,19 +169,18 @@ async function transcribeWithWhisper(audioBlob: Blob): Promise<string> {
       throw new Error("Electron API 未就绪");
     }
 
-    const result = await electronAPI.invoke("whisper_transcribe", {
+    const result = await electronAPI.invoke("sherpa_transcribe", {
       audioData,
       language: "zh",
     });
 
     if (!result || !result.transcript) {
-      throw new Error("Whisper 未返回转录结果");
+      throw new Error("Sherpa-ONNX 未返回转录结果");
     }
 
     return result.transcript.trim();
   } catch (error) {
-    console.error("❌ Whisper 语音识别失败:", error);
-    // 提示用户使用浏览器语音识别作为替代
+    console.error("❌ Sherpa-ONNX 语音识别失败:", error);
     throw new Error(
       '本地语音识别不可用。请在配置中切换到"浏览器语音识别"，或使用文字输入。'
     );
@@ -189,7 +188,7 @@ async function transcribeWithWhisper(audioBlob: Blob): Promise<string> {
 }
 
 // 测试函数
-const test_whisper: ListenApiTest = async () => {
+const test_sherpa: ListenApiTest = async () => {
   try {
     const electronAPI = (window as any).electronAPI;
     if (!electronAPI) {
@@ -214,10 +213,10 @@ export const listenApiList: Array<{
   };
 }> = [
   {
-    name: "whisper",
+    name: "sherpa",
     api: (_params: undefined) => ({
-      api: listen_whisper,
-      test: test_whisper,
+      api: listen_sherpa,
+      test: test_sherpa,
     }),
   },
 ];

@@ -40,3 +40,6 @@ sherpa/*.txt
 sherpa/.gitkeep
 electron/models/sherpa/*.onnx
 electron/models/sherpa/*.txt
+dist-electron/models/sherpa/*.onnx
+dist-electron/models/sherpa/*.txt
+dist-electron/sherpa-loader.js

@@ -543,7 +543,8 @@ try {
     }
   };
 
-  const { modelFile: defaultModelFile, tokensFile: defaultTokensFile } = getModelPath();
+  const { modelFile: defaultModelFile, tokensFile: defaultTokensFile } =
+    getModelPath();
 
   console.log(`[Electron] 默认模型文件路径: ${defaultModelFile}`);
   console.log(`[Electron] 默认词表文件路径: ${defaultTokensFile}`);

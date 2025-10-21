@@ -2,6 +2,8 @@
   "name": "rwkv-vtuber",
   "private": true,
   "version": "1.0.0",
+  "description": "RWKV-VTuber is an AI-powered virtual tuber application with Live2D integration",
+  "author": "leafyee.xyz",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -29,6 +31,7 @@
     "appId": "com.leafyee.rwkv-vtuber",
     "productName": "RWKV-VTuber",
     "copyright": "Copyright © 2024 leafyee.xyz",
+    "publish": null,
     "directories": {
       "output": "dist",
       "buildResources": "electron/resources"

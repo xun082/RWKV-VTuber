@@ -9,6 +9,28 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return ipcRenderer.invoke(cmd, args);
   },
 
+  // IPC 事件监听
+  on: (channel: string, callback: (...args: any[]) => void) => {
+    // 只允许特定的频道
+    const validChannels = ["download_progress"];
+    if (validChannels.includes(channel)) {
+      // 包装回调以移除 event 参数
+      const subscription = (_event: any, ...args: any[]) => callback(...args);
+      ipcRenderer.on(channel, subscription);
+
+      // 返回取消监听的函数
+      return () => {
+        ipcRenderer.removeListener(channel, subscription);
+      };
+    }
+    return () => {};
+  },
+
+  // 移除所有监听器
+  removeAllListeners: (channel: string) => {
+    ipcRenderer.removeAllListeners(channel);
+  },
+
   // 平台信息
   platform: process.platform,
   versions: process.versions,

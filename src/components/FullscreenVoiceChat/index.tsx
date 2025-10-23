@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import { useChatOperations } from "../../hooks/useChatOperations";
 import { useChatSession } from "../../stores/useChatSession";
 import { useListenApi } from "../../stores/useListenApi";
+import { useSpeakApi } from "../../stores/useSpeakApi";
 import { useLive2dApi } from "../../stores/useLive2dApi";
 import { useLive2dTextProcessor } from "../../hooks/useLive2dTextProcessor";
-import { speak_minimax } from "../../lib/api/shared/api.minimax-tts";
 
 export function FullscreenVoiceChat() {
   const { setIsFullScreen } = useLive2dApi();
@@ -49,6 +49,7 @@ export function FullscreenVoiceChat() {
   });
 
   const { listen } = useListenApi();
+  const { speak, currentSpeakApi } = useSpeakApi();
 
   // 监控会话状态变化
   useEffect(() => {
@@ -129,7 +130,14 @@ export function FullscreenVoiceChat() {
     async (text: string) => {
       try {
         setIsSpeaking(true);
-        console.log("开始语音合成:", text);
+        console.log(`[全屏模式] 开始语音合成 (使用 ${currentSpeakApi}):`, text);
+
+        // 检查 TTS 服务是否可用
+        if (!speak || currentSpeakApi === "关闭") {
+          console.warn("[全屏模式] TTS 服务未启用");
+          setIsSpeaking(false);
+          return;
+        }
 
         // 同时启动Live2D口型同步
         processSentenceSync(text, {
@@ -138,23 +146,24 @@ export function FullscreenVoiceChat() {
           speed: 75,
         });
 
-        // 语音合成
-        const result = await speak_minimax(text);
+        // 使用当前配置的 TTS 服务
+        const result = await speak(text);
 
-        if (result.audio.length > 0) {
+        if (result && result.audio && result.audio.length > 0) {
           await playAudioData(result.audio);
+          console.log("[全屏模式] 语音播放完成");
         }
 
         setIsSpeaking(false);
       } catch (error) {
-        console.error("语音合成失败:", error);
+        console.error("[全屏模式] 语音合成失败:", error);
         setIsSpeaking(false);
         toast.error(
           `语音合成失败: ${error instanceof Error ? error.message : "未知错误"}`
         );
       }
     },
-    [processSentenceSync]
+    [speak, currentSpeakApi, processSentenceSync]
   );
 
   // 监听消息变化，检测AI回复完成（现在是即时的）

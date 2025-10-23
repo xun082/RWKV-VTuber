@@ -45,6 +45,34 @@ function createWavBlob(samples: Float32Array, sampleRate: number): Blob {
   return new Blob([buffer], { type: "audio/wav" });
 }
 
+// 重采样函数（从源采样率转换到 16kHz）
+function resampleTo16kHz(
+  samples: Float32Array,
+  sourceSampleRate: number
+): Float32Array {
+  if (sourceSampleRate === 16000) {
+    return samples;
+  }
+
+  const ratio = sourceSampleRate / 16000;
+  const targetLength = Math.floor(samples.length / ratio);
+  const resampled = new Float32Array(targetLength);
+
+  for (let i = 0; i < targetLength; i++) {
+    const srcIndex = i * ratio;
+    const srcIndexFloor = Math.floor(srcIndex);
+    const srcIndexCeil = Math.min(srcIndexFloor + 1, samples.length - 1);
+    const fraction = srcIndex - srcIndexFloor;
+
+    // 线性插值
+    resampled[i] =
+      samples[srcIndexFloor] * (1 - fraction) +
+      samples[srcIndexCeil] * fraction;
+  }
+
+  return resampled;
+}
+
 // 使用 AudioContext 录制原始音频（16kHz 单声道 PCM）
 const listen_sherpa: ListenApi = (callback) => {
   let audioContext: AudioContext | null = null;
@@ -53,6 +81,7 @@ const listen_sherpa: ListenApi = (callback) => {
   let stream: MediaStream | null = null;
   let isRecording = false;
   let audioBuffers: Float32Array[] = [];
+  let actualSampleRate = 16000; // 实际的采样率
 
   const { promise, resolve, reject } = Promise.withResolvers<string>();
 
@@ -76,8 +105,20 @@ const listen_sherpa: ListenApi = (callback) => {
         offset += buf.length;
       }
 
+      console.log(
+        `[ASR] 原始音频: ${combinedBuffer.length} 采样点, 采样率: ${actualSampleRate}Hz`
+      );
+
+      // 重采样到 16kHz（如果需要）
+      const resampled = resampleTo16kHz(combinedBuffer, actualSampleRate);
+      console.log(
+        `[ASR] 重采样后: ${resampled.length} 采样点, 时长: ${(
+          resampled.length / 16000
+        ).toFixed(2)}s`
+      );
+
       // 转换为 16kHz 单声道 WAV
-      const wavBlob = createWavBlob(combinedBuffer, 16000);
+      const wavBlob = createWavBlob(resampled, 16000);
 
       // 调用 Sherpa-ONNX
       const transcript = await transcribeWithSherpa(wavBlob);
@@ -115,18 +156,27 @@ const listen_sherpa: ListenApi = (callback) => {
     result: promise,
     start: async () => {
       try {
-        // 获取麦克风权限（16kHz 单声道）
+        // 获取麦克风权限（尝试 16kHz，如果失败则使用默认采样率）
         stream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            sampleRate: 16000,
             channelCount: 1,
             echoCancellation: true,
             noiseSuppression: true,
+            autoGainControl: true,
           },
         });
 
-        // 创建 AudioContext（16kHz）
-        audioContext = new AudioContext({ sampleRate: 16000 });
+        // 创建 AudioContext（尝试 16kHz，fallback 到默认）
+        try {
+          audioContext = new AudioContext({ sampleRate: 16000 });
+        } catch {
+          // 某些平台不支持自定义采样率，使用默认
+          audioContext = new AudioContext();
+        }
+
+        actualSampleRate = audioContext.sampleRate;
+        console.log(`[ASR] AudioContext 采样率: ${actualSampleRate}Hz`);
+
         mediaStreamSource = audioContext.createMediaStreamSource(stream);
 
         // 创建 ScriptProcessor 收集音频数据
@@ -148,7 +198,9 @@ const listen_sherpa: ListenApi = (callback) => {
 
         audioBuffers = [];
         isRecording = true;
+        console.log("[ASR] 开始录音...");
       } catch (error) {
+        console.error("[ASR] 录音启动失败:", error);
         reject(error);
       }
     },

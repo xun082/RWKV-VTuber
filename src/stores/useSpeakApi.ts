@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { get, set, speakApiList } from "../lib/utils.ts";
 import type { MinimaxTTSConfig } from "../lib/api/shared/api.minimax-tts";
 import { DEFAULT_MINIMAX_CONFIG } from "../lib/api/shared/api.minimax-tts";
+import type { SherpaTTSConfig } from "./useSherpaTtsConfig";
+import { DEFAULT_SHERPA_TTS_CONFIG } from "./useSherpaTtsConfig";
 
 type API = {
   speak: SpeakApi | null;
@@ -21,11 +23,16 @@ type API = {
 
   minimaxConfig: MinimaxTTSConfig;
   setMinimaxConfig: (config: Partial<MinimaxTTSConfig>) => Promise<void>;
+
+  sherpaTtsConfig: SherpaTTSConfig;
+  setSherpaTtsConfig: (config: Partial<SherpaTTSConfig>) => Promise<void>;
 };
 
 const localSpeakApi = await get("default_speak_api");
 const localMinimaxConfig =
   (await get("minimax_tts_config")) ?? DEFAULT_MINIMAX_CONFIG;
+const localSherpaTtsConfig =
+  (await get("sherpa_tts_config")) ?? DEFAULT_SHERPA_TTS_CONFIG;
 const localAudiosCache = (await get("audios_cache")) ?? [];
 
 const defaultLoad =
@@ -76,5 +83,21 @@ export const useSpeakApi = create<API>()((setState, getState) => ({
       });
     }
     await set("minimax_tts_config", newConfig);
+  },
+  sherpaTtsConfig: localSherpaTtsConfig,
+  setSherpaTtsConfig: async (config) => {
+    const newConfig = { ...getState().sherpaTtsConfig, ...config };
+    const item = speakApiList.find(
+      (api) => api.name === getState().currentSpeakApi
+    );
+    if (item) {
+      const api = item.api?.({});
+      setState({
+        sherpaTtsConfig: newConfig,
+        speak: api?.api || null,
+        testSpeak: api?.test || null,
+      });
+    }
+    await set("sherpa_tts_config", newConfig);
   },
 }));

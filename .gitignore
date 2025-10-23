@@ -1,46 +1,68 @@
-scripts/*.md
-README.pdf
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Logs
-logs
-*.log
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
+# local env files
+.env*.local
+.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
 dist
 dist-electron
-dist-ssr
 *.local
+electron-builder.yml
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Electron directories
+/release/
 
-dist-web
-public-web
+# AI Models - 所有模型文件都不提交到 git
+# TTS 模型目录
+/tts-models/
+matcha-icefall-zh-baker/
+vocos-22khz-univ.onnx
+*.tar.bz2
 
-# AI Models (large binary files - users should download separately)
-# Whisper models
-electron/models/*.bin
-dist-electron/models/*.bin
+# ASR 模型目录
+/asr-models/
+/sherpa/
+/electron/models/
 
-# Sherpa-ONNX models
-sherpa/*.onnx
-sherpa/*.txt
-sherpa/.gitkeep
-electron/models/sherpa/*.onnx
-electron/models/sherpa/*.txt
-dist-electron/models/sherpa/*.onnx
-dist-electron/models/sherpa/*.txt
-dist-electron/sherpa-loader.js
+# 模型文件扩展名
+*.onnx
+*.moc3
+*.bin
+*.pkf
+*.model3.json
+*.cdi3.json
+*.physics3.json
+*.vtube.json
+*.motion3.json

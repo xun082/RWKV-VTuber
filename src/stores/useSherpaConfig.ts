@@ -2,17 +2,17 @@ import { create } from "zustand";
 import { get, set } from "../lib/utils.ts";
 
 export interface SherpaConfig {
-  modelPath: string; // 模型文件路径 (model.int8.onnx)
+  encoderPath: string; // Encoder 模型路径 (encoder.int8.onnx)
+  decoderPath: string; // Decoder 模型路径 (decoder.int8.onnx)
   tokensPath: string; // tokens.txt 路径
-  numThreads: number; // 线程数
-  useInt8Model: boolean; // 是否使用 INT8 量化模型
 }
 
 export const DEFAULT_SHERPA_CONFIG: SherpaConfig = {
-  modelPath: "sherpa/model.int8.onnx",
-  tokensPath: "sherpa/tokens.txt",
-  numThreads: 2,
-  useInt8Model: true,
+  encoderPath:
+    "sherpa-onnx-streaming-paraformer-bilingual-zh-en/encoder.int8.onnx",
+  decoderPath:
+    "sherpa-onnx-streaming-paraformer-bilingual-zh-en/decoder.int8.onnx",
+  tokensPath: "sherpa-onnx-streaming-paraformer-bilingual-zh-en/tokens.txt",
 };
 
 interface SherpaConfigStore {

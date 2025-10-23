@@ -38,8 +38,7 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/main.js",
-      "dist-electron/preload.js",
+      "dist-electron/**/*.js",
       "!dist-electron/models/**/*",
       "!electron/**/*",
       "!**/.DS_Store"
@@ -61,7 +60,9 @@
       "gatekeeperAssess": false,
       "entitlements": null,
       "entitlementsInherit": null,
-      "asarUnpack": []
+      "asarUnpack": [
+        "**/node_modules/sherpa-onnx*/**/*"
+      ]
     },
     "win": {
       "target": [
@@ -75,7 +76,9 @@
       "artifactName": "${productName}-${version}-${arch}-Setup.${ext}",
       "icon": "electron/resources/icon.ico",
       "requestedExecutionLevel": "asInvoker",
-      "asarUnpack": []
+      "asarUnpack": [
+        "**/node_modules/sherpa-onnx*/**/*"
+      ]
     },
     "linux": {
       "target": [
@@ -87,7 +90,10 @@
         }
       ],
       "category": "Utility",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "asarUnpack": [
+        "**/node_modules/sherpa-onnx*/**/*"
+      ]
     },
     "nsis": {
       "oneClick": false,

@@ -22,7 +22,7 @@ export const DEFAULT_SHERPA_TTS_CONFIG: SherpaTTSConfig = {
   tokens: "matcha-icefall-zh-baker/tokens.txt",
   noiseScale: 0.667,
   lengthScale: 1.0,
-  numThreads: 2,
+  numThreads: 1, // 固定为 1 线程，避免性能问题
   speed: 1.0,
   ruleFsts:
     "matcha-icefall-zh-baker/phone.fst,matcha-icefall-zh-baker/date.fst,matcha-icefall-zh-baker/number.fst",

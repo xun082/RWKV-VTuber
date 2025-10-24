@@ -20,22 +20,63 @@ export interface DownloadProgress {
 }
 
 /**
- * 下载文件
+ * 下载文件（增强版：支持超时和重试）
  */
 async function downloadFile(
   url: string,
   destPath: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  retries = 3,
+  timeout = 300000 // 5分钟超时
+): Promise<void> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await downloadFileAttempt(url, destPath, onProgress, timeout);
+      return; // 成功就返回
+    } catch (error: any) {
+      console.error(
+        `[Model] 下载尝试 ${attempt}/${retries} 失败:`,
+        error.message
+      );
+
+      // 最后一次尝试失败就抛出错误
+      if (attempt === retries) {
+        throw new Error(`下载失败（已重试 ${retries} 次）: ${error.message}`);
+      }
+
+      // 等待后重试（指数退避）
+      const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+      console.log(`[Model] ${waitTime}ms 后重试...`);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+      // 删除部分下载的文件
+      try {
+        if (fsSync.existsSync(destPath)) {
+          fsSync.unlinkSync(destPath);
+        }
+      } catch {}
+    }
+  }
+}
+
+/**
+ * 单次下载尝试
+ */
+async function downloadFileAttempt(
+  url: string,
+  destPath: string,
+  onProgress?: (progress: number) => void,
+  timeout = 300000
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith("https") ? https : http;
 
-    protocol.get(url, (response) => {
+    const request = protocol.get(url, (response) => {
       // 处理重定向
       if ([301, 302, 307, 308].includes(response.statusCode || 0)) {
         const redirectUrl = response.headers.location;
         if (redirectUrl) {
-          downloadFile(redirectUrl, destPath, onProgress)
+          downloadFileAttempt(redirectUrl, destPath, onProgress, timeout)
             .then(resolve)
             .catch(reject);
           return;
@@ -49,11 +90,25 @@ async function downloadFile(
 
       const totalSize = parseInt(response.headers["content-length"] || "0", 10);
       let downloadedSize = 0;
+      let lastProgressTime = Date.now();
 
       const fileStream = createWriteStream(destPath);
 
+      // 设置超时检测
+      const timeoutCheck = setInterval(() => {
+        const now = Date.now();
+        // 如果10秒内没有新数据，认为超时
+        if (now - lastProgressTime > 10000) {
+          clearInterval(timeoutCheck);
+          request.destroy();
+          fileStream.destroy();
+          reject(new Error("下载超时：10秒内无数据"));
+        }
+      }, 1000);
+
       response.on("data", (chunk) => {
         downloadedSize += chunk.length;
+        lastProgressTime = Date.now();
         if (totalSize > 0 && onProgress) {
           onProgress((downloadedSize / totalSize) * 100);
         }
@@ -62,14 +117,37 @@ async function downloadFile(
       response.pipe(fileStream);
 
       fileStream.on("finish", () => {
+        clearInterval(timeoutCheck);
         fileStream.close();
         resolve();
       });
 
       fileStream.on("error", (err) => {
-        fsSync.unlinkSync(destPath);
+        clearInterval(timeoutCheck);
+        try {
+          fsSync.unlinkSync(destPath);
+        } catch {}
         reject(err);
       });
+
+      response.on("error", (err) => {
+        clearInterval(timeoutCheck);
+        fileStream.destroy();
+        try {
+          fsSync.unlinkSync(destPath);
+        } catch {}
+        reject(err);
+      });
+    });
+
+    // 设置总超时时间
+    request.setTimeout(timeout, () => {
+      request.destroy();
+      reject(new Error(`下载超时：超过 ${timeout / 1000} 秒`));
+    });
+
+    request.on("error", (err) => {
+      reject(err);
     });
   });
 }

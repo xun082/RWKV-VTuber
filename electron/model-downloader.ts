@@ -27,7 +27,7 @@ async function downloadFile(
   destPath: string,
   onProgress?: (progress: number) => void,
   retries = 3,
-  timeout = 300000 // 5分钟超时
+  timeout = 3600000 // 1小时总超时
 ): Promise<void> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -66,7 +66,7 @@ async function downloadFileAttempt(
   url: string,
   destPath: string,
   onProgress?: (progress: number) => void,
-  timeout = 300000
+  timeout = 3600000 // 1小时总超时
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith("https") ? https : http;
@@ -91,18 +91,53 @@ async function downloadFileAttempt(
       const totalSize = parseInt(response.headers["content-length"] || "0", 10);
       let downloadedSize = 0;
       let lastProgressTime = Date.now();
+      let lastDownloadedSize = 0;
 
       const fileStream = createWriteStream(destPath);
 
-      // 设置超时检测
+      // 设置超时检测（放宽到60秒，适应慢速网络）
       const timeoutCheck = setInterval(() => {
         const now = Date.now();
-        // 如果10秒内没有新数据，认为超时
-        if (now - lastProgressTime > 10000) {
+        const timeSinceLastProgress = now - lastProgressTime;
+
+        // 如果60秒内没有新数据，认为超时
+        if (timeSinceLastProgress > 60000) {
           clearInterval(timeoutCheck);
           request.destroy();
           fileStream.destroy();
-          reject(new Error("下载超时：10秒内无数据"));
+          console.error(
+            `[Model] 数据停滞 ${Math.floor(timeSinceLastProgress / 1000)} 秒`
+          );
+          reject(
+            new Error(
+              `下载停滞：${Math.floor(
+                timeSinceLastProgress / 1000
+              )} 秒内无新数据`
+            )
+          );
+        }
+
+        // 每10秒记录下载速度
+        if (timeSinceLastProgress > 0 && timeSinceLastProgress % 10000 < 1000) {
+          const speed = (
+            (downloadedSize - lastDownloadedSize) /
+            1024 /
+            10
+          ).toFixed(2);
+          const progressPercent =
+            totalSize > 0
+              ? ((downloadedSize / totalSize) * 100).toFixed(1)
+              : "未知";
+          console.log(
+            `[Model] 下载进度: ${progressPercent}% (${(
+              downloadedSize /
+              1024 /
+              1024
+            ).toFixed(2)} MB / ${(totalSize / 1024 / 1024).toFixed(
+              2
+            )} MB) - 速度: ${speed} KB/s`
+          );
+          lastDownloadedSize = downloadedSize;
         }
       }, 1000);
 
@@ -119,6 +154,9 @@ async function downloadFileAttempt(
       fileStream.on("finish", () => {
         clearInterval(timeoutCheck);
         fileStream.close();
+        console.log(
+          `[Model] 下载完成: ${(downloadedSize / 1024 / 1024).toFixed(2)} MB`
+        );
         resolve();
       });
 
@@ -143,7 +181,7 @@ async function downloadFileAttempt(
     // 设置总超时时间
     request.setTimeout(timeout, () => {
       request.destroy();
-      reject(new Error(`下载超时：超过 ${timeout / 1000} 秒`));
+      reject(new Error(`下载总超时：超过 ${timeout / 1000 / 60} 分钟`));
     });
 
     request.on("error", (err) => {

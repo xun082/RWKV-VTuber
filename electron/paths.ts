@@ -47,6 +47,7 @@ export function ensureDir(dirPath: string): void {
 
 /**
  * 解析模型路径（支持相对和绝对路径）
+ * 优先在 TTS/ASR 模型目录中查找
  */
 export function resolveModelPath(
   relativePath: string,
@@ -56,16 +57,24 @@ export function resolveModelPath(
     return relativePath;
   }
 
+  // 优先级：TTS模型目录 -> ASR模型目录 -> 指定的baseDir -> 应用数据目录 -> 当前目录
   const possiblePaths = [
-    path.join(baseDir || process.cwd(), relativePath),
+    path.join(getTTSModelsDir(), relativePath),
+    path.join(getASRModelsDir(), relativePath),
+    baseDir ? path.join(baseDir, relativePath) : null,
     path.join(getAppDataDir(), relativePath),
-  ];
+    path.join(process.cwd(), relativePath),
+  ].filter(Boolean) as string[];
 
   for (const tryPath of possiblePaths) {
     if (fsSync.existsSync(tryPath)) {
+      console.log(`[Paths] 找到模型文件: ${tryPath}`);
       return tryPath;
     }
   }
 
-  return path.join(baseDir || getAppDataDir(), relativePath);
+  // 如果都不存在，默认返回 TTS 模型目录下的路径
+  const defaultPath = path.join(getTTSModelsDir(), relativePath);
+  console.warn(`[Paths] 模型文件不存在，使用默认路径: ${defaultPath}`);
+  return defaultPath;
 }

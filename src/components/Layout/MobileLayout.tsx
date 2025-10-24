@@ -6,17 +6,11 @@ export function MobileLayout() {
   const { isMobile } = useResponsive();
 
   return (
-    <main className="w-dvw h-dvh overflow-hidden">
+    <main className="w-dvw h-dvh overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="h-dvh overflow-hidden">
         <div className="w-full h-full overflow-hidden grid grid-rows-[1fr_auto]">
-          <div
-            className={`
-              w-full h-full overflow-hidden flex flex-col justify-center items-center py-4
-              transition-all duration-300
-              ${isMobile ? "px-4" : "px-6"}
-            `}
-          >
-            <div className="w-full overflow-hidden">
+          <div className="w-full h-full overflow-hidden flex flex-col transition-all duration-300">
+            <div className="w-full h-full overflow-y-auto">
               <Outlet />
             </div>
           </div>

@@ -1,5 +1,4 @@
 import {
-  Blocks,
   BookOpen,
   Layout,
   Menu,
@@ -31,20 +30,14 @@ export function Navigation() {
       category: "main" as const,
     },
     {
-      key: "/config/main",
-      label: "推理服务",
-      icon: Blocks,
-      category: "config" as const,
-    },
-    {
       key: "/config/service",
-      label: "语音服务",
+      label: "服务配置",
       icon: Network,
       category: "config" as const,
     },
     {
       key: "/config/layout",
-      label: "自定义设置",
+      label: "布局配置",
       icon: Layout,
       category: "config" as const,
     },
@@ -113,11 +106,11 @@ export function Navigation() {
   };
 
   return (
-    <div className="w-full flex justify-center items-center py-2 px-2 sm:py-3 md:py-4">
+    <div className="w-full flex justify-center items-center py-3 px-3 border-t border-gray-200/50 bg-white/80 backdrop-blur-sm">
       <Card
         className={`
-          w-full shadow-md border border-gray-200/50 
-          bg-white/95 backdrop-blur-sm 
+          w-full shadow-sm border border-gray-200/80 
+          bg-white/90 backdrop-blur-sm 
           transition-all duration-300 ease-in-out
           ${containerStyles[screenType] || containerStyles.mobile}
         `}

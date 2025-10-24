@@ -61,8 +61,8 @@ export default function ChatPage() {
   // 使用弹性布局撑满可见区域，无需 JS 计算高度
 
   return (
-    <div className="w-full h-full grid place-items-center p-2 sm:p-4 bg-gradient-to-br from-blue-50/30 via-indigo-50/20 to-purple-50/30 dark:from-gray-900 dark:via-blue-900/10 dark:to-indigo-900/20">
-      <div className="w-full max-w-5xl max-h-full min-h-[520px] sm:min-h-[640px] relative overflow-hidden bg-white/98 dark:bg-gray-900/98 rounded-3xl shadow-xl border border-white/60 dark:border-gray-700/60 backdrop-blur-2xl flex flex-col">
+    <div className="w-full h-full grid place-items-center p-2 sm:p-4">
+      <div className="w-full max-w-5xl max-h-full min-h-[520px] sm:min-h-[640px] relative overflow-hidden bg-white/95 dark:bg-gray-900/95 rounded-3xl shadow-lg border border-gray-200/60 dark:border-gray-700/60 backdrop-blur-xl flex flex-col">
         {/* 头部区域 */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100/80 dark:border-gray-800/80 bg-gradient-to-r from-white/50 to-blue-50/30 dark:from-gray-900/50 dark:to-blue-900/20">
           <div className="flex items-center gap-4">

@@ -16,8 +16,8 @@ export function createMainWindow(
   isDev: boolean
 ): BrowserWindow {
   const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    show: false, // 先不显示，等准备好后再显示
+    fullscreen: true, // ✅ 默认全屏
     minWidth: 800,
     minHeight: 600,
     title: "RWKV-VTuber",
@@ -33,8 +33,6 @@ export function createMainWindow(
       webgl: true,
     },
   });
-
-  mainWindow.setFullScreen(true);
 
   // 设置用户代理
   mainWindow.webContents.setUserAgent(
@@ -74,8 +72,12 @@ export function createMainWindow(
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
-    mainWindow.webContents.openDevTools();
   }
+
+  // 页面准备好后再显示窗口（避免闪烁）
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+  });
 
   // 处理外部链接
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -86,7 +88,6 @@ export function createMainWindow(
   // 监听控制台消息（错误日志）
   mainWindow.webContents.on("console-message", (event, level, message) => {
     if (level === 2) {
-      // 只记录错误
       console.error(`[Renderer] ${message}`);
     }
   });

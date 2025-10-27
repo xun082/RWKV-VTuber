@@ -15,8 +15,11 @@ import { Navigation } from "./Navigation";
 export function DesktopLayout() {
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
   const { updateLive2dContainerWidth } = useLive2dContainerWidth(leftPanelRef);
-  const { screenType } = useResponsive();
+  const { screenType, width } = useResponsive();
   const isFullScreen = useLive2dApi((state) => state.isFullScreen);
+
+  // 小屏幕判断
+  const isSmallScreen = width < 1024;
 
   // 根据屏幕类型动态调整面板比例
   const getPanelSizes = () => {
@@ -36,10 +39,11 @@ export function DesktopLayout() {
 
   const panelSizes = getPanelSizes();
 
-  if (isFullScreen) {
+  // 全屏模式或小屏幕都强制显示全屏语音界面
+  if (isFullScreen || isSmallScreen) {
     return (
-      <main className="w-dvw h-dvh overflow-hidden desktop-layout relative">
-        {/* 全屏时的 Live2D 区域 */}
+      <main className="w-dvw h-dvh overflow-hidden relative">
+        {/* Live2D 背景和模型容器 */}
         <div
           id="back-container"
           className="absolute inset-0 w-full h-full"
@@ -51,7 +55,7 @@ export function DesktopLayout() {
           style={{ width: "100dvw", height: "100dvh" }}
         />
 
-        {/* 全屏语音聊天界面 */}
+        {/* 小屏幕强制全屏语音模式 */}
         <FullscreenVoiceChat />
       </main>
     );
@@ -89,7 +93,7 @@ export function DesktopLayout() {
           defaultSize={panelSizes.right}
           minSize={screenType === "tablet" ? 25 : 20}
           maxSize={screenType === "tablet" ? 65 : 75}
-          className="bg-gradient-to-br from-gray-50 to-gray-100 flex-shrink-0 relative z-10"
+          className="bg-linear-to-br from-gray-50 to-gray-100 shrink-0 relative z-10"
         >
           <div className="w-full h-full overflow-hidden grid grid-rows-[1fr_auto]">
             <div className="w-full h-full overflow-y-auto overflow-x-hidden flex flex-col transition-all duration-300 scroll-smooth">
@@ -97,7 +101,7 @@ export function DesktopLayout() {
                 <Outlet />
               </div>
             </div>
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <Navigation />
             </div>
           </div>

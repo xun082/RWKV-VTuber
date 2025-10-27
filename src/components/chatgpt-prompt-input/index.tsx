@@ -204,7 +204,7 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
 
         <div
           className={cn(
-            "flex flex-col rounded-2xl p-3 shadow-lg transition-all duration-300 bg-white/95 dark:bg-gray-800/95 border border-gray-200/40 dark:border-gray-700/40 cursor-text hover:shadow-xl hover:border-blue-300/70 dark:hover:border-blue-600/70 focus-within:border-blue-400/90 dark:focus-within:border-blue-500/90 focus-within:shadow-xl focus-within:shadow-blue-500/20 backdrop-blur-sm ring-1 ring-white/20 dark:ring-gray-700/20",
+            "flex flex-col rounded-xl sm:rounded-2xl p-3 sm:p-3.5 shadow-xl transition-all duration-300 bg-white/98 dark:bg-gray-800/98 border border-gray-200/30 dark:border-gray-700/30 cursor-text hover:shadow-2xl hover:border-blue-300/60 dark:hover:border-blue-600/60 focus-within:border-blue-400/80 dark:focus-within:border-blue-500/80 focus-within:shadow-2xl focus-within:shadow-blue-500/15 backdrop-blur-xl ring-1 ring-white/30 dark:ring-gray-700/30",
             className
           )}
         >
@@ -220,25 +220,26 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
             onCompositionEnd={() => setIsComposing(false)}
             placeholder={props.placeholder || "Message..."}
             disabled={disabled}
-            className="custom-scrollbar w-full resize-none border-0 bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-0 focus-visible:outline-none min-h-10 text-base leading-relaxed p-1 font-medium"
+            className="custom-scrollbar w-full resize-none border-0 bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-0 focus-visible:outline-none min-h-10 text-[15px] leading-relaxed p-1 font-normal"
             {...props}
           />
 
-          {/* 底部操作区域 - 微信风格 */}
-          <div className="flex items-center justify-between pt-2 border-t border-gray-100/60 dark:border-gray-700/60 mt-2">
+          {/* 底部操作区域 - 响应式优化 */}
+          <div className="flex items-center justify-between pt-2 sm:pt-2.5 border-t border-gray-100/50 dark:border-gray-700/50 mt-2 sm:mt-2.5">
             <TooltipProvider delayDuration={100}>
-              {/* 左侧操作按钮 */}
-              <div className="flex items-center gap-1">
+              {/* 左侧操作按钮 - 响应式优化 */}
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                 {chatActions && hasMessages && (
                   <>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button
                           disabled={isActionsDisabled}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-700 dark:text-gray-300 hover:text-purple-700 dark:hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-purple-200 dark:hover:border-purple-700/50"
+                          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-700 dark:text-gray-300 hover:text-purple-700 dark:hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-purple-200 dark:hover:border-purple-700/50 hover:shadow-sm"
                         >
-                          <Trash2 size={14} />
-                          <span>更新记忆</span>
+                          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          <span className="hidden sm:inline">更新记忆</span>
+                          <span className="sm:hidden">记忆</span>
                         </button>
                       </AlertDialogTrigger>
                       <AlertDialogContent className="rounded-2xl border-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl">
@@ -268,10 +269,11 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                       <AlertDialogTrigger asChild>
                         <button
                           disabled={isActionsDisabled}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-700 dark:text-gray-300 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-red-200 dark:hover:border-red-700/50"
+                          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-700 dark:text-gray-300 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-red-200 dark:hover:border-red-700/50 hover:shadow-sm"
                         >
-                          <RotateCcw size={14} />
-                          <span>清除对话</span>
+                          <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          <span className="hidden sm:inline">清除对话</span>
+                          <span className="sm:hidden">清除</span>
                         </button>
                       </AlertDialogTrigger>
                       <AlertDialogContent className="rounded-2xl border-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl">
@@ -299,12 +301,12 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                   </>
                 )}
 
-                {/* 自动播放开关按钮 */}
+                {/* 自动播放开关按钮 - 响应式优化 */}
                 {chatActions && (
                   <button
                     onClick={chatActions.onToggleAutoTTS}
                     disabled={disabled}
-                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent ${
+                    className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:shadow-sm ${
                       chatActions.autoTTS
                         ? "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:border-emerald-200 dark:hover:border-emerald-700/50"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-200 dark:hover:border-gray-600/50"
@@ -316,11 +318,16 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                     }
                   >
                     {chatActions.autoTTS ? (
-                      <Volume2 size={14} />
+                      <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     ) : (
-                      <VolumeX size={14} />
+                      <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     )}
-                    <span>{chatActions.autoTTS ? "自动播放" : "手动播放"}</span>
+                    <span className="hidden sm:inline">
+                      {chatActions.autoTTS ? "自动播放" : "手动播放"}
+                    </span>
+                    <span className="sm:hidden">
+                      {chatActions.autoTTS ? "自动" : "手动"}
+                    </span>
                   </button>
                 )}
 
@@ -332,9 +339,9 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                       <PopoverTrigger asChild>
                         <button
                           disabled={disabled}
-                          className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-blue-200 dark:hover:border-blue-700/50"
+                          className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-blue-200 dark:hover:border-blue-700/50"
                         >
-                          <BarChart3 size={14} />
+                          <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="rounded-xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-gray-200/60 dark:border-gray-700/60">
@@ -352,8 +359,8 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                   )}
               </div>
 
-              {/* 右侧按钮 */}
-              <div className="flex items-center gap-2">
+              {/* 右侧按钮 - 响应式优化 */}
+              <div className="flex items-center gap-2 sm:gap-2.5">
                 {allowSpeech && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -364,13 +371,13 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                         }
                         disabled={disabled}
                         className={cn(
-                          "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200 focus-visible:outline-none hover:scale-105 active:scale-95 border",
+                          "flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition-all duration-200 focus-visible:outline-none hover:scale-105 active:scale-95 border shadow-sm",
                           allowSpeech.recording
-                            ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/30 animate-pulse border-red-400"
-                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-800 dark:hover:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                            ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/40 animate-pulse border-red-400/50"
+                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/70 hover:text-gray-800 dark:hover:text-gray-200 border-gray-200/60 dark:border-gray-600/60 hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md"
                         )}
                       >
-                        <MicIcon className="h-4 w-4" />
+                        <MicIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span className="sr-only">Record voice</span>
                       </button>
                     </TooltipTrigger>
@@ -390,12 +397,12 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                       type="button"
                       onClick={handleSubmit}
                       disabled={disabled || loading || !hasValue}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 disabled:pointer-events-none bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-700/40 disabled:from-gray-400 disabled:to-gray-500 disabled:shadow-none hover:scale-105 active:scale-95 border border-blue-500/20"
+                      className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 disabled:pointer-events-none bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-600/40 hover:shadow-xl hover:shadow-blue-700/50 disabled:from-gray-400 disabled:to-gray-500 disabled:shadow-none hover:scale-105 active:scale-95 border border-blue-500/30"
                     >
                       {loading ? (
                         <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       ) : (
-                        <SendIcon className="h-4 w-4" />
+                        <SendIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       )}
                       <span className="sr-only">
                         {loading ? "Processing..." : "Send message"}

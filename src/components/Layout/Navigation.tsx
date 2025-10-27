@@ -21,6 +21,11 @@ export function Navigation() {
   const { screenType, width } = useResponsive();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // 小屏幕下不渲染导航栏
+  if (width < 1024) {
+    return null;
+  }
+
   // 定义导航项
   const allNavItems = [
     {
@@ -169,7 +174,7 @@ export function Navigation() {
                   <div key={item.key} className="relative flex items-center">
                     {/* 分隔线 - 在第一个配置项前显示 */}
                     {index === 1 && (
-                      <div className="w-px h-6 bg-gradient-to-b from-transparent via-gray-300 to-transparent mx-1.5" />
+                      <div className="w-px h-6 bg-linear-to-b from-transparent via-gray-300 to-transparent mx-1.5" />
                     )}
 
                     <Button
@@ -182,7 +187,7 @@ export function Navigation() {
                         ${sizes.padding} ${sizes.height} ${sizes.text}
                         ${
                           isItemSelected
-                            ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-purple-700"
+                            ? "bg-linear-to-r from-blue-600 to-purple-600 text-white shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-purple-700"
                             : "hover:bg-gray-100 text-gray-700 hover:text-gray-900"
                         }
                         rounded-xl border-0 font-medium
@@ -230,7 +235,7 @@ export function Navigation() {
                       transition-all duration-200 ease-in-out
                       ${
                         isItemSelected
-                          ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:shadow-lg"
+                          ? "bg-linear-to-r from-blue-600 to-purple-600 text-white shadow-md hover:shadow-lg"
                           : "hover:bg-gray-100 text-gray-700 hover:text-gray-900 active:bg-gray-200"
                       }
                       rounded-xl border-0 font-medium text-base

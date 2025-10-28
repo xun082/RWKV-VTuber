@@ -193,6 +193,7 @@ jobs:
         shell: pwsh
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           Write-Host "⚙️ Building Electron app for Windows..."
           Write-Host "Version: ${{ steps.version.outputs.version }}"
@@ -204,8 +205,14 @@ jobs:
           Write-Host "  - pnpm: $(pnpm --version)"
           Write-Host "  - electron-builder: $(npx electron-builder --version)"
           
-          # 执行构建
-          pnpm electron-builder --win --x64
+          # 执行构建 - 只在 tag 推送时发布
+          if ("${{ github.ref }}" -like "refs/tags/*") {
+            Write-Host "📦 Building and publishing to GitHub Release..."
+            pnpm electron-builder --win --x64 --publish always
+          } else {
+            Write-Host "📦 Building without publishing..."
+            pnpm electron-builder --win --x64 --publish never
+          }
           
           if ($LASTEXITCODE -ne 0) {
             Write-Host "❌ Electron build failed"

@@ -33,12 +33,12 @@ export function initAutoUpdater(window: BrowserWindow, isDev: boolean): void {
   autoUpdater.autoDownload = false; // 不自动下载，让用户选择
   autoUpdater.autoInstallOnAppQuit = true; // 退出时自动安装
 
-  // 设置更新服务器（可选，默认从 package.json 的 publish 配置读取）
-  // autoUpdater.setFeedURL({
-  //   provider: 'github',
-  //   owner: 'your-github-username',
-  //   repo: 'your-repo-name',
-  // });
+  // 设置更新服务器（直接在代码中配置，不依赖 package.json）
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'xun082',
+    repo: 'RWKV-VTuber',
+  });
 
   setupUpdateListeners();
 

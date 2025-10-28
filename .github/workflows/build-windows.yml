@@ -80,7 +80,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "📦 Installing dependencies..."
-          pnpm install --frozen-lockfile --prefer-offline
+          pnpm install --no-frozen-lockfile
           if ($LASTEXITCODE -ne 0) {
             Write-Host "❌ Dependency installation failed"
             exit 1

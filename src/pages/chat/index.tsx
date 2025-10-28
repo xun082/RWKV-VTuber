@@ -78,7 +78,7 @@ export default function ChatPage() {
             </div>
             <div>
               <h2 className="text-lg sm:text-2xl font-bold bg-linear-to-r from-gray-900 via-blue-700 to-indigo-700 dark:from-white dark:via-blue-400 dark:to-indigo-400 bg-clip-text text-transparent tracking-tight">
-                智能助手
+                测试助手
               </h2>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium mt-0.5">
                 在线助手，随时为您服务

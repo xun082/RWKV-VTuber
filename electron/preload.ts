@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // IPC 事件监听
   on: (channel: string, callback: (...args: any[]) => void) => {
     // 只允许特定的频道
-    const validChannels = ["download_progress"];
+    const validChannels = ["download_progress", "updater-message"];
     if (validChannels.includes(channel)) {
       // 包装回调以移除 event 参数
       const subscription = (_event: any, ...args: any[]) => callback(...args);

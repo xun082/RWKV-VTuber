@@ -9,9 +9,10 @@
 - 🧠 **智能记忆系统** - 基于向量检索的长时记忆，支持用户画像、自我概念和对话总结
 - 🎭 **Live2D 角色** - 内置多个精美 Live2D 模型，支持表情、动作和语音同步
 - 🎤 **语音交互** - 支持多种 TTS/STT 服务，实现真正的语音对话
-- 🌐 **多平台支持** - 同时支持 Web 端和桌面端（Tauri）
+- 🌐 **多平台支持** - 同时支持 Web 端和桌面端（Electron）
 - ⚡ **高性能** - 优化的上下文管理，3000 tokens 内完成推理
 - 🔧 **高度可配置** - 所有服务均可自定义配置，无需修改代码
+- 🔄 **自动更新** - 桌面版支持从 GitHub Release 自动更新，保持应用最新
 
 ## 🚀 快速开始
 
@@ -34,12 +35,15 @@ cd RWKV-VTuber
 pnpm install
 
 # 启动开发服务器
-pnpm dev:web    # Web 端
-pnpm dev:tauri  # 桌面端
+pnpm dev:web         # Web 端
+pnpm electron:dev    # 桌面端 (Electron)
 
 # 构建生产版本
-pnpm build:web    # Web 端输出到 /dist-web
-pnpm build:tauri  # 桌面端
+pnpm build:web           # Web 端输出到 /dist-web
+pnpm electron:build:all  # 桌面端所有平台
+pnpm electron:build:mac  # 仅 macOS
+pnpm electron:build:win  # 仅 Windows
+pnpm electron:build:linux # 仅 Linux
 ```
 
 ## 📋 功能模块
@@ -170,22 +174,68 @@ src/
 | ---------------------- | ------- | ---------------- |
 | `VITE_DEBUG_COMPONENT` | `'off'` | 开启调试组件显示 |
 
+## 🔄 自动更新（桌面版）
+
+桌面版（Electron）支持从 GitHub Release 自动更新，让您的应用始终保持最新。
+
+### 功能特性
+
+- ✅ 应用启动时自动检查更新
+- ✅ 发现新版本时智能提示
+- ✅ 实时显示下载进度和速度
+- ✅ 一键安装更新，无需手动操作
+- ✅ 支持在设置页面手动检查更新
+
+### 使用方法
+
+1. **自动检查**：应用启动后自动检查 GitHub Release 上的新版本
+2. **下载更新**：发现新版本时，点击通知中的"立即下载"按钮
+3. **安装更新**：下载完成后，选择"立即重启安装"或退出时自动安装
+4. **手动检查**：在"配置 → 服务配置 → 系统设置"中手动检查更新
+
+详细使用指南请参阅 [AUTO_UPDATE_GUIDE.md](./AUTO_UPDATE_GUIDE.md)
+
+### 开发者说明
+
+发布新版本时，需要：
+
+1. 使用 `npm run release:create` 更新版本号
+2. 构建所有平台安装包：`npm run electron:build:all`
+3. 推送标签：`npm run release:push`
+4. 在 GitHub 创建 Release 并上传安装包
+
+**重要**：请在 `package.json` 中配置正确的 GitHub 仓库信息：
+
+```json
+{
+  "build": {
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "your-github-username",
+        "repo": "your-repo-name"
+      }
+    ]
+  }
+}
+```
+
 ### 构建脚本
 
 ```bash
 # 开发模式
-pnpm dev:web      # Web 端开发
-pnpm dev:tauri    # 桌面端开发
+pnpm dev:web           # Web 端开发
+pnpm electron:dev      # 桌面端开发 (Electron)
 
 # 生产构建
-pnpm build:web    # Web 端构建
-pnpm build:tauri  # 桌面端构建
+pnpm build:web              # Web 端构建
+pnpm electron:build         # 桌面端构建（当前平台）
 
 # 多平台构建
-pnpm build:mac    # macOS
-pnpm build:win    # Windows
-pnpm build:linux  # Linux
-pnpm build:all    # 所有平台
+pnpm electron:build:mac     # macOS (x64 + arm64)
+pnpm electron:build:win     # Windows (x64)
+pnpm electron:build:linux   # Linux (x64)
+pnpm electron:build:all     # 所有平台
 ```
 
 ## 📚 API 文档
@@ -241,7 +291,8 @@ model.syncLipSync(audioData);
 
 - [Live2D](https://www.live2d.com/) - 2D 角色动画技术
 - [L2D](https://github.com/hacxy/l2d) - Live2D Web 渲染库
-- [Tauri](https://tauri.app/) - 桌面应用框架
+- [Electron](https://www.electronjs.org/) - 桌面应用框架
+- [electron-updater](https://www.electron.build/auto-update) - 自动更新功能
 - [React](https://react.dev/) - 前端框架
 - [Tailwind CSS](https://tailwindcss.com/) - CSS 框架
 

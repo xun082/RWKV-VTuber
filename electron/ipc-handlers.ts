@@ -14,6 +14,11 @@ import {
   type ModelType,
 } from "./model-downloader.js";
 import { getTTSModelsDir, getASRModelsDir } from "./paths.js";
+import {
+  checkForUpdates,
+  downloadUpdate,
+  quitAndInstall,
+} from "./auto-updater.js";
 
 /**
  * 注册所有 IPC 处理器
@@ -186,5 +191,23 @@ export function registerIPCHandlers(): void {
   ipcMain.handle("check_asr_model", async () => {
     const modelsDir = getASRModelsDir();
     return checkASRModel(modelsDir);
+  });
+
+  // 手动检查更新
+  ipcMain.handle("check_for_updates", async () => {
+    checkForUpdates();
+    return { success: true };
+  });
+
+  // 手动下载更新
+  ipcMain.handle("download_update", async () => {
+    downloadUpdate();
+    return { success: true };
+  });
+
+  // 退出并安装更新
+  ipcMain.handle("quit_and_install", async () => {
+    quitAndInstall();
+    return { success: true };
   });
 }

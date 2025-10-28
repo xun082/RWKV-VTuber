@@ -1,8 +1,10 @@
 import { Toaster } from "@/components/ui/sonner";
 import { ChatSessionProvider } from "./components/ChatSessionProvider";
 import { DesktopLayout } from "./components/Layout/DesktopLayout";
+import { UpdateNotification } from "./components/UpdateNotification";
 import { useLive2dEffects } from "./hooks/useLive2dEffects";
 import { useWelcomeMessage } from "./hooks/useWelcomeMessage";
+import "./lib/electron"; // 初始化 Electron API
 
 export default function App() {
   // 初始化 Live2D 效果
@@ -15,6 +17,7 @@ export default function App() {
   return (
     <ChatSessionProvider>
       <DesktopLayout />
+      <UpdateNotification />
       <Toaster />
     </ChatSessionProvider>
   );

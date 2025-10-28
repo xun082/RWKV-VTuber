@@ -1,4 +1,12 @@
-import { Info, RotateCcw, Save, Cpu, Globe, Shield } from "lucide-react";
+import {
+  Info,
+  RotateCcw,
+  Save,
+  Cpu,
+  Globe,
+  Shield,
+  RefreshCw,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,12 +24,14 @@ import { useSherpaConfig } from "@/stores/useSherpaConfig.ts";
 import { useSherpaTtsConfig } from "@/stores/useSherpaTtsConfig.ts";
 import { validateSherpaTTSConfig } from "@/lib/api/electron/api.sherpa-tts";
 import { useChatApi } from "@/stores/useChatApi.ts";
+import { useAutoUpdater } from "@/hooks/useAutoUpdater";
 
 const BUTTON_HEIGHT_CLASS = (isMobile: boolean) => (isMobile ? "h-10" : "h-11");
 
 export default function ConfigServicePage() {
   const { isMobile } = useResponsive();
   const testSpeak = useSpeakApi((state) => state.testSpeak);
+  const { checkForUpdates, updateInfo, updateAvailable } = useAutoUpdater();
 
   // Sherpa-ONNX TTS
   const sherpaTtsConfig = useSherpaTtsConfig((state) => state.config);
@@ -633,6 +643,76 @@ export default function ConfigServicePage() {
                   }
                 />
               </ConfigSection>
+
+              {/* 系统设置 - 仅在 Electron 环境显示 */}
+              {window.electron && (
+                <ConfigSection
+                  icon={<span className="text-3xl">⚙️</span>}
+                  title="系统设置"
+                  subtitle="应用版本和更新管理"
+                  colorClass="from-gray-500 to-slate-500"
+                  isMobile={isMobile}
+                >
+                  <InfoCard
+                    icon="ℹ️"
+                    title="应用信息"
+                    content={
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            当前版本
+                          </span>
+                          <code className="text-sm font-mono bg-white dark:bg-gray-900 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
+                            v1.2.0
+                          </code>
+                        </div>
+                        {updateAvailable && updateInfo && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-green-600 dark:text-green-400">
+                              最新版本
+                            </span>
+                            <code className="text-sm font-mono bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300">
+                              v{updateInfo.version}
+                            </code>
+                          </div>
+                        )}
+                      </div>
+                    }
+                  />
+
+                  <div className="flex flex-col gap-3">
+                    <Button
+                      onClick={checkForUpdates}
+                      className={`w-full gap-2 ${BUTTON_HEIGHT_CLASS(
+                        isMobile
+                      )}`}
+                      variant="outline"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      检查更新
+                    </Button>
+
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      💡 提示：应用会在启动时自动检查更新
+                    </p>
+                  </div>
+
+                  <InfoCard
+                    icon="🔄"
+                    title="自动更新说明"
+                    content={
+                      <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                        <p>• 应用启动时会自动检查 GitHub Release 上的更新</p>
+                        <p>
+                          • 发现新版本时会显示通知，您可以选择立即下载或稍后更新
+                        </p>
+                        <p>• 下载完成后可选择立即重启安装或在退出时自动安装</p>
+                        <p>• 更新过程完全自动化，无需手动操作</p>
+                      </div>
+                    }
+                  />
+                </ConfigSection>
+              )}
             </div>
           </TooltipProvider>
         </div>

@@ -9,6 +9,7 @@ import { initSherpaTTS } from "./sherpa-tts.js";
 import { registerIPCHandlers } from "./ipc-handlers.js";
 import { createMainWindow } from "./window.js";
 import { getASRModelsDir, ensureDir } from "./paths.js";
+import { initAutoUpdater } from "./auto-updater.js";
 
 // ES 模块路径处理
 const __filename = fileURLToPath(import.meta.url);
@@ -94,6 +95,10 @@ app.whenReady().then(async () => {
 
   // 创建窗口
   mainWindow = createMainWindow(path.join(__dirname, "preload.js"), isDev);
+
+  // 初始化自动更新
+  console.log("[Electron] 初始化自动更新模块...");
+  initAutoUpdater(mainWindow, isDev);
 
   // macOS 激活时重建窗口
   app.on("activate", () => {

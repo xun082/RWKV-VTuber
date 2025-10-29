@@ -23,6 +23,7 @@ export function createMainWindow(
     minHeight: 600,
     title: "RWKV-VTuber",
     center: true, // 窗口居中显示
+    autoHideMenuBar: true, // 隐藏菜单栏
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,

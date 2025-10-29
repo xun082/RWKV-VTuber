@@ -66,7 +66,7 @@ function setupUpdateListeners(): void {
   autoUpdater.on("update-available", (info) => {
     console.log("[AutoUpdater] 发现新版本:", info.version);
     sendStatusToWindow("update-available", info);
-    // 不再弹出系统对话框，由渲染进程的 UI 组件处理
+    // 由自定义 UI 组件处理，不使用系统对话框
   });
 
   // 没有新版本
@@ -93,7 +93,7 @@ function setupUpdateListeners(): void {
   autoUpdater.on("update-downloaded", (info) => {
     console.log("[AutoUpdater] 更新下载完成:", info.version);
     sendStatusToWindow("update-downloaded", info);
-    // 不再弹出系统对话框，由渲染进程的 UI 组件处理
+    // 由自定义 UI 组件处理，不使用系统对话框
   });
 
   // 更新错误

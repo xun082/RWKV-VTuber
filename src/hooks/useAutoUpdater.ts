@@ -2,7 +2,7 @@
  * 自动更新 Hook
  * 处理应用自动更新逻辑
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 
 export interface UpdateInfo {
@@ -25,7 +25,7 @@ export function useAutoUpdater() {
     useState<UpdateProgress | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [updateDownloaded, setUpdateDownloaded] = useState(false);
-  const [isManualCheck, setIsManualCheck] = useState(false);
+  const isManualCheckRef = useRef(false);
 
   useEffect(() => {
     // 检查是否在 Electron 环境
@@ -55,12 +55,12 @@ export function useAutoUpdater() {
         case "update-not-available":
           console.log("[AutoUpdater] 已是最新版本");
           // 只在手动检查时显示提示
-          if (isManualCheck) {
+          if (isManualCheckRef.current) {
             toast.success("已是最新版本", {
               description: "您当前使用的是最新版本",
               duration: 3000,
             });
-            setIsManualCheck(false);
+            isManualCheckRef.current = false;
           }
           break;
 
@@ -108,7 +108,7 @@ export function useAutoUpdater() {
         unsubscribe();
       }
     };
-  }, [isManualCheck]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 手动检查更新
   const checkForUpdates = async () => {
@@ -118,16 +118,16 @@ export function useAutoUpdater() {
     }
 
     try {
-      setIsManualCheck(true);
+      isManualCheckRef.current = true;
       toast.loading("正在检查更新...", { id: "check-update" });
       await window.electron.checkForUpdates();
-
+      
       // 延迟关闭提示，等待实际的更新检查结果
       setTimeout(() => {
         toast.dismiss("check-update");
       }, 2000);
     } catch (error: any) {
-      setIsManualCheck(false);
+      isManualCheckRef.current = false;
       toast.dismiss("check-update");
       toast.error("检查更新失败", {
         description: error?.message || "未知错误",

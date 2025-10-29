@@ -17,10 +17,12 @@ export function createMainWindow(
 ): BrowserWindow {
   const mainWindow = new BrowserWindow({
     show: false, // 先不显示，等准备好后再显示
-    fullscreen: true, // ✅ 默认全屏
+    width: 1400, // 中等窗口宽度
+    height: 900, // 中等窗口高度
     minWidth: 800,
     minHeight: 600,
     title: "RWKV-VTuber",
+    center: true, // 窗口居中显示
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,

@@ -4,8 +4,7 @@
  */
 import pkg from "electron-updater";
 const { autoUpdater } = pkg;
-import { BrowserWindow, dialog } from "electron";
-import * as path from "path";
+import { BrowserWindow } from "electron";
 
 export interface UpdateInfo {
   version: string;
@@ -67,24 +66,7 @@ function setupUpdateListeners(): void {
   autoUpdater.on("update-available", (info) => {
     console.log("[AutoUpdater] 发现新版本:", info.version);
     sendStatusToWindow("update-available", info);
-
-    // 询问用户是否下载
-    dialog
-      .showMessageBox(mainWindow!, {
-        type: "info",
-        title: "发现新版本",
-        message: `发现新版本 ${info.version}，是否立即下载？`,
-        detail: info.releaseNotes as string | undefined,
-        buttons: ["立即下载", "稍后提醒"],
-        defaultId: 0,
-        cancelId: 1,
-      })
-      .then((result) => {
-        if (result.response === 0) {
-          // 用户选择下载
-          autoUpdater.downloadUpdate();
-        }
-      });
+    // 不再弹出系统对话框，由渲染进程的 UI 组件处理
   });
 
   // 没有新版本
@@ -111,23 +93,7 @@ function setupUpdateListeners(): void {
   autoUpdater.on("update-downloaded", (info) => {
     console.log("[AutoUpdater] 更新下载完成:", info.version);
     sendStatusToWindow("update-downloaded", info);
-
-    // 询问用户是否立即重启安装
-    dialog
-      .showMessageBox(mainWindow!, {
-        type: "info",
-        title: "更新已下载",
-        message: `新版本 ${info.version} 已下载完成，是否立即重启安装？`,
-        buttons: ["立即重启", "稍后重启"],
-        defaultId: 0,
-        cancelId: 1,
-      })
-      .then((result) => {
-        if (result.response === 0) {
-          // 退出并安装更新
-          autoUpdater.quitAndInstall(false, true);
-        }
-      });
+    // 不再弹出系统对话框，由渲染进程的 UI 组件处理
   });
 
   // 更新错误

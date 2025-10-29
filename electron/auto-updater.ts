@@ -34,9 +34,9 @@ export function initAutoUpdater(window: BrowserWindow, isDev: boolean): void {
 
   // 设置更新服务器（直接在代码中配置，不依赖 package.json）
   autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: 'xun082',
-    repo: 'RWKV-VTuber',
+    provider: "github",
+    owner: "xun082",
+    repo: "RWKV-VTuber",
   });
 
   setupUpdateListeners();

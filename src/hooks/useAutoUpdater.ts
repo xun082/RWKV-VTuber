@@ -121,7 +121,7 @@ export function useAutoUpdater() {
       setIsManualCheck(true);
       toast.loading("正在检查更新...", { id: "check-update" });
       await window.electron.checkForUpdates();
-      
+
       // 延迟关闭提示，等待实际的更新检查结果
       setTimeout(() => {
         toast.dismiss("check-update");

@@ -46,10 +46,8 @@ export function useAutoUpdater() {
         case "update-available":
           setUpdateAvailable(true);
           setUpdateInfo(message.data);
-          toast.info("发现新版本", {
-            description: `版本 ${message.data.version} 可供下载`,
-            duration: 5000,
-          });
+          // 不显示 toast，避免遮挡更新卡片
+          console.log(`[AutoUpdater] 发现新版本 ${message.data.version}`);
           break;
 
         case "update-not-available":

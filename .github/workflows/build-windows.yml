@@ -251,6 +251,7 @@ jobs:
           files: |
             dist/*.exe
             dist/*.exe.blockmap
+            dist/*.yml
           draft: false
           prerelease: false
           generate_release_notes: true

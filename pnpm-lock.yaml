@@ -104,15 +104,6 @@ importers:
       sherpa-onnx:
         specifier: ^1.12.15
         version: 1.12.15
-      sherpa-onnx-darwin-arm64:
-        specifier: 1.12.15
-        version: 1.12.15
-      sherpa-onnx-node:
-        specifier: ^1.12.15
-        version: 1.12.15
-      sherpa-onnx-win-x64:
-        specifier: 1.12.15
-        version: 1.12.15
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -3885,37 +3876,6 @@ packages:
   shell-quote@1.8.3:
     resolution: {integrity: sha512-ObmnIF4hXNg1BqhnHmgbDETF8dLPCggZWBjkQfhZpbszZnYur5DUljTcCHii5LC3J5E0yeO/1LIMyH+UvHQgyw==}
     engines: {node: '>= 0.4'}
-
-  sherpa-onnx-darwin-arm64@1.12.15:
-    resolution: {integrity: sha512-zT/lcay6IGW48Glf0UFoZzkwq+y/er7Lc+BBH+nvsTXR6VRvoyqMb7jsppEoWey/HspBslqWsZo9oEYHe2BaAg==}
-    os: [darwin]
-
-  sherpa-onnx-darwin-x64@1.12.15:
-    resolution: {integrity: sha512-Dclm/s3yYZPlw2gME39lyfEBcy/yxFsTyeVFY2mXxPdpq7410Po9vSrfuc8HNHCZ+rXlZ+GvY/PkZBp6yv6nRw==}
-    cpu: [x64]
-    os: [darwin]
-
-  sherpa-onnx-linux-arm64@1.12.15:
-    resolution: {integrity: sha512-RKJFJFYzBLUtujEifFX+pbugUsH8rbG/pe8ORfHseB5NehP9AqfpB9gQ6+ZWhJKlNcOjhxhBJN+YvnLv7ELqmg==}
-    cpu: [arm64]
-    os: [linux]
-
-  sherpa-onnx-linux-x64@1.12.15:
-    resolution: {integrity: sha512-nz8n4f8P6/SMALFOFleNAOiRK4G86h275wsRnRe2eYi2ZoGi+gV4LCu/Y9W5mts4gfHGFEYEgJGtHhUBmx6aug==}
-    cpu: [x64]
-    os: [linux]
-
-  sherpa-onnx-node@1.12.15:
-    resolution: {integrity: sha512-PizYZ1LdnNZJH0SCZqx9A7I5V9itPJRCUzQ8sDFVy5ePfSL0bHiGSm1aPEIe+qmx/PcLkWQTEjH03P0ipltCaA==}
-
-  sherpa-onnx-win-ia32@1.12.15:
-    resolution: {integrity: sha512-dyd+HJcDmhWXlAYk1r3SIFioy/L2Jw/D/1mUlWpOplmZpDsS5Jy88jyoewfVauzS5USFKpC3EPHKfSXdDJ08Wg==}
-    cpu: [ia32]
-    os: [win32]
-
-  sherpa-onnx-win-x64@1.12.15:
-    resolution: {integrity: sha512-+Imj8ALiKkZMxptnmL0Ru92xvJq5c/ZLf3jepp3/77jbKGhvjwLyj0Ty+GotUY6k5VbcX9OmHJ1w2RbtIbCufw==}
-    os: [win32]
 
   sherpa-onnx@1.12.15:
     resolution: {integrity: sha512-txBdY5vsc2OJMU8UxIMJnV40ux4UmgGA1YLSJR9aY4Ivxblo/wkR97uiIQZDWQd8zU/jgI3+sCgbg2KldILYQw==}
@@ -8802,31 +8762,6 @@ snapshots:
   shebang-regex@3.0.0: {}
 
   shell-quote@1.8.3: {}
-
-  sherpa-onnx-darwin-arm64@1.12.15: {}
-
-  sherpa-onnx-darwin-x64@1.12.15:
-    optional: true
-
-  sherpa-onnx-linux-arm64@1.12.15:
-    optional: true
-
-  sherpa-onnx-linux-x64@1.12.15:
-    optional: true
-
-  sherpa-onnx-node@1.12.15:
-    optionalDependencies:
-      sherpa-onnx-darwin-arm64: 1.12.15
-      sherpa-onnx-darwin-x64: 1.12.15
-      sherpa-onnx-linux-arm64: 1.12.15
-      sherpa-onnx-linux-x64: 1.12.15
-      sherpa-onnx-win-ia32: 1.12.15
-      sherpa-onnx-win-x64: 1.12.15
-
-  sherpa-onnx-win-ia32@1.12.15:
-    optional: true
-
-  sherpa-onnx-win-x64@1.12.15: {}
 
   sherpa-onnx@1.12.15: {}
 

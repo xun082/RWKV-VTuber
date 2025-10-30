@@ -30,80 +30,29 @@ export default function MemoryPage() {
       <div
         className={`
         flex-1 overflow-y-auto scroll-smooth
-        ${
-          isMobile
-            ? "px-2 py-3"
-            : screenType === "tablet"
-            ? "px-3 py-4"
-            : "px-4 py-5"
-        }
+        ${isMobile ? "px-3 py-3" : "px-4 py-4"}
       `}
       >
-        <div
-          className={`
-          mx-auto space-y-4
-          ${screenType === "mobile" ? "max-w-full" : ""}
-          ${screenType === "tablet" ? "max-w-full" : ""}
-          ${screenType === "desktop-sm" ? "max-w-full" : ""}
-          ${screenType === "desktop-md" ? "max-w-full" : ""}
-          ${screenType === "desktop-lg" ? "max-w-full" : ""}
-        `}
-        >
+        <div className="mx-auto space-y-4 max-w-full">
           {/* Header */}
-          <div className="text-center space-y-3 py-4">
+          <div className="text-center space-y-2 py-3">
             <h1
               className={`
               font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent
-              ${
-                isMobile
-                  ? "text-2xl"
-                  : screenType === "tablet"
-                  ? "text-3xl"
-                  : "text-4xl"
-              }
+              ${isMobile ? "text-2xl" : "text-3xl"}
             `}
             >
               📝 记忆管理
             </h1>
-            <p
-              className={`
-              text-gray-600 dark:text-gray-400
-              ${
-                isMobile
-                  ? "text-xs"
-                  : screenType === "tablet"
-                  ? "text-sm"
-                  : "text-base"
-              }
-            `}
-            >
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
               配置用户和助手的个性化设置
             </p>
           </div>
 
           {/* Main Form Card */}
           <Card className="shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:shadow-xl transition-shadow duration-300">
-            <CardHeader
-              className={`${
-                isMobile
-                  ? "p-3 pb-2"
-                  : screenType === "tablet"
-                  ? "p-4 pb-3"
-                  : "p-6 pb-4"
-              }`}
-            >
-              <CardTitle
-                className={`
-                flex items-center gap-2
-                ${
-                  isMobile
-                    ? "text-base"
-                    : screenType === "tablet"
-                    ? "text-lg"
-                    : "text-xl"
-                }
-              `}
-              >
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Brain
                   className={`text-blue-600 ${
                     isMobile ? "h-4 w-4" : "h-5 w-5"
@@ -112,27 +61,13 @@ export default function MemoryPage() {
                 基础设置
               </CardTitle>
             </CardHeader>
-            <CardContent
-              className={`${
-                isMobile
-                  ? "p-3 space-y-3"
-                  : screenType === "tablet"
-                  ? "p-4 space-y-4"
-                  : "p-6 space-y-6"
-              }`}
-            >
+            <CardContent className="p-4 space-y-4">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSave();
                 }}
-                className={`${
-                  isMobile
-                    ? "space-y-3"
-                    : screenType === "tablet"
-                    ? "space-y-4"
-                    : "space-y-6"
-                }`}
+                className="space-y-4"
               >
                 {/* Basic Info Section */}
                 <div

@@ -1,12 +1,4 @@
-import {
-  Info,
-  RotateCcw,
-  Save,
-  Cpu,
-  Globe,
-  Shield,
-  RefreshCw,
-} from "lucide-react";
+import { Info, RotateCcw, Save, Cpu, Globe, Shield } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,14 +16,12 @@ import { useSherpaConfig } from "@/stores/useSherpaConfig.ts";
 import { useSherpaTtsConfig } from "@/stores/useSherpaTtsConfig.ts";
 import { validateSherpaTTSConfig } from "@/lib/api/electron/api.sherpa-tts";
 import { useChatApi } from "@/stores/useChatApi.ts";
-import { useAutoUpdater } from "@/hooks/useAutoUpdater";
 
 const BUTTON_HEIGHT_CLASS = (isMobile: boolean) => (isMobile ? "h-10" : "h-11");
 
 export default function ConfigServicePage() {
   const { isMobile } = useResponsive();
   const testSpeak = useSpeakApi((state) => state.testSpeak);
-  const { checkForUpdates, updateInfo, updateAvailable } = useAutoUpdater();
 
   // Sherpa-ONNX TTS
   const sherpaTtsConfig = useSherpaTtsConfig((state) => state.config);
@@ -287,26 +277,26 @@ export default function ConfigServicePage() {
     <div className="w-full h-full flex flex-col overflow-hidden">
       <div
         className={`flex-1 overflow-y-auto scroll-smooth ${
-          isMobile ? "px-3 py-4" : "px-6 py-6"
+          isMobile ? "px-3 py-3" : "px-4 py-4"
         }`}
       >
-        <div className="mx-auto max-w-5xl space-y-6">
+        <div className="mx-auto max-w-full space-y-4">
           {/* Header */}
-          <div className="text-center space-y-3 py-4">
+          <div className="text-center space-y-2 py-2">
             <h1
-              className={`font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent ${
-                isMobile ? "text-3xl" : "text-4xl"
+              className={`font-bold bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent ${
+                isMobile ? "text-2xl" : "text-3xl"
               }`}
             >
               🔧 服务配置
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
               配置 AI 推理服务和本地语音服务
             </p>
           </div>
 
           <TooltipProvider>
-            <div className={`${isMobile ? "space-y-5" : "space-y-6"}`}>
+            <div className="space-y-4">
               {/* AI 推理服务配置 */}
               <ConfigSection
                 icon={<span className="text-3xl">⚙️</span>}
@@ -427,9 +417,10 @@ export default function ConfigServicePage() {
                 isMobile={isMobile}
               >
                 {/* 模型下载区域 */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 space-y-4">
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                    📦 模型文件管理
+                <div className="bg-linear-to-br from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-4 space-y-4 border border-green-100 dark:border-green-800/30">
+                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                    <span>📦</span>
+                    <span>模型文件管理</span>
                   </h4>
 
                   <ModelDownloadCard
@@ -450,8 +441,9 @@ export default function ConfigServicePage() {
                     onDownload={() => downloadModel("vocoder")}
                   />
 
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    💡 提示：下载完成后会自动填充模型路径
+                  <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                    <span className="text-green-500">💡</span>
+                    <span>提示：下载完成后会自动填充模型路径</span>
                   </p>
                 </div>
 
@@ -483,11 +475,12 @@ export default function ConfigServicePage() {
                         <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                           下载的模型文件会自动保存到应用数据目录：
                         </p>
-                        <code className="text-xs bg-white dark:bg-gray-900 px-3 py-2 rounded border border-gray-200 dark:border-gray-700 block break-all">
+                        <code className="text-xs bg-white dark:bg-gray-900 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 block break-all font-mono">
                           ~/Library/Application Support/RWKV-VTuber/tts-models/
                         </code>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          💡 模型下载完成后会自动配置，无需手动设置
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-start gap-1.5">
+                          <span className="text-green-500">💡</span>
+                          <span>模型下载完成后会自动配置，无需手动设置</span>
                         </p>
                       </>
                     }
@@ -495,7 +488,7 @@ export default function ConfigServicePage() {
                 </div>
 
                 {/* 语音参数 */}
-                <div className="rounded-xl border border-green-200/40 dark:border-green-900/30 bg-green-50/40 dark:bg-green-900/10 p-3 sm:p-4 space-y-4">
+                <div className="rounded-xl border border-green-200/50 dark:border-green-800/30 bg-linear-to-br from-green-50/60 to-emerald-50/40 dark:from-green-900/15 dark:to-emerald-900/10 p-4 space-y-4">
                   <div className="grid grid-cols-1 gap-4">
                     <ParameterSlider
                       label={`语速: ${sherpaTtsConfig.speed.toFixed(1)}x`}
@@ -552,11 +545,11 @@ export default function ConfigServicePage() {
                 </div>
 
                 {/* 操作按钮 */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
                   <Button
                     onClick={saveSherpaTtsConfig}
                     disabled={!sherpaTtsConfigModified}
-                    className={`flex-1 bg-green-600 hover:bg-green-700 text-white font-medium transition-all ${BUTTON_HEIGHT_CLASS(
+                    className={`flex-1 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-medium transition-all shadow-sm hover:shadow ${BUTTON_HEIGHT_CLASS(
                       isMobile
                     )} ${
                       !sherpaTtsConfigModified
@@ -574,7 +567,7 @@ export default function ConfigServicePage() {
                       !matchaDownloaded ||
                       !vocoderDownloaded
                     }
-                    className={`flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium transition-all ${BUTTON_HEIGHT_CLASS(
+                    className={`flex-1 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium transition-all shadow-sm hover:shadow ${BUTTON_HEIGHT_CLASS(
                       isMobile
                     )}`}
                   >
@@ -588,7 +581,7 @@ export default function ConfigServicePage() {
                       setSherpaTtsConfigModified(true);
                       toast.success("Sherpa-ONNX TTS 配置已重置");
                     }}
-                    className={`flex-1 border-2 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium transition-all ${BUTTON_HEIGHT_CLASS(
+                    className={`flex-1 border-2 border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 font-medium transition-all ${BUTTON_HEIGHT_CLASS(
                       isMobile
                     )}`}
                   >
@@ -606,9 +599,10 @@ export default function ConfigServicePage() {
                 colorClass="from-blue-500 to-cyan-500"
                 isMobile={isMobile}
               >
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 space-y-4">
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                    📦 ASR 模型文件管理
+                <div className="bg-linear-to-br from-blue-50 to-cyan-50/50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-xl p-4 space-y-4 border border-blue-100 dark:border-blue-800/30">
+                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                    <span>📦</span>
+                    <span>ASR 模型文件管理</span>
                   </h4>
 
                   <ModelDownloadCard
@@ -620,8 +614,9 @@ export default function ConfigServicePage() {
                     onDownload={downloadASRModel}
                   />
 
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    💡 提示：下载完成后会自动填充模型路径
+                  <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                    <span className="text-blue-500">💡</span>
+                    <span>提示：下载完成后会自动填充模型路径</span>
                   </p>
                 </div>
 
@@ -633,86 +628,17 @@ export default function ConfigServicePage() {
                       <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                         下载的模型文件会自动保存到应用数据目录：
                       </p>
-                      <code className="text-xs bg-white dark:bg-gray-900 px-3 py-2 rounded border border-gray-200 dark:border-gray-700 block break-all">
+                      <code className="text-xs bg-white dark:bg-gray-900 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 block break-all font-mono">
                         ~/Library/Application Support/RWKV-VTuber/asr-models/
                       </code>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        💡 模型下载完成后会自动配置，无需手动设置
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-start gap-1.5">
+                        <span className="text-blue-500">💡</span>
+                        <span>模型下载完成后会自动配置，无需手动设置</span>
                       </p>
                     </>
                   }
                 />
               </ConfigSection>
-
-              {/* 系统设置 - 仅在 Electron 环境显示 */}
-              {window.electron && (
-                <ConfigSection
-                  icon={<span className="text-3xl">⚙️</span>}
-                  title="系统设置"
-                  subtitle="应用版本和更新管理"
-                  colorClass="from-gray-500 to-slate-500"
-                  isMobile={isMobile}
-                >
-                  <InfoCard
-                    icon="ℹ️"
-                    title="应用信息"
-                    content={
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            当前版本
-                          </span>
-                          <code className="text-sm font-mono bg-white dark:bg-gray-900 px-2 py-1 rounded border border-gray-200 dark:border-gray-700">
-                            v1.2.0
-                          </code>
-                        </div>
-                        {updateAvailable && updateInfo && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-green-600 dark:text-green-400">
-                              最新版本
-                            </span>
-                            <code className="text-sm font-mono bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300">
-                              v{updateInfo.version}
-                            </code>
-                          </div>
-                        )}
-                      </div>
-                    }
-                  />
-
-                  <div className="flex flex-col gap-3">
-                    <Button
-                      onClick={checkForUpdates}
-                      className={`w-full gap-2 ${BUTTON_HEIGHT_CLASS(
-                        isMobile
-                      )}`}
-                      variant="outline"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      检查更新
-                    </Button>
-
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      💡 提示：应用会在启动时自动检查更新
-                    </p>
-                  </div>
-
-                  <InfoCard
-                    icon="🔄"
-                    title="自动更新说明"
-                    content={
-                      <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
-                        <p>• 应用启动时会自动检查 GitHub Release 上的更新</p>
-                        <p>
-                          • 发现新版本时会显示通知，您可以选择立即下载或稍后更新
-                        </p>
-                        <p>• 下载完成后可选择立即重启安装或在退出时自动安装</p>
-                        <p>• 更新过程完全自动化，无需手动操作</p>
-                      </div>
-                    }
-                  />
-                </ConfigSection>
-              )}
             </div>
           </TooltipProvider>
         </div>

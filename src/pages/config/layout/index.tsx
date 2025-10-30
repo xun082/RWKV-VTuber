@@ -205,36 +205,36 @@ export default function ConfigLayoutPage() {
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       <div
-        className={`flex-1 overflow-y-auto scroll-smooth ${styles.spacing.container}`}
+        className={`flex-1 overflow-y-auto scroll-smooth ${
+          isMobile ? "px-3 py-3" : "px-4 py-4"
+        }`}
       >
         <div className="mx-auto space-y-4 max-w-full">
           {/* Header */}
-          <div className="text-center space-y-3 py-4">
+          <div className="text-center space-y-2 py-3">
             <h1
-              className={`font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent ${styles.text.title}`}
+              className={`font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent ${
+                isMobile ? "text-2xl" : "text-3xl"
+              }`}
             >
               🎨 布局配置
             </h1>
-            <p
-              className={`text-gray-600 dark:text-gray-400 ${styles.text.subtitle}`}
-            >
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
               自定义聊天形象和界面布局设置
             </p>
           </div>
 
           {/* Main Configuration Card */}
           <Card className="shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className={styles.spacing.card}>
-              <CardTitle
-                className={`flex items-center gap-2 ${styles.text.cardTitle}`}
-              >
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Settings
                   className={`text-blue-600 ${styles.input.iconSize}`}
                 />
                 基础配置
               </CardTitle>
             </CardHeader>
-            <CardContent className={styles.spacing.content}>
+            <CardContent className="p-4 space-y-4">
               {/* Character Selection */}
               <div className={styles.spacing.item}>
                 <ConfigLabel icon={User} color="text-green-600">

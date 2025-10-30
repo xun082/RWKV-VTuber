@@ -23,26 +23,28 @@
 	z-index: 1;
 	transition: width 0.2s ease-in-out;
 	overflow: visible;
-	/* 确保模型不会被截取 */
-	padding: 50px;
+	/* 确保模型不会被截取 - 优化为更紧凑的padding */
+	padding: 20px;
 	box-sizing: border-box;
 	/* 确保不会阻挡右侧面板的交互 */
 	pointer-events: none;
+	/* 保持内容居中且不变形 */
+	contain: layout;
 }
 
 #live2d-container #live2d {
-	width: 100%;
+	width: auto;
 	height: 100%;
+	max-height: calc(100% - 20px);
 	z-index: 2;
 	overflow: visible;
 	position: relative;
 	/* 设置变换原点为中心，避免缩放时被截取 */
 	transform-origin: center center;
-	/* 添加最大尺寸限制，防止模型过大 */
-	max-width: calc(100% - 20px);
-	max-height: calc(100% - 20px);
 	/* 允许模型响应鼠标事件 */
 	pointer-events: auto;
+	/* 保持宽高比 */
+	aspect-ratio: attr(width) / attr(height);
 }
 
 #live2d-container #live2d-message {
@@ -92,11 +94,10 @@
 	object-position: center;
 }
 
-/* 响应式调整 */
+/* 响应式调整 - 优化为更紧凑的布局 */
 @media (max-width: 1200px) {
 	#live2d-container {
-		/* 小屏幕上减少 padding 以节省空间 */
-		padding: 30px;
+		padding: 15px;
 	}
 
 	#live2d-container #live2d-message {
@@ -108,8 +109,7 @@
 
 @media (max-width: 800px) {
 	#live2d-container {
-		/* 更小屏幕上进一步减少 padding */
-		padding: 20px;
+		padding: 10px;
 	}
 
 	#live2d-container #live2d-message {
@@ -120,11 +120,10 @@
 	}
 }
 
-/* 针对高分辨率或大屏幕的优化 */
+/* 针对高分辨率或大屏幕的优化 - 保持紧凑 */
 @media (min-width: 1920px) {
 	#live2d-container {
-		/* 大屏幕上增加 padding 以更好地居中显示 */
-		padding: 80px;
+		padding: 30px;
 	}
 }
 

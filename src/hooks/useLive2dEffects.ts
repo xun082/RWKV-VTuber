@@ -86,6 +86,16 @@ export function useLive2dEffects() {
       toast.error("Live2d模型加载失败");
       return;
     }
+    
+    // 确保canvas保持原始宽高比
+    if (canvas instanceof HTMLCanvasElement) {
+      // 让canvas保持原始尺寸比例
+      canvas.style.width = 'auto';
+      canvas.style.height = '100%';
+      canvas.style.maxHeight = '100%';
+      canvas.style.objectFit = 'contain';
+    }
+    
     // 确保变换原点在中心，并添加智能缩放限制
     canvas.style.transformOrigin = "center center";
 
@@ -97,9 +107,9 @@ export function useLive2dEffects() {
     const container = document.getElementById("live2d-container");
     if (container) {
       if (!isFullScreen && !isMobile && live2dScale > 1.5) {
-        container.style.padding = `${Math.max(50, live2dScale * 30)}px`;
+        container.style.padding = `${Math.max(20, live2dScale * 30)}px`;
       } else {
-        container.style.padding = "50px";
+        container.style.padding = "20px";
       }
     }
 
@@ -107,7 +117,7 @@ export function useLive2dEffects() {
       canvas.style.transform = "scale(1)";
       canvas.style.transformOrigin = "center center";
       if (container) {
-        container.style.padding = "50px";
+        container.style.padding = "20px";
       }
     };
   }, [live2dScale, isFullScreen, isMobile]);

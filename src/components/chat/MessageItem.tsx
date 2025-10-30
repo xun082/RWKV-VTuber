@@ -56,31 +56,33 @@ export function MessageItem({
       style={{ animationDelay: `${index * 50}ms` }}
     >
       <div
-        className={`max-w-[92%] sm:max-w-[80%] md:max-w-[70%] px-3.5 sm:px-4 py-3 sm:py-3.5 rounded-2xl shadow-lg backdrop-blur-sm border transition-all duration-300 hover:shadow-xl hover:scale-[1.01] relative overflow-hidden ${
+        className={`max-w-[85%] sm:max-w-[75%] md:max-w-[65%] px-4 py-3 rounded-2xl backdrop-blur-md border transition-all duration-300 hover:shadow-lg hover:scale-[1.005] relative overflow-hidden ${
           isUser
-            ? "bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 text-white border-blue-500/20 shadow-blue-600/25 ml-auto rounded-br-md"
-            : "bg-white/95 dark:bg-gray-800/95 text-gray-900 dark:text-gray-100 border-gray-200/50 dark:border-gray-700/50 shadow-gray-900/10 dark:shadow-black/25 rounded-bl-md"
+            ? "bg-linear-to-br from-blue-500 via-blue-600 to-indigo-600 text-white border-blue-400/30 shadow-md shadow-blue-500/20 ml-auto rounded-br-sm"
+            : "bg-white/80 dark:bg-gray-800/90 text-gray-800 dark:text-gray-100 border-gray-200/60 dark:border-gray-700/60 shadow-md shadow-gray-400/15 dark:shadow-black/30 rounded-bl-sm"
         }`}
       >
         {/* 消息装饰渐变 */}
         {isUser && (
-          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-50"></div>
+          <div className="absolute inset-0 bg-linear-to-br from-white/15 via-transparent to-blue-900/10 opacity-40 pointer-events-none"></div>
         )}
         {!isUser && (
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-50/50 via-transparent to-transparent dark:from-gray-700/30 opacity-60"></div>
+          <div className="absolute inset-0 bg-linear-to-br from-blue-50/60 via-white/20 to-transparent dark:from-blue-900/20 dark:via-transparent dark:to-gray-800/30 opacity-50 pointer-events-none"></div>
         )}
 
-        <div className="whitespace-pre-wrap leading-relaxed text-[14px] sm:text-[15px] relative z-10 font-normal">
+        <div className="whitespace-pre-wrap leading-relaxed text-[15px] relative z-10">
           {displayContent}
         </div>
         <div
-          className={`text-[10px] sm:text-[11px] mt-2 sm:mt-2.5 flex items-center justify-between relative z-10 ${
-            isUser ? "text-blue-100/90" : "text-gray-500 dark:text-gray-400"
+          className={`text-[10px] sm:text-[11px] mt-2 flex items-center justify-between relative z-10 ${
+            isUser
+              ? "text-blue-50/80"
+              : "text-gray-500/90 dark:text-gray-400/90"
           }`}
         >
           <div className="flex items-center gap-1.5">
-            <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-pulse"></div>
-            <span className="font-medium">
+            <div className="w-1 h-1 rounded-full bg-current opacity-60"></div>
+            <span className="font-medium opacity-90">
               {new Date(timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -94,15 +96,15 @@ export function MessageItem({
               onClick={handleSpeakClick}
               disabled={isPlaying || isGenerating}
               className={`
-                 flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg transition-all duration-200
+                 flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm
                  ${
                    isPlaying || isGenerating
-                     ? "bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 cursor-not-allowed"
+                     ? "bg-blue-500/20 dark:bg-blue-400/20 text-blue-600 dark:text-blue-400 cursor-not-allowed border border-blue-400/30"
                      : isGloballyPlaying && !isPlaying
-                     ? "bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 hover:bg-red-100 dark:hover:bg-red-900/50 hover:text-red-600 dark:hover:text-red-400 cursor-pointer hover:scale-110"
+                     ? "bg-orange-500/15 dark:bg-orange-400/15 text-orange-600 dark:text-orange-400 hover:bg-red-500/20 dark:hover:bg-red-400/20 hover:text-red-600 dark:hover:text-red-400 cursor-pointer hover:scale-105 border border-orange-400/30 hover:border-red-400/30"
                      : !speak || currentSpeakApi === "关闭"
-                     ? "bg-gray-100 dark:bg-gray-700 hover:bg-yellow-100 dark:hover:bg-yellow-900/50 text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:scale-110 cursor-pointer shadow-sm"
-                     : "bg-gray-100/80 dark:bg-gray-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:scale-110 cursor-pointer shadow-sm"
+                     ? "bg-gray-200/60 dark:bg-gray-600/40 hover:bg-yellow-500/15 dark:hover:bg-yellow-400/15 text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:scale-105 cursor-pointer border border-gray-300/40 dark:border-gray-600/40"
+                     : "bg-gray-200/50 dark:bg-gray-600/30 hover:bg-blue-500/15 dark:hover:bg-blue-400/15 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:scale-105 cursor-pointer border border-gray-300/30 dark:border-gray-600/30 hover:border-blue-400/30"
                  }
                  disabled:opacity-50
                `}

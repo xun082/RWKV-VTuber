@@ -21,19 +21,19 @@ export function DesktopLayout() {
   // 小屏幕判断
   const isSmallScreen = width < 1024;
 
-  // 根据屏幕类型动态调整面板比例
+  // 根据屏幕类型动态调整面板比例 - 优化为更紧凑的布局
   const getPanelSizes = () => {
     switch (screenType) {
       case "tablet":
-        return { left: 50, right: 50 }; // 平板时平分
+        return { left: 35, right: 65 }; // 平板时聊天区域更大
       case "desktop-sm":
-        return { left: 55, right: 45 }; // 小桌面屏幕
+        return { left: 35, right: 65 }; // 小桌面屏幕
       case "desktop-md":
-        return { left: 60, right: 40 }; // 中等桌面屏幕
+        return { left: 38, right: 62 }; // 中等桌面屏幕
       case "desktop-lg":
-        return { left: 65, right: 35 }; // 大桌面屏幕，Live2D区域更大
+        return { left: 40, right: 60 }; // 大桌面屏幕，保持聊天区域主导
       default:
-        return { left: 50, right: 50 };
+        return { left: 35, right: 65 };
     }
   };
 
@@ -63,13 +63,17 @@ export function DesktopLayout() {
 
   return (
     <main className="w-dvw h-dvh overflow-hidden desktop-layout">
-      <PanelGroup direction="horizontal" className="h-full">
+      <PanelGroup
+        direction="horizontal"
+        className="h-full"
+        autoSaveId="rwkv-vtuber-desktop-layout"
+      >
         {/* 左侧 Live2D 区域 */}
         <Panel
           ref={leftPanelRef}
           defaultSize={panelSizes.left}
-          minSize={screenType === "tablet" ? 40 : 30}
-          maxSize={screenType === "tablet" ? 70 : 80}
+          minSize={20}
+          maxSize={70}
           className="relative overflow-visible"
           onResize={updateLive2dContainerWidth}
         >
@@ -91,8 +95,8 @@ export function DesktopLayout() {
         {/* 右侧控制面板 */}
         <Panel
           defaultSize={panelSizes.right}
-          minSize={screenType === "tablet" ? 25 : 20}
-          maxSize={screenType === "tablet" ? 65 : 75}
+          minSize={30}
+          maxSize={80}
           className="bg-linear-to-br from-gray-50 to-gray-100 shrink-0 relative z-10"
         >
           <div className="w-full h-full overflow-hidden grid grid-rows-[1fr_auto]">

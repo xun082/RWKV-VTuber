@@ -155,11 +155,26 @@ export function useChatOperations({
       const systemPrompt = buildSystemPrompt(optimizedContext.memories);
 
       // 构建消息数组 - 确保包含当前用户消息
-      const allMessages = [...messages, userMessage];
-      const messagesToSend =
-        optimizedContext.messages.length > 0
-          ? optimizedContext.messages
-          : allMessages; // fallback to all messages if optimization failed
+      let messagesToSend: SimpleMessage[] = [];
+      
+      if (optimizedContext.messages.length > 0) {
+        // 使用优化后的上下文
+        messagesToSend = optimizedContext.messages;
+        
+        // 确保当前用户消息在最后
+        const hasCurrentMessage = messagesToSend.some(
+          (msg) => msg.uuid === userMessage.uuid
+        );
+        
+        if (!hasCurrentMessage) {
+          console.warn("⚠️ 优化后的上下文不包含当前消息，强制添加");
+          messagesToSend = [...messagesToSend, userMessage];
+        }
+      } else {
+        // fallback：只发送当前消息
+        console.warn("⚠️ 上下文优化失败，只发送当前消息");
+        messagesToSend = [userMessage];
+      }
 
       const chatMessages = [
         { role: "system" as const, content: systemPrompt },
@@ -169,16 +184,6 @@ export function useChatOperations({
         })),
       ];
 
-      console.log("🤖 发送给LLM的消息:", {
-        messageCount: chatMessages.length,
-        lastUserMessage: chatMessages
-          .filter((m) => m.role === "user")
-          .pop()
-          ?.content?.substring(0, 50),
-        messages: chatMessages.map(
-          (m) => `${m.role}: ${m.content.substring(0, 30)}...`
-        ),
-      });
 
       if (isFullscreen) {
         // 全屏模式：使用非流式响应，确保语音播放
@@ -198,9 +203,19 @@ export function useChatOperations({
         processAIResponse(assistantContent);
 
         // Remove motion commands from content for display and speech
-        const cleanContent = assistantContent
+        let cleanContent = assistantContent
           .replace(MOTION_COMMAND_REGEX, "")
           .trim();
+
+        // 如果清理后内容为空，说明AI只返回了动作指令
+        if (!cleanContent || cleanContent.length === 0) {
+          const hasMotionCommands = MOTION_COMMAND_REGEX.test(assistantContent);
+          if (hasMotionCommands) {
+            cleanContent = "*收到你的消息啦~* 😊";
+          } else {
+            cleanContent = "...";
+          }
+        }
 
         flushSync(() => setDisabled(LoadingStates.thinking));
 
@@ -227,11 +242,15 @@ export function useChatOperations({
         console.log("✅ 全屏模式消息处理完成，等待语音处理");
       } else {
         // 普通模式：使用流式响应
-        console.log("💬 普通模式：使用流式API");
         const stream = await chat.chat.completions.create({
           model: openaiModelName,
           messages: chatMessages,
           stream: true, // 启用流式响应
+          stream_options: {
+            include_usage: true,
+          },
+          temperature: 0.7,
+          max_tokens: 2000,
         });
 
         flushSync(() => setDisabled(LoadingStates.thinking));
@@ -251,8 +270,10 @@ export function useChatOperations({
         let tokens = 0;
 
         for await (const chunk of stream) {
-          // 检查是否有内容
-          const content = chunk.choices[0]?.delta?.content;
+          const delta = chunk.choices[0]?.delta;
+          
+          // 只处理最终输出内容，忽略推理过程 (reasoning_content)
+          const content = delta?.content;
           if (content) {
             assistantContent += content;
 
@@ -284,17 +305,30 @@ export function useChatOperations({
           .replace(MOTION_COMMAND_REGEX, "")
           .trim();
 
-        // 确保最终内容正确显示
-        updateLastMessage(finalCleanContent);
-        setTips(finalCleanContent);
+        // 如果清理后内容为空，说明AI只返回了动作指令
+        if (!finalCleanContent || finalCleanContent.length === 0) {
+          const hasMotionCommands = MOTION_COMMAND_REGEX.test(assistantContent);
+          const fallbackMessage = hasMotionCommands 
+            ? "*收到你的消息啦~* 😊" 
+            : "抱歉，我没有收到回复内容";
+          updateLastMessage(fallbackMessage);
+          setTips(fallbackMessage);
+        } else {
+          // 有正常内容，显示
+          updateLastMessage(finalCleanContent);
+          setTips(finalCleanContent);
+        }
 
-        // 自动TTS - 只在开启时执行
-        const tts = autoTTS
+        // 获取要保存和播放的最终内容
+        const contentToSave = finalCleanContent || "*收到你的消息啦~* 😊";
+
+        // 自动TTS - 只在开启时执行且有实际内容时
+        const tts = autoTTS && contentToSave && contentToSave !== "..."
           ? (async () => {
               try {
                 console.log("🔊 自动TTS已开启，开始生成和播放语音...");
                 const audioBuffer = await generateTTSOnly(
-                  finalCleanContent,
+                  contentToSave,
                   time
                 );
 
@@ -318,7 +352,7 @@ export function useChatOperations({
         // 保存最终的助手消息
         const finalAssistantMessage: SimpleMessage = {
           role: "assistant",
-          content: finalCleanContent,
+          content: contentToSave,
           timestamp: time,
           uuid: assistantMessage.uuid,
         };
@@ -328,8 +362,19 @@ export function useChatOperations({
         await tts;
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "未知错误");
-      console.error("聊天失败:", error);
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      console.error("聊天失败:", errorMessage);
+      
+      // 显示更详细的错误信息
+      if (errorMessage.includes("API key")) {
+        toast.error("API密钥错误，请检查配置");
+      } else if (errorMessage.includes("model")) {
+        toast.error("模型错误，请检查模型名称");
+      } else if (errorMessage.includes("Connection") || errorMessage.includes("network")) {
+        toast.error("网络连接失败，请检查网络");
+      } else {
+        toast.error(`聊天失败: ${errorMessage}`);
+      }
     } finally {
       // 确保在任何情况下都重置禁用状态
       flushSync(() => setDisabled(false));

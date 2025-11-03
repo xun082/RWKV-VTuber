@@ -308,7 +308,7 @@ export default function ConfigServicePage() {
                 <ConfigInput
                   icon={Globe}
                   label="推理服务地址"
-                  badge="OpenAI Endpoint"
+                  badge="服务端点"
                   value={endpointValue}
                   onChange={(value) => {
                     setEndpointValue(value);
@@ -319,7 +319,7 @@ export default function ConfigServicePage() {
                   isModified={openaiEndpointModified}
                   onReset={async () => {
                     await setOpenaiEndpoint();
-                    setEndpointValue("https://api.deepseek.com/");
+                    setEndpointValue("https://api.siliconflow.cn/v1/");
                     setOpenaiEndpointModified(false);
                     toast.success("推理服务地址已恢复默认值");
                   }}
@@ -342,8 +342,8 @@ export default function ConfigServicePage() {
                   label="推理服务密钥"
                   badge={
                     isLocalEndpoint(endpointValue)
-                      ? "OpenAI API Key（可留空）"
-                      : "OpenAI API Key"
+                      ? "API 密钥（可留空）"
+                      : "API 密钥"
                   }
                   value={apiKeyValue}
                   onChange={(value) => {
@@ -382,7 +382,7 @@ export default function ConfigServicePage() {
                 <ConfigInput
                   icon={Cpu}
                   label="推理服务模型"
-                  badge="OpenAI Model Name"
+                  badge="模型名称"
                   value={modelNameValue}
                   onChange={(value) => {
                     setModelNameValue(value);
@@ -393,7 +393,7 @@ export default function ConfigServicePage() {
                   isModified={openaiModelNameModified}
                   onReset={async () => {
                     await setOpenaiModelName();
-                    setModelNameValue("deepseek-chat");
+                    setModelNameValue("deepseek-ai/DeepSeek-V3");
                     setOpenaiModelNameModified(false);
                     toast.success("推理服务模型已恢复默认值");
                   }}

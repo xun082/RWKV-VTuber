@@ -1,5 +1,6 @@
 import { Loader2, Volume2, VolumeX, VolumeOff } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import MarkdownIt from "markdown-it";
 import { generateAndPlayTTS, isAudioPlaying } from "../../lib/tts-utils.ts";
 import { useSpeakApi } from "../../stores/useSpeakApi.ts";
 
@@ -9,6 +10,14 @@ interface MessageItemProps {
   timestamp: number;
   index: number;
 }
+
+// 初始化 Markdown 渲染器
+const md = new MarkdownIt({
+  html: false, // 禁用 HTML 标签
+  linkify: true, // 自动识别链接
+  breaks: true, // 转换换行符为 <br>
+  typographer: true, // 启用优美的排版替换
+});
 
 export function MessageItem({
   role,
@@ -26,6 +35,14 @@ export function MessageItem({
 
   // 过滤掉动作标签 [MMOTION:xxx]
   const displayContent = content.replace(/\[MMOTION:[^\]]+\]\s*/g, "").trim();
+
+  // 渲染 Markdown（仅对 AI 回复）
+  const renderedContent = useMemo(() => {
+    if (isAssistant) {
+      return md.render(displayContent);
+    }
+    return displayContent;
+  }, [displayContent, isAssistant]);
 
   // 监听全局播放状态
   useEffect(() => {
@@ -70,9 +87,19 @@ export function MessageItem({
           <div className="absolute inset-0 bg-linear-to-br from-blue-50/60 via-white/20 to-transparent dark:from-blue-900/20 dark:via-transparent dark:to-gray-800/30 opacity-50 pointer-events-none"></div>
         )}
 
-        <div className="whitespace-pre-wrap leading-relaxed text-[15px] relative z-10">
-          {displayContent}
-        </div>
+        {isAssistant ? (
+          <div 
+            className="prose prose-sm dark:prose-invert max-w-none leading-relaxed text-[15px] relative z-10"
+            style={{
+              color: "inherit",
+            }}
+            dangerouslySetInnerHTML={{ __html: renderedContent }}
+          />
+        ) : (
+          <div className="whitespace-pre-wrap leading-relaxed text-[15px] relative z-10">
+            {displayContent}
+          </div>
+        )}
         <div
           className={`text-[10px] sm:text-[11px] mt-2 flex items-center justify-between relative z-10 ${
             isUser

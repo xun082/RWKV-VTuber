@@ -1,13 +1,13 @@
 {
   "name": "rwkv-vtuber",
   "private": true,
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "RWKV-VTuber is an AI-powered virtual tuber application with Live2D integration",
   "author": "leafyee.xyz",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run electron:compile && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
     "lint": "biome lint --write ./src",
     "format": "biome format --write ./src",
@@ -15,7 +15,6 @@
     "release:create": "commit-and-tag-version",
     "release:push": "git push --follow-tags",
     "electron:compile": "tsc -p electron/tsconfig.json",
-    "electron:dev": "npm run electron:compile && concurrently \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run electron:compile && vite build && electron-builder",
     "electron:build:mac": "npm run electron:compile && vite build && electron-builder --mac --arm64",
     "electron:build:win": "npm run electron:compile && vite build && electron-builder --win",

@@ -19,18 +19,18 @@ type API = {
   processAIResponse: (content: string) => void;
 };
 
-const DEFAULT_OPENAI_ENDPOINT = "https://api.deepseek.com/";
+const DEFAULT_OPENAI_ENDPOINT = "https://api.siliconflow.cn/v1/";
 const DEFAULT_OPENAI_API_KEY = "";
-const DEFAULT_OPENAI_MODEL_NAME = "deepseek-chat";
+const DEFAULT_OPENAI_MODEL_NAME = "deepseek-ai/DeepSeek-V3";
 
 const localUsedToken = await get("last_used_token");
 const defaultUsedToken = localUsedToken ? Number(localUsedToken) : -1;
-const defaultOpenaiEndpoint =
-  (await get("openai_endpoint")) ?? DEFAULT_OPENAI_ENDPOINT;
-const defaultOpenaiApiKey =
-  (await get("openai_api_key")) ?? DEFAULT_OPENAI_API_KEY;
-const defaultOpenaiModelName =
-  (await get("openai_model_name")) ?? DEFAULT_OPENAI_MODEL_NAME;
+const defaultOpenaiEndpoint: string =
+  ((await get("openai_endpoint")) as string) ?? DEFAULT_OPENAI_ENDPOINT;
+const defaultOpenaiApiKey: string =
+  ((await get("openai_api_key")) as string) ?? DEFAULT_OPENAI_API_KEY;
+const defaultOpenaiModelName: string =
+  ((await get("openai_model_name")) as string) ?? DEFAULT_OPENAI_MODEL_NAME;
 const defaultChatApi = new OpenAI({
   baseURL: defaultOpenaiEndpoint,
   apiKey: defaultOpenaiApiKey,

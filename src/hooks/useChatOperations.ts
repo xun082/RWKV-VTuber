@@ -50,6 +50,8 @@ export function useChatOperations({
   const setUsedToken = useChatApi((state) => state.setUsedToken);
   const openaiModelName = useChatApi((state) => state.openaiModelName);
   const processAIResponse = useChatApi((state) => state.processAIResponse);
+  const getSystemPrompt = useChatApi((state) => state.getSystemPrompt);
+  const loadKnowledgeBase = useChatApi((state) => state.loadKnowledgeBase);
   const showTips = useLive2dApi((state) => state.showTips);
   const hideTips = useLive2dApi((state) => state.hideTips);
   const setTips = useLive2dApi((state) => state.setTips);
@@ -151,8 +153,15 @@ export function useChatOperations({
         messageCount: conversationPattern.messageCount || 0,
       });
 
-      // 构建系统提示
-      const systemPrompt = buildSystemPrompt(optimizedContext.memories);
+      // 加载最新的知识库
+      loadKnowledgeBase();
+
+      // 构建系统提示 - 结合知识库和记忆
+      const baseSystemPrompt = buildSystemPrompt(optimizedContext.memories);
+      const knowledgeSystemPrompt = getSystemPrompt();
+      
+      // 合并系统提示：知识库优先
+      const systemPrompt = `${knowledgeSystemPrompt}\n\n${baseSystemPrompt}`;
 
       // 构建消息数组 - 确保包含当前用户消息
       let messagesToSend: SimpleMessage[] = [];

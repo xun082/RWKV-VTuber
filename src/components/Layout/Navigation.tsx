@@ -37,8 +37,8 @@ export function Navigation() {
       category: "config" as const,
     },
     {
-      key: "/memory",
-      label: "记忆",
+      key: "/knowledge",
+      label: "知识库上传",
       icon: BookOpen,
       category: "main" as const,
     },

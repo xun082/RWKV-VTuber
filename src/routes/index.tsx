@@ -3,7 +3,7 @@ import App from "../App";
 import ChatPage from "../pages/chat/index";
 import ConfigLayoutPage from "../pages/config/layout/index";
 import ConfigServicePage from "../pages/config/service/index";
-import MemoryPage from "../pages/memory/index";
+import KnowledgePage from "../pages/knowledge/index";
 
 export const router = createHashRouter([
   {
@@ -15,8 +15,8 @@ export const router = createHashRouter([
         element: <ChatPage />,
       },
       {
-        path: "memory",
-        element: <MemoryPage />,
+        path: "knowledge",
+        element: <KnowledgePage />,
       },
       {
         path: "chat",

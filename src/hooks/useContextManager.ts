@@ -32,7 +32,7 @@ export function useContextManager(config: Partial<ContextConfig> = {}) {
 		[config],
 	)
 
-	const { filterMessages, selectContextMessages, searchRelevantMemories } =
+	const { selectContextMessages, searchRelevantMemories } =
 		useSmartMemory()
 
 	/**
@@ -94,8 +94,7 @@ export function useContextManager(config: Partial<ContextConfig> = {}) {
 				)
 			} else {
 				// 简单截取最近的消息
-				const filteredHistory = filterMessages(historyMessages)
-				contextMessages = filteredHistory.slice(-finalConfig.maxHistoryMessages)
+				contextMessages = historyMessages.slice(-finalConfig.maxHistoryMessages)
 			}
 
 			// 2. 获取相关记忆（如果没有提供）
@@ -158,7 +157,6 @@ export function useContextManager(config: Partial<ContextConfig> = {}) {
 		[
 			finalConfig,
 			selectContextMessages,
-			filterMessages,
 			searchRelevantMemories,
 			truncateToContextWindow,
 			estimateTokens,
@@ -280,13 +278,13 @@ export function useContextManager(config: Partial<ContextConfig> = {}) {
 					break
 
 				default:
-					// 默认策略：智能过滤
-					optimized = filterMessages(messages)
+					// 默认策略：保留所有消息
+					optimized = messages
 			}
 
 			return optimized
 		},
-		[filterMessages],
+		[],
 	)
 
 	return {

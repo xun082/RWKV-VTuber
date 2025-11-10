@@ -41,56 +41,6 @@ export function registerIPCHandlers(): void {
     }
   );
 
-  // MiniMax TTS
-  ipcMain.handle("minimax_tts", async (_event, params: any) => {
-    const {
-      apiKey,
-      groupId,
-      model,
-      text,
-      voiceId,
-      speed,
-      volume,
-      pitch,
-      sampleRate,
-      audioFormat,
-    } = params;
-
-    const response = await fetch("https://api.minimaxi.com/v1/t2a_v2", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        GroupId: groupId,
-      },
-      body: JSON.stringify({
-        model,
-        text,
-        voice_setting: { voice_id: voiceId, speed, vol: volume, pitch },
-        audio_setting: {
-          sample_rate: sampleRate,
-          bitrate: 128000,
-          format: audioFormat || "wav",
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`MiniMax API 错误 ${response.status}: ${errorText}`);
-    }
-
-    const data = (await response.json()) as any;
-    const audioBase64 = data.data?.audio;
-
-    if (!audioBase64) {
-      throw new Error("响应中未找到音频数据");
-    }
-
-    const audioBuffer = Buffer.from(audioBase64, "base64");
-    return { audio: Array.from(audioBuffer) };
-  });
-
   // Sherpa-ONNX ASR 语音识别
   ipcMain.handle(
     "sherpa_transcribe",

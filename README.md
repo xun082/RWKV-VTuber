@@ -144,7 +144,7 @@ pnpm electron:build:linux # 仅 Linux
 
 ### 项目结构
 
-```
+```tree
 src/
 ├── components/          # React 组件
 │   ├── chat/           # 聊天相关组件

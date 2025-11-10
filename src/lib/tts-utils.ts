@@ -209,17 +209,11 @@ export async function generateAndPlayTTS(
 
   const speak = useSpeakApi.getState().speak;
   const currentSpeakApi = useSpeakApi.getState().currentSpeakApi;
-  const setSpeakApi = useSpeakApi.getState().setSpeakApi;
 
   // 检查TTS服务是否可用
   if (!speak || currentSpeakApi === "关闭") {
-    // 尝试启用TTS服务
-    try {
-      await setSpeakApi("MiniMax TTS");
-      return;
-    } catch (error) {
-      return;
-    }
+    console.warn("TTS 服务未启用，请在设置中启用 Sherpa-ONNX TTS");
+    return;
   }
 
   const emoji = emojiReg();

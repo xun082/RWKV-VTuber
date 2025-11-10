@@ -1,9 +1,4 @@
-// 统一的存储适配器，支持 Electron 和 Web 环境
 import * as webDb from "idb-keyval";
-
-// 检查是否在 Electron 环境中
-const isElectron =
-  typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__;
 
 // 统一的存储接口
 export async function get(key: string): Promise<unknown> {

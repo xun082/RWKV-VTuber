@@ -1,7 +1,6 @@
 import emojiRegex from "emoji-regex";
 import { get } from "../shared/api.store";
 import type { SherpaTTSConfig } from "../../../stores/useSherpaTtsConfig";
-import { DEFAULT_SHERPA_TTS_CONFIG } from "../../../stores/useSherpaTtsConfig";
 
 const emoji = emojiRegex();
 

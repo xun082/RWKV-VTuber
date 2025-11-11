@@ -18,7 +18,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           live2d: ["l2d"],
-          antd: ["antd", "@ant-design/x", "@ant-design/icons"],
         },
       },
     },

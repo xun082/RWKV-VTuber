@@ -1,51 +1,30 @@
-import { Info, RotateCcw, Save, Cpu, Globe, Shield } from "lucide-react";
+import { Shield, Download, CheckCircle2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  ConfigSection,
-  ConfigInput,
-  ModelDownloadCard,
-  InfoCard,
-  ParameterSlider,
-} from "@/components/config";
+import { ConfigSection, ConfigInput } from "@/components/config";
 import { useResponsive } from "@/hooks/useResponsive";
-import { useSpeakApi } from "@/stores/useSpeakApi.ts";
 import { useSherpaConfig } from "@/stores/useSherpaConfig.ts";
 import { useSherpaTtsConfig } from "@/stores/useSherpaTtsConfig.ts";
-import { validateSherpaTTSConfig } from "@/lib/api/electron/api.sherpa-tts";
 import { useChatApi } from "@/stores/useChatApi.ts";
 
-const BUTTON_HEIGHT_CLASS = (isMobile: boolean) => (isMobile ? "h-10" : "h-11");
+// 固定配置
+const FIXED_MODEL_NAME = "deepseek-ai/DeepSeek-V3";
 
 export default function ConfigServicePage() {
   const { isMobile } = useResponsive();
-  const testSpeak = useSpeakApi((state) => state.testSpeak);
 
-  // Sherpa-ONNX TTS
-  const sherpaTtsConfig = useSherpaTtsConfig((state) => state.config);
+  // Stores
   const setSherpaTtsConfig = useSherpaTtsConfig((state) => state.setConfig);
-  const resetSherpaTtsConfig = useSherpaTtsConfig((state) => state.resetConfig);
-
-  // Sherpa ASR Config
   const setSherpaConfig = useSherpaConfig((state) => state.setConfig);
-
-  // Chat API Config
   const chatApi = useChatApi();
 
-  // API配置状态
-  const [endpointValue, setEndpointValue] = useState(
-    "https://api.siliconflow.cn/v1/"
-  );
+  // API Key 状态
   const [apiKeyValue, setApiKeyValue] = useState(chatApi.apiKey);
-  const [modelNameValue, setModelNameValue] = useState(chatApi.modelName);
-  const [openaiEndpointModified, setOpenaiEndpointModified] = useState(false);
-  const [openaiApiKeyModified, setOpenaiApiKeyModified] = useState(false);
-  const [openaiModelNameModified, setOpenaiModelNameModified] = useState(false);
-  const [sherpaTtsConfigModified, setSherpaTtsConfigModified] = useState(false);
+  const [apiKeyModified, setApiKeyModified] = useState(false);
 
-  // 模型下载状态
+  // TTS 模型下载状态
   const [matchaDownloaded, setMatchaDownloaded] = useState(false);
   const [vocoderDownloaded, setVocoderDownloaded] = useState(false);
   const [matchaDownloading, setMatchaDownloading] = useState(false);
@@ -58,106 +37,62 @@ export default function ConfigServicePage() {
   const [asrDownloading, setAsrDownloading] = useState(false);
   const [asrProgress, setAsrProgress] = useState(0);
 
-  // Sync form values with store values
-  useEffect(() => setApiKeyValue(chatApi.apiKey), [chatApi.apiKey]);
-  useEffect(() => setModelNameValue(chatApi.modelName), [chatApi.modelName]);
+  // 同步 API Key
+  useEffect(() => {
+    setApiKeyValue(chatApi.apiKey);
+  }, [chatApi.apiKey]);
 
-  const isLocalEndpoint = (url: string) =>
-    /^https?:\/\/(localhost|127\.0\.0\.1)(:\\d+)?/i.test(url || "");
+  // 初始化配置（仅在组件挂载时执行一次）
+  useEffect(() => {
+    const initializeConfig = async () => {
+      // 设置固定的 API 配置
+      await chatApi.setModelName(FIXED_MODEL_NAME);
 
-  const testSherpaTtsConnection = async () => {
-    const errors = validateSherpaTTSConfig(sherpaTtsConfig);
-    if (errors.length > 0) {
-      return toast.error(`配置错误: ${errors[0]}`);
-    }
-    if (!sherpaTtsConfig.enabled) {
-      return toast.error("请先启用 Sherpa-ONNX TTS 服务");
-    }
+      // 设置固定的 TTS 配置
+      setSherpaTtsConfig({
+        enabled: true,
+        acousticModel: "matcha-icefall-zh-baker/model-steps-3.onnx",
+        lexicon: "matcha-icefall-zh-baker/lexicon.txt",
+        tokens: "matcha-icefall-zh-baker/tokens.txt",
+        ruleFsts:
+          "matcha-icefall-zh-baker/phone.fst,matcha-icefall-zh-baker/date.fst,matcha-icefall-zh-baker/number.fst",
+        vocoder: "vocos-22khz-univ.onnx",
+      });
 
-    try {
-      toast.info("正在测试连接...");
-      if (testSpeak) {
-        await testSpeak();
-        toast.success("🎉 Sherpa-ONNX TTS 连接测试成功！");
-      } else {
-        throw new Error("测试服务不可用");
+      // 设置固定的 ASR 配置
+      setSherpaConfig({
+        encoderPath:
+          "sherpa-onnx-streaming-paraformer-bilingual-zh-en/encoder.int8.onnx",
+        decoderPath:
+          "sherpa-onnx-streaming-paraformer-bilingual-zh-en/decoder.int8.onnx",
+        tokensPath:
+          "sherpa-onnx-streaming-paraformer-bilingual-zh-en/tokens.txt",
+      });
+
+      // 检查模型下载状态
+      const electronAPI = (window as any).electronAPI;
+      if (!electronAPI) return;
+
+      try {
+        const [matchaResult, vocoderResult, asrResult] = await Promise.all([
+          electronAPI.invoke("check_tts_model", { modelType: "matcha" }),
+          electronAPI.invoke("check_tts_model", { modelType: "vocoder" }),
+          electronAPI.invoke("check_asr_model"),
+        ]);
+
+        setMatchaDownloaded(matchaResult.downloaded);
+        setVocoderDownloaded(vocoderResult.downloaded);
+        setAsrDownloaded(asrResult.downloaded);
+      } catch (error) {
+        console.error("检查模型失败:", error);
       }
-    } catch (error) {
-      toast.error(
-        `连接测试失败: ${error instanceof Error ? error.message : "未知错误"}`
-      );
-    }
-  };
+    };
 
-  const saveSherpaTtsConfig = async () => {
-    const errors = validateSherpaTTSConfig(sherpaTtsConfig);
-    if (errors.length > 0) {
-      return toast.error(`配置错误: ${errors[0]}`);
-    }
+    initializeConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 空依赖数组：只在组件挂载时执行一次
 
-    try {
-      await setSherpaTtsConfig(sherpaTtsConfig);
-      setSherpaTtsConfigModified(false);
-      toast.success("Sherpa-ONNX TTS 配置已保存");
-    } catch (error) {
-      toast.error("保存配置失败");
-    }
-  };
-
-  const checkModelsDownloaded = async () => {
-    const electronAPI = (window as any).electronAPI;
-    if (!electronAPI) return;
-
-    try {
-      const [matchaResult, vocoderResult] = await Promise.all([
-        electronAPI.invoke("check_tts_model", { modelType: "matcha" }),
-        electronAPI.invoke("check_tts_model", { modelType: "vocoder" }),
-      ]);
-
-      setMatchaDownloaded(matchaResult.downloaded);
-      setVocoderDownloaded(vocoderResult.downloaded);
-
-      if (matchaResult.downloaded) {
-        setSherpaTtsConfig({
-          acousticModel: "matcha-icefall-zh-baker/model-steps-3.onnx",
-          lexicon: "matcha-icefall-zh-baker/lexicon.txt",
-          tokens: "matcha-icefall-zh-baker/tokens.txt",
-          ruleFsts:
-            "matcha-icefall-zh-baker/phone.fst,matcha-icefall-zh-baker/date.fst,matcha-icefall-zh-baker/number.fst",
-        });
-      }
-
-      if (vocoderResult.downloaded) {
-        setSherpaTtsConfig({ vocoder: "vocos-22khz-univ.onnx" });
-      }
-    } catch (error) {
-      console.error("检查模型失败:", error);
-    }
-  };
-
-  const checkASRModelDownloaded = async () => {
-    const electronAPI = (window as any).electronAPI;
-    if (!electronAPI) return;
-
-    try {
-      const result = await electronAPI.invoke("check_asr_model");
-      setAsrDownloaded(result.downloaded);
-
-      if (result.downloaded) {
-        setSherpaConfig({
-          encoderPath:
-            "sherpa-onnx-streaming-paraformer-bilingual-zh-en/encoder.int8.onnx",
-          decoderPath:
-            "sherpa-onnx-streaming-paraformer-bilingual-zh-en/decoder.int8.onnx",
-          tokensPath:
-            "sherpa-onnx-streaming-paraformer-bilingual-zh-en/tokens.txt",
-        });
-      }
-    } catch (error) {
-      console.error("检查 ASR 模型失败:", error);
-    }
-  };
-
+  // 下载 TTS 模型
   const downloadModel = async (modelType: "matcha" | "vocoder") => {
     const electronAPI = (window as any).electronAPI;
     if (!electronAPI) {
@@ -181,9 +116,7 @@ export default function ConfigServicePage() {
       setDownloading(true);
       setProgress(0);
       toast.info(
-        `开始下载 ${
-          modelType === "matcha" ? "Matcha" : "Vocoder"
-        } 模型，请稍候...`
+        `开始下载 ${modelType === "matcha" ? "Matcha" : "Vocoder"} 模型...`
       );
 
       const result = await electronAPI.invoke("download_tts_model", {
@@ -195,19 +128,6 @@ export default function ConfigServicePage() {
         toast.success(
           `${modelType === "matcha" ? "Matcha" : "Vocoder"} 模型下载成功！`
         );
-
-        if (modelType === "matcha") {
-          setSherpaTtsConfig({
-            acousticModel: "matcha-icefall-zh-baker/model-steps-3.onnx",
-            lexicon: "matcha-icefall-zh-baker/lexicon.txt",
-            tokens: "matcha-icefall-zh-baker/tokens.txt",
-            ruleFsts:
-              "matcha-icefall-zh-baker/phone.fst,matcha-icefall-zh-baker/date.fst,matcha-icefall-zh-baker/number.fst",
-          });
-        } else {
-          setSherpaTtsConfig({ vocoder: "vocos-22khz-univ.onnx" });
-        }
-        setSherpaTtsConfigModified(true);
       }
     } catch (error) {
       toast.error(
@@ -220,6 +140,7 @@ export default function ConfigServicePage() {
     }
   };
 
+  // 下载 ASR 模型
   const downloadASRModel = async () => {
     const electronAPI = (window as any).electronAPI;
     if (!electronAPI) {
@@ -235,21 +156,13 @@ export default function ConfigServicePage() {
     try {
       setAsrDownloading(true);
       setAsrProgress(0);
-      toast.info("开始下载 ASR 流式模型，请稍候...");
+      toast.info("开始下载 ASR 模型...");
 
       const result = await electronAPI.invoke("download_asr_model");
 
       if (result.success) {
         setAsrDownloaded(true);
-        toast.success("ASR 流式模型下载成功！");
-        setSherpaConfig({
-          encoderPath:
-            "sherpa-onnx-streaming-paraformer-bilingual-zh-en/encoder.int8.onnx",
-          decoderPath:
-            "sherpa-onnx-streaming-paraformer-bilingual-zh-en/decoder.int8.onnx",
-          tokensPath:
-            "sherpa-onnx-streaming-paraformer-bilingual-zh-en/tokens.txt",
-        });
+        toast.success("ASR 模型下载成功！");
       }
     } catch (error) {
       toast.error(
@@ -261,11 +174,6 @@ export default function ConfigServicePage() {
       setAsrProgress(0);
     }
   };
-
-  useEffect(() => {
-    checkModelsDownloaded();
-    checkASRModelDownloaded();
-  }, []);
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
@@ -285,347 +193,219 @@ export default function ConfigServicePage() {
               🔧 服务配置
             </h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
-              配置 AI 推理服务和本地语音服务
+              配置 API 密钥并下载所需模型
             </p>
           </div>
 
           <TooltipProvider>
             <div className="space-y-4">
-              {/* AI 推理服务配置 */}
+              {/* API 密钥配置 */}
               <ConfigSection
-                icon={<span className="text-3xl">⚙️</span>}
-                title="AI 推理服务"
-                subtitle="配置硅基流动 API 接口"
+                icon={<span className="text-3xl">🔑</span>}
+                title="硅基流动 API 密钥"
+                subtitle={`使用 ${FIXED_MODEL_NAME} 模型`}
                 colorClass="from-purple-500 to-indigo-500"
                 isMobile={isMobile}
               >
                 <ConfigInput
-                  icon={Globe}
-                  label="推理服务地址"
-                  badge="服务端点"
-                  value={endpointValue}
-                  onChange={(value) => {
-                    setEndpointValue(value);
-                    setOpenaiEndpointModified(true);
-                  }}
-                  placeholder="请输入推理服务地址"
-                  color="green"
-                  isModified={openaiEndpointModified}
-                  onReset={async () => {
-                    setEndpointValue("https://api.siliconflow.cn/v1/");
-                    setOpenaiEndpointModified(false);
-                    toast.success("推理服务地址已恢复默认值");
-                  }}
-                  onSave={async () => {
-                    if (!endpointValue)
-                      return toast.error("请输入推理服务地址");
-                    // 硅基流动 API 地址固定，无需保存
-                    setOpenaiEndpointModified(false);
-                    toast.success("推理服务地址已确认");
-                  }}
-                  isMobile={isMobile}
-                />
-
-                <ConfigInput
                   icon={Shield}
-                  label="推理服务密钥"
-                  badge={
-                    isLocalEndpoint(endpointValue)
-                      ? "API 密钥（可留空）"
-                      : "API 密钥"
-                  }
+                  label="API 密钥"
+                  badge="必填"
                   value={apiKeyValue}
                   onChange={(value) => {
                     setApiKeyValue(value);
-                    setOpenaiApiKeyModified(true);
+                    setApiKeyModified(true);
                   }}
-                  placeholder={
-                    isLocalEndpoint(endpointValue)
-                      ? "本地模型无需密钥，可留空"
-                      : "请输入推理服务密钥"
-                  }
+                  placeholder="请输入硅基流动 API 密钥"
                   type="password"
                   color="blue"
-                  isModified={openaiApiKeyModified}
+                  isModified={apiKeyModified}
                   onReset={async () => {
                     setApiKeyValue("");
-                    setOpenaiApiKeyModified(false);
-                    toast.success("推理服务密钥已清空");
+                    await chatApi.setApiKey("");
+                    setApiKeyModified(false);
+                    toast.success("API 密钥已清空");
                   }}
                   onSave={async () => {
-                    const isLocal = isLocalEndpoint(endpointValue);
-                    if (!apiKeyValue && !isLocal)
-                      return toast.error("请输入推理服务密钥");
+                    if (!apiKeyValue) return toast.error("请输入 API 密钥");
                     await chatApi.setApiKey(apiKeyValue);
-                    setOpenaiApiKeyModified(false);
-                    toast.success(
-                      isLocal
-                        ? "已保存（本地模型可留空）"
-                        : "推理服务密钥已更新"
-                    );
+                    setApiKeyModified(false);
+                    toast.success("API 密钥已保存");
                   }}
                   isMobile={isMobile}
                 />
 
-                <ConfigInput
-                  icon={Cpu}
-                  label="推理服务模型"
-                  badge="模型名称"
-                  value={modelNameValue}
-                  onChange={(value) => {
-                    setModelNameValue(value);
-                    setOpenaiModelNameModified(true);
-                  }}
-                  placeholder="请输入推理服务模型"
-                  color="purple"
-                  isModified={openaiModelNameModified}
-                  onReset={async () => {
-                    setModelNameValue("deepseek-ai/DeepSeek-V3");
-                    await chatApi.setModelName("deepseek-ai/DeepSeek-V3");
-                    setOpenaiModelNameModified(false);
-                    toast.success("推理服务模型已恢复默认值");
-                  }}
-                  onSave={async () => {
-                    if (!modelNameValue)
-                      return toast.error("请输入推理服务模型");
-                    await chatApi.setModelName(modelNameValue);
-                    setOpenaiModelNameModified(false);
-                    toast.success("推理服务模型已更新");
-                  }}
-                  isMobile={isMobile}
-                />
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-100 dark:border-blue-800/30">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                    <span className="text-blue-500">💡</span>
+                    <span>
+                      前往{" "}
+                      <a
+                        href="https://cloud.siliconflow.cn"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700"
+                      >
+                        硅基流动官网
+                      </a>{" "}
+                      注册并获取 API 密钥
+                    </span>
+                  </p>
+                </div>
               </ConfigSection>
 
-              {/* 语音合成 TTS 配置 */}
+              {/* 语音合成 TTS 模型 */}
               <ConfigSection
                 icon={<span className="text-3xl">🎵</span>}
-                title="语音合成 (TTS)"
-                subtitle="本地离线文本转语音服务"
+                title="语音合成模型 (TTS)"
+                subtitle="下载本地语音合成模型文件"
                 colorClass="from-green-500 to-emerald-500"
                 isMobile={isMobile}
               >
-                {/* 模型下载区域 */}
-                <div className="bg-linear-to-br from-green-50 to-emerald-50/50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-4 space-y-4 border border-green-100 dark:border-green-800/30">
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                    <span>📦</span>
-                    <span>模型文件管理</span>
-                  </h4>
-
-                  <ModelDownloadCard
-                    title="Matcha 声学模型"
-                    downloaded={matchaDownloaded}
-                    downloading={matchaDownloading}
-                    progress={matchaProgress}
-                    size="~80MB"
-                    onDownload={() => downloadModel("matcha")}
-                  />
-
-                  <ModelDownloadCard
-                    title="Vocoder 模型"
-                    downloaded={vocoderDownloaded}
-                    downloading={vocoderDownloading}
-                    progress={vocoderProgress}
-                    size="~45MB"
-                    onDownload={() => downloadModel("vocoder")}
-                  />
-
-                  <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
-                    <span className="text-green-500">💡</span>
-                    <span>提示：下载完成后会自动填充模型路径</span>
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="sherpa-tts-enabled"
-                      checked={sherpaTtsConfig.enabled}
-                      onChange={(e) => {
-                        setSherpaTtsConfig({ enabled: e.target.checked });
-                        setSherpaTtsConfigModified(true);
-                      }}
-                      className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"
-                    />
-                    <label
-                      htmlFor="sherpa-tts-enabled"
-                      className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
-                    >
-                      启用 Sherpa-ONNX TTS 服务
-                    </label>
+                <div className="space-y-3">
+                  {/* Matcha 模型 */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          Matcha 声学模型
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          ~80MB
+                        </p>
+                      </div>
+                      {matchaDownloaded ? (
+                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span className="text-sm font-medium">已下载</span>
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={() => downloadModel("matcha")}
+                          disabled={matchaDownloading}
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          {matchaDownloading ? "下载中..." : "下载"}
+                        </Button>
+                      )}
+                    </div>
+                    {matchaDownloading && (
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div
+                          className="bg-green-600 h-2 rounded-full transition-all"
+                          style={{ width: `${matchaProgress}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  <InfoCard
-                    icon="📂"
-                    title="模型存储位置"
-                    content={
-                      <>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                          下载的模型文件会自动保存到应用数据目录：
+                  {/* Vocoder 模型 */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          Vocoder 模型
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          ~45MB
                         </p>
-                        <code className="text-xs bg-white dark:bg-gray-900 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 block break-all font-mono">
-                          ~/Library/Application Support/RWKV-VTuber/tts-models/
-                        </code>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-start gap-1.5">
-                          <span className="text-green-500">💡</span>
-                          <span>模型下载完成后会自动配置，无需手动设置</span>
-                        </p>
-                      </>
-                    }
-                  />
-                </div>
-
-                {/* 语音参数 */}
-                <div className="rounded-xl border border-green-200/50 dark:border-green-800/30 bg-linear-to-br from-green-50/60 to-emerald-50/40 dark:from-green-900/15 dark:to-emerald-900/10 p-4 space-y-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <ParameterSlider
-                      label={`语速: ${sherpaTtsConfig.speed.toFixed(1)}x`}
-                      value={sherpaTtsConfig.speed}
-                      min={0.5}
-                      max={2.0}
-                      step={0.1}
-                      color="green"
-                      leftLabel="0.5x"
-                      rightLabel="2.0x"
-                      formatValue={(v) => `${v.toFixed(1)}x`}
-                      onChange={(v) => {
-                        setSherpaTtsConfig({ speed: v });
-                        setSherpaTtsConfigModified(true);
-                      }}
-                    />
-
-                    <ParameterSlider
-                      label={`噪声比例: ${sherpaTtsConfig.noiseScale.toFixed(
-                        3
-                      )}`}
-                      value={sherpaTtsConfig.noiseScale}
-                      min={0.1}
-                      max={1.0}
-                      step={0.001}
-                      color="blue"
-                      leftLabel="0.1"
-                      rightLabel="1.0"
-                      formatValue={(v) => v.toFixed(3)}
-                      onChange={(v) => {
-                        setSherpaTtsConfig({ noiseScale: v });
-                        setSherpaTtsConfigModified(true);
-                      }}
-                    />
-
-                    <ParameterSlider
-                      label={`长度比例: ${sherpaTtsConfig.lengthScale.toFixed(
-                        2
-                      )}`}
-                      value={sherpaTtsConfig.lengthScale}
-                      min={0.5}
-                      max={2.0}
-                      step={0.01}
-                      color="purple"
-                      leftLabel="0.5"
-                      rightLabel="2.0"
-                      formatValue={(v) => v.toFixed(2)}
-                      onChange={(v) => {
-                        setSherpaTtsConfig({ lengthScale: v });
-                        setSherpaTtsConfigModified(true);
-                      }}
-                    />
+                      </div>
+                      {vocoderDownloaded ? (
+                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span className="text-sm font-medium">已下载</span>
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={() => downloadModel("vocoder")}
+                          disabled={vocoderDownloading}
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          {vocoderDownloading ? "下载中..." : "下载"}
+                        </Button>
+                      )}
+                    </div>
+                    {vocoderDownloading && (
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div
+                          className="bg-green-600 h-2 rounded-full transition-all"
+                          style={{ width: `${vocoderProgress}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                {/* 操作按钮 */}
-                <div className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
-                  <Button
-                    onClick={saveSherpaTtsConfig}
-                    disabled={!sherpaTtsConfigModified}
-                    className={`flex-1 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-medium transition-all shadow-sm hover:shadow ${BUTTON_HEIGHT_CLASS(
-                      isMobile
-                    )} ${
-                      !sherpaTtsConfigModified
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    保存配置
-                  </Button>
-                  <Button
-                    onClick={testSherpaTtsConnection}
-                    disabled={
-                      !sherpaTtsConfig.enabled ||
-                      !matchaDownloaded ||
-                      !vocoderDownloaded
-                    }
-                    className={`flex-1 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium transition-all shadow-sm hover:shadow ${BUTTON_HEIGHT_CLASS(
-                      isMobile
-                    )}`}
-                  >
-                    <Info className="w-4 h-4 mr-2" />
-                    测试连接
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      await resetSherpaTtsConfig();
-                      setSherpaTtsConfigModified(true);
-                      toast.success("Sherpa-ONNX TTS 配置已重置");
-                    }}
-                    className={`flex-1 border-2 border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 font-medium transition-all ${BUTTON_HEIGHT_CLASS(
-                      isMobile
-                    )}`}
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    恢复默认
-                  </Button>
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 border border-green-100 dark:border-green-800/30">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                      <span className="text-green-500">💡</span>
+                      <span>
+                        模型会自动保存到应用数据目录，下载完成后自动启用
+                      </span>
+                    </p>
+                  </div>
                 </div>
               </ConfigSection>
 
-              {/* 语音识别 ASR 配置 */}
+              {/* 语音识别 ASR 模型 */}
               <ConfigSection
                 icon={<span className="text-3xl">🎤</span>}
-                title="语音识别 (ASR)"
-                subtitle="实时流式语音转文本服务"
+                title="语音识别模型 (ASR)"
+                subtitle="下载本地语音识别模型文件"
                 colorClass="from-blue-500 to-cyan-500"
                 isMobile={isMobile}
               >
-                <div className="bg-linear-to-br from-blue-50 to-cyan-50/50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-xl p-4 space-y-4 border border-blue-100 dark:border-blue-800/30">
-                  <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                    <span>📦</span>
-                    <span>ASR 模型文件管理</span>
-                  </h4>
+                <div className="space-y-3">
+                  {/* ASR 模型 */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                          Paraformer 流式模型
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          ~70MB · 支持中英文
+                        </p>
+                      </div>
+                      {asrDownloaded ? (
+                        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span className="text-sm font-medium">已下载</span>
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={downloadASRModel}
+                          disabled={asrDownloading}
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          {asrDownloading ? "下载中..." : "下载"}
+                        </Button>
+                      )}
+                    </div>
+                    {asrDownloading && (
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all"
+                          style={{ width: `${asrProgress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
 
-                  <ModelDownloadCard
-                    title="流式 Paraformer 模型"
-                    downloaded={asrDownloaded}
-                    downloading={asrDownloading}
-                    progress={asrProgress}
-                    size="~70MB"
-                    onDownload={downloadASRModel}
-                  />
-
-                  <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
-                    <span className="text-blue-500">💡</span>
-                    <span>提示：下载完成后会自动填充模型路径</span>
-                  </p>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-100 dark:border-blue-800/30">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                      <span className="text-blue-500">💡</span>
+                      <span>
+                        模型会自动保存到应用数据目录，下载完成后自动启用
+                      </span>
+                    </p>
+                  </div>
                 </div>
-
-                <InfoCard
-                  icon="📂"
-                  title="模型存储位置"
-                  content={
-                    <>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                        下载的模型文件会自动保存到应用数据目录：
-                      </p>
-                      <code className="text-xs bg-white dark:bg-gray-900 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 block break-all font-mono">
-                        ~/Library/Application Support/RWKV-VTuber/asr-models/
-                      </code>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-start gap-1.5">
-                        <span className="text-blue-500">💡</span>
-                        <span>模型下载完成后会自动配置，无需手动设置</span>
-                      </p>
-                    </>
-                  }
-                />
               </ConfigSection>
             </div>
           </TooltipProvider>

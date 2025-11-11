@@ -4,12 +4,13 @@
 import { app, BrowserWindow, session } from "electron";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { initSherpaONNX, initRecognizer } from "./sherpa-asr.js";
+import { initSherpaONNX } from "./sherpa-asr.js";
 import { initSherpaTTS } from "./sherpa-tts.js";
 import { registerIPCHandlers } from "./ipc-handlers.js";
 import { createMainWindow } from "./window.js";
-import { getASRModelsDir, ensureDir } from "./paths.js";
 import { initAutoUpdater } from "./auto-updater.js";
+
+process.env["ELECTRON_DISABLE_SECURITY_WARNINGS"] = "true";
 
 // ES 模块路径处理
 const __filename = fileURLToPath(import.meta.url);

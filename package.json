@@ -19,7 +19,8 @@
     "electron:build:mac": "npm run electron:compile && vite build && electron-builder --mac --arm64",
     "electron:build:win": "npm run electron:compile && vite build && electron-builder --win",
     "electron:build:linux": "npm run electron:compile && vite build && electron-builder --linux",
-    "electron:build:all": "npm run electron:compile && vite build && electron-builder --mac --win --linux"
+    "electron:build:all": "npm run electron:compile && vite build && electron-builder --mac --win --linux",
+    "type-check": "tsc --noEmit --project tsconfig.json"
   },
   "build": {
     "appId": "com.leafyee.rwkv-vtuber",
@@ -132,10 +133,6 @@
     ]
   },
   "dependencies": {
-    "@ant-design/icons": "^5.6.1",
-    "@ant-design/x": "^1.0.5",
-    "@aws-sdk/client-s3": "^3.758.0",
-    "@leaf/parse-think": "npm:@jsr/leaf__parse-think",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -147,7 +144,6 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "antd": "^5.24.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dexie": "^4.2.0",
@@ -159,7 +155,6 @@
     "lucide-react": "^0.543.0",
     "markdown-it": "^14.1.0",
     "next-themes": "^0.4.6",
-    "openai": "^4.87.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-resizable-panels": "^3.0.5",

@@ -2,11 +2,20 @@ declare type Env = {
   VITE_DEBUG_COMPONENT: boolean;
 };
 
+declare type ChatCompletionMessageToolCall = {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
 declare type ShortTermMemory = {
   role: string;
   content: string;
   timestamp: number;
-  tool_calls?: import("openai").OpenAI.ChatCompletionMessageToolCall[]; // 出现于模型调用 (role === 'assistant')
+  tool_calls?: ChatCompletionMessageToolCall[]; // 出现于模型调用 (role === 'assistant')
   tool_call_id?: string; // 出现于模型调用结果 (role === 'tool')
   recall?: { uuid: string; similarity: number; desc: string }[]; // 出现于模型调用结果 (role === 'tool')
   uuid: string;
@@ -72,7 +81,6 @@ declare type Plugins = {
   s3ConfigKey?: string;
 };
 
-declare type ChatApi = import("openai").OpenAI;
 declare type ChatApiTest = () => Promise<boolean>;
 
 declare type Live2dApi = import("l2d").L2D;

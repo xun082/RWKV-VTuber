@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { db } from "../lib/db/index.ts";
+import type { ChatMessage } from "../stores/useChatApi.ts";
 
 interface SimpleMessage {
   role: "user" | "assistant" | "system";
@@ -35,8 +36,8 @@ export function useSmartMemory() {
   const generateSmartSummary = useCallback(
     async (
       messages: SimpleMessage[],
-      chatApi: any,
-      modelName: string
+      chatApi: (messages: ChatMessage[]) => Promise<AsyncIterable<string>>,
+      _modelName: string
     ): Promise<string> => {
       if (messages.length === 0) {
         return "空对话";
@@ -63,21 +64,21 @@ ${conversation}
 - 保留有助于后续对话的上下文`;
 
       try {
-        const response = await chatApi.chat.completions.create({
-          model: modelName,
-          messages: [
-            {
-              role: "system",
-              content:
-                "你是一个专业的对话摘要助手，擅长提取对话中的关键信息和上下文。",
-            },
-            { role: "user", content: summaryPrompt },
-          ],
-          temperature: 0.3,
-          max_tokens: 300,
-        });
+        const stream = await chatApi([
+          {
+            role: "system" as const,
+            content:
+              "你是一个专业的对话摘要助手，擅长提取对话中的关键信息和上下文。",
+          },
+          { role: "user" as const, content: summaryPrompt },
+        ]);
 
-        return response.choices[0]?.message?.content || conversation;
+        let summary = "";
+        for await (const chunk of stream) {
+          summary += chunk;
+        }
+
+        return summary || conversation;
       } catch (error) {
         console.error("生成摘要失败:", error);
         return conversation;

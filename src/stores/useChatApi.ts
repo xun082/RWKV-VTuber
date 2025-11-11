@@ -1,24 +1,29 @@
-import OpenAI from "openai";
 import { create } from "zustand";
 import { get, set } from "../lib/utils.ts";
 
-interface QAItem {
+export interface QAItem {
   id: string;
   question: string;
   answer: string;
 }
 
+export interface ChatMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
 type API = {
-  chat: ChatApi;
-  testChat: ChatApiTest;
-  openaiEndpoint: string;
-  setOpenaiEndpoint: (url?: string) => Promise<void>;
-  openaiApiKey: string;
-  setOpenaiApiKey: (key?: string) => Promise<void>;
-  openaiModelName: string;
-  setOpenaiModelName: (name?: string) => Promise<void>;
-  usedToken: number; // -1 means unknown
-  setUsedToken: (token: number | undefined) => Promise<void>;
+  // 硅基流动配置
+  apiKey: string;
+  setApiKey: (key: string) => Promise<void>;
+  modelName: string;
+  setModelName: (name: string) => Promise<void>;
+  usedToken: number;
+  setUsedToken: (token: number) => Promise<void>;
+
+  // 聊天API
+  chat: (messages: ChatMessage[]) => Promise<AsyncIterable<string>>;
+  testConnection: () => Promise<boolean>;
 
   // Live2D motion integration
   setMotionProcessor: (processor: (content: string) => void) => void;
@@ -31,24 +36,16 @@ type API = {
   getSystemPrompt: () => string;
 };
 
-const DEFAULT_OPENAI_ENDPOINT = "https://api.siliconflow.cn/v1/";
-const DEFAULT_OPENAI_API_KEY = "";
-const DEFAULT_OPENAI_MODEL_NAME = "deepseek-ai/DeepSeek-V3";
+// 硅基流动配置
+const SILICONFLOW_ENDPOINT = "https://api.siliconflow.cn/v1/chat/completions";
+const SILICONFLOW_MODEL = "deepseek-ai/DeepSeek-V3";
 const KNOWLEDGE_BASE_STORAGE_KEY = "knowledge_base_qa";
 
 const localUsedToken = await get("last_used_token");
 const defaultUsedToken = localUsedToken ? Number(localUsedToken) : -1;
-const defaultOpenaiEndpoint: string =
-  ((await get("openai_endpoint")) as string) ?? DEFAULT_OPENAI_ENDPOINT;
-const defaultOpenaiApiKey: string =
-  ((await get("openai_api_key")) as string) ?? DEFAULT_OPENAI_API_KEY;
-const defaultOpenaiModelName: string =
-  ((await get("openai_model_name")) as string) ?? DEFAULT_OPENAI_MODEL_NAME;
-const defaultChatApi = new OpenAI({
-  baseURL: defaultOpenaiEndpoint,
-  apiKey: defaultOpenaiApiKey,
-  dangerouslyAllowBrowser: true,
-});
+const defaultApiKey = ((await get("openai_api_key")) as string) || "";
+const defaultModelName =
+  ((await get("openai_model_name")) as string) || SILICONFLOW_MODEL;
 
 export const useChatApi = create<API>()((setState, getState) => {
   let motionProcessor: ((content: string) => void) | null = null;
@@ -67,72 +64,118 @@ export const useChatApi = create<API>()((setState, getState) => {
   };
 
   return {
-    chat: defaultChatApi,
+    apiKey: defaultApiKey,
+    modelName: defaultModelName,
     usedToken: defaultUsedToken,
-    setUsedToken: async (token) => {
-      setState({ usedToken: token });
-      await set("last_used_token", token ?? -1);
-      return;
-    },
-    openaiEndpoint: defaultOpenaiEndpoint,
-    setOpenaiEndpoint: async (url) => {
-      const { openaiApiKey } = getState();
-      const v = url || DEFAULT_OPENAI_ENDPOINT;
-      setState({
-        openaiEndpoint: v,
-        chat: new OpenAI({
-          baseURL: v,
-          apiKey: openaiApiKey,
-          dangerouslyAllowBrowser: true,
-        }),
-      });
-      await set("openai_endpoint", v);
-      sessionStorage.removeItem("openai_chat_test");
-      return;
-    },
-    openaiApiKey: defaultOpenaiApiKey,
-    setOpenaiApiKey: async (key) => {
-      const { openaiEndpoint } = getState();
-      const v = key !== undefined ? key : DEFAULT_OPENAI_API_KEY;
-      setState({
-        openaiApiKey: v,
-        chat: new OpenAI({
-          baseURL: openaiEndpoint,
-          apiKey: v,
-          dangerouslyAllowBrowser: true,
-        }),
-      });
-      await set("openai_api_key", v);
-      sessionStorage.removeItem("openai_chat_test");
-      return;
-    },
-    openaiModelName: defaultOpenaiModelName,
-    setOpenaiModelName: async (name) => {
-      const v = name || DEFAULT_OPENAI_MODEL_NAME;
-      setState({ openaiModelName: v });
-      await set("openai_model_name", v);
-      sessionStorage.removeItem("openai_chat_test");
-      return;
-    },
-    testChat: async () => {
-      if (sessionStorage.getItem("openai_chat_test") === "ok") {
-        return true;
-      }
-      const { chat } = getState();
-      await chat.models.list().catch((err) => {
-        if (err.message === "Connection error.") {
-          throw new Error("推理模型未启动");
-        }
-        throw err;
-      });
-      sessionStorage.setItem("openai_chat_test", "ok");
-      return true;
+
+    setApiKey: async (key) => {
+      setState({ apiKey: key });
+      await set("openai_api_key", key);
     },
 
-    // Analyze AI response content and trigger Live2D motions
+    setModelName: async (name) => {
+      setState({ modelName: name });
+      await set("openai_model_name", name);
+    },
+
+    setUsedToken: async (token) => {
+      setState({ usedToken: token });
+      await set("last_used_token", token);
+    },
+
+    // 硅基流动聊天API
+    chat: async (messages: ChatMessage[]) => {
+      const { apiKey, modelName } = getState();
+
+      const response = await fetch(SILICONFLOW_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `硅基流动 API 错误: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("无法读取响应流");
+      }
+
+      const decoder = new TextDecoder();
+
+      return {
+        async *[Symbol.asyncIterator]() {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split("\n").filter((line) => line.trim());
+
+              for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                  const data = line.slice(6);
+                  if (data === "[DONE]") return;
+
+                  try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed.choices?.[0]?.delta?.content;
+                    if (content) {
+                      yield content;
+                    }
+                  } catch (e) {
+                    console.warn("解析流数据失败:", e);
+                  }
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        },
+      };
+    },
+
+    testConnection: async () => {
+      const { apiKey, modelName } = getState();
+
+      try {
+        const response = await fetch(SILICONFLOW_ENDPOINT, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [{ role: "user", content: "hi" }],
+            max_tokens: 10,
+          }),
+        });
+
+        return response.ok;
+      } catch (error) {
+        console.error("硅基流动连接测试失败:", error);
+        return false;
+      }
+    },
+
+    // Live2D motion integration
     setMotionProcessor: (processor: (content: string) => void) => {
       motionProcessor = processor;
     },
+
     processAIResponse: (content: string) => {
       if (motionProcessor) {
         motionProcessor(content);

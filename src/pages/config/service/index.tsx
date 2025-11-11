@@ -32,19 +32,14 @@ export default function ConfigServicePage() {
   const setSherpaConfig = useSherpaConfig((state) => state.setConfig);
 
   // Chat API Config
-  const {
-    openaiEndpoint,
-    openaiApiKey,
-    openaiModelName,
-    setOpenaiEndpoint,
-    setOpenaiApiKey,
-    setOpenaiModelName,
-  } = useChatApi();
+  const chatApi = useChatApi();
 
   // API配置状态
-  const [endpointValue, setEndpointValue] = useState(openaiEndpoint);
-  const [apiKeyValue, setApiKeyValue] = useState(openaiApiKey);
-  const [modelNameValue, setModelNameValue] = useState(openaiModelName);
+  const [endpointValue, setEndpointValue] = useState(
+    "https://api.siliconflow.cn/v1/"
+  );
+  const [apiKeyValue, setApiKeyValue] = useState(chatApi.apiKey);
+  const [modelNameValue, setModelNameValue] = useState(chatApi.modelName);
   const [openaiEndpointModified, setOpenaiEndpointModified] = useState(false);
   const [openaiApiKeyModified, setOpenaiApiKeyModified] = useState(false);
   const [openaiModelNameModified, setOpenaiModelNameModified] = useState(false);
@@ -64,9 +59,8 @@ export default function ConfigServicePage() {
   const [asrProgress, setAsrProgress] = useState(0);
 
   // Sync form values with store values
-  useEffect(() => setEndpointValue(openaiEndpoint), [openaiEndpoint]);
-  useEffect(() => setApiKeyValue(openaiApiKey), [openaiApiKey]);
-  useEffect(() => setModelNameValue(openaiModelName), [openaiModelName]);
+  useEffect(() => setApiKeyValue(chatApi.apiKey), [chatApi.apiKey]);
+  useEffect(() => setModelNameValue(chatApi.modelName), [chatApi.modelName]);
 
   const isLocalEndpoint = (url: string) =>
     /^https?:\/\/(localhost|127\.0\.0\.1)(:\\d+)?/i.test(url || "");
@@ -301,7 +295,7 @@ export default function ConfigServicePage() {
               <ConfigSection
                 icon={<span className="text-3xl">⚙️</span>}
                 title="AI 推理服务"
-                subtitle="配置 OpenAI 兼容的推理接口"
+                subtitle="配置硅基流动 API 接口"
                 colorClass="from-purple-500 to-indigo-500"
                 isMobile={isMobile}
               >
@@ -318,7 +312,6 @@ export default function ConfigServicePage() {
                   color="green"
                   isModified={openaiEndpointModified}
                   onReset={async () => {
-                    await setOpenaiEndpoint();
                     setEndpointValue("https://api.siliconflow.cn/v1/");
                     setOpenaiEndpointModified(false);
                     toast.success("推理服务地址已恢复默认值");
@@ -326,13 +319,9 @@ export default function ConfigServicePage() {
                   onSave={async () => {
                     if (!endpointValue)
                       return toast.error("请输入推理服务地址");
-                    await setOpenaiEndpoint(
-                      endpointValue.endsWith("/")
-                        ? endpointValue
-                        : `${endpointValue}/`
-                    );
+                    // 硅基流动 API 地址固定，无需保存
                     setOpenaiEndpointModified(false);
-                    toast.success("推理服务地址已更新");
+                    toast.success("推理服务地址已确认");
                   }}
                   isMobile={isMobile}
                 />
@@ -359,16 +348,15 @@ export default function ConfigServicePage() {
                   color="blue"
                   isModified={openaiApiKeyModified}
                   onReset={async () => {
-                    await setOpenaiApiKey();
                     setApiKeyValue("");
                     setOpenaiApiKeyModified(false);
-                    toast.success("推理服务密钥已恢复默认值");
+                    toast.success("推理服务密钥已清空");
                   }}
                   onSave={async () => {
                     const isLocal = isLocalEndpoint(endpointValue);
                     if (!apiKeyValue && !isLocal)
                       return toast.error("请输入推理服务密钥");
-                    await setOpenaiApiKey(apiKeyValue);
+                    await chatApi.setApiKey(apiKeyValue);
                     setOpenaiApiKeyModified(false);
                     toast.success(
                       isLocal
@@ -392,15 +380,15 @@ export default function ConfigServicePage() {
                   color="purple"
                   isModified={openaiModelNameModified}
                   onReset={async () => {
-                    await setOpenaiModelName();
                     setModelNameValue("deepseek-ai/DeepSeek-V3");
+                    await chatApi.setModelName("deepseek-ai/DeepSeek-V3");
                     setOpenaiModelNameModified(false);
                     toast.success("推理服务模型已恢复默认值");
                   }}
                   onSave={async () => {
                     if (!modelNameValue)
                       return toast.error("请输入推理服务模型");
-                    await setOpenaiModelName(modelNameValue);
+                    await chatApi.setModelName(modelNameValue);
                     setOpenaiModelNameModified(false);
                     toast.success("推理服务模型已更新");
                   }}

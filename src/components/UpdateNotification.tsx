@@ -1,8 +1,3 @@
-/**
- * 更新通知组件
- * 显示应用更新状态和操作按钮
- */
-import { useEffect } from "react";
 import { useAutoUpdater } from "@/hooks/useAutoUpdater";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, RefreshCw, CheckCircle } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 
 export function UpdateNotification() {
   const {

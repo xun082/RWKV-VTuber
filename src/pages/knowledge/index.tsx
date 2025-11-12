@@ -5,12 +5,12 @@ import {
   FileSpreadsheet,
   Info,
   Plus,
+  RefreshCw,
   Save,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import {
@@ -23,7 +23,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { useChatApi } from "../../stores/useChatApi";
-import * as XLSX from "xlsx";
+import { isElectron } from "../../lib/electron";
 
 interface QAItem {
   id: string;
@@ -40,9 +40,57 @@ export default function KnowledgePage() {
   const [editQuestion, setEditQuestion] = useState("");
   const [editAnswer, setEditAnswer] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // 从localStorage加载数据
+  // 从API获取知识库数据
+  const fetchKnowledgeBase = async () => {
+    setIsLoading(true);
+    try {
+      if (!isElectron() || !window.electron) {
+        throw new Error("请在Electron环境中使用此功能");
+      }
+
+      // 通过Electron主进程请求API
+      const result = await window.electron.fetchKnowledgeBase();
+
+      if (!result.success || !result.data) {
+        throw new Error(result.error || "获取数据失败");
+      }
+
+      const apiData = result.data;
+
+      if (apiData.code !== 200 || !apiData.data) {
+        throw new Error(apiData.message || "API返回数据格式错误");
+      }
+
+      // 过滤并转换数据：只保留有答案的问答
+      const transformedData: QAItem[] = apiData.data
+        .filter((item: any) => {
+          return (
+            item.answers &&
+            item.answers.length > 0 &&
+            item.answers[0].content &&
+            item.question_title
+          );
+        })
+        .map((item: any) => {
+          return {
+            id: `${item.question_id}`,
+            question: item.question_title,
+            answer: item.answers[0].content,
+          };
+        });
+
+      saveToStorage(transformedData);
+    } catch (error: any) {
+      console.error("获取知识库失败:", error);
+      toast.error(`获取知识库失败: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 从localStorage加载数据，并在首次加载时尝试从API获取
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -53,6 +101,9 @@ export default function KnowledgePage() {
         console.error("加载数据失败:", error);
       }
     }
+
+    // 首次加载时从API获取最新数据
+    fetchKnowledgeBase();
   }, []);
 
   // 保存数据到localStorage
@@ -61,44 +112,6 @@ export default function KnowledgePage() {
     setQaList(data);
     // 通知 store 重新加载知识库
     loadKnowledgeBase();
-  };
-
-  // 处理Excel文件上传
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: "binary" });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(sheet) as Record<
-          string,
-          string
-        >[];
-
-        const newQaList: QAItem[] = jsonData.map((row, index) => ({
-          id: `${Date.now()}-${index}`,
-          question: row.question ?? row["问题"] ?? "",
-          answer: row.answer ?? row["答案"] ?? "",
-        }));
-
-        saveToStorage([...qaList, ...newQaList]);
-        toast.success(`成功导入 ${newQaList.length} 条问答`);
-      } catch (error) {
-        console.error("导入失败:", error);
-        toast.error("导入失败，请检查文件格式");
-      }
-    };
-    reader.readAsBinaryString(file);
-
-    // 清空input以允许重复上传同一文件
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
   };
 
   // 添加新问答
@@ -182,7 +195,7 @@ export default function KnowledgePage() {
               📚 知识库管理
             </h1>
             <p className="text-gray-500 dark:text-gray-400 text-xs">
-              上传、编辑和管理您的问答知识库
+              从API加载、编辑和管理您的问答知识库
             </p>
           </div>
 
@@ -190,20 +203,18 @@ export default function KnowledgePage() {
           <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
             <CardContent className="p-3">
               <div className="flex gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
                 <Button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={fetchKnowledgeBase}
                   className="bg-green-600 hover:bg-green-700 text-white"
                   size="sm"
+                  disabled={isLoading}
                 >
-                  <Upload className="h-4 w-4 mr-1.5" />
-                  导入Excel
+                  <RefreshCw
+                    className={`h-4 w-4 mr-1.5 ${
+                      isLoading ? "animate-spin" : ""
+                    }`}
+                  />
+                  {isLoading ? "加载中..." : "刷新数据"}
                 </Button>
                 <Button
                   onClick={handleAdd}
@@ -390,13 +401,11 @@ export default function KnowledgePage() {
                     💡 使用说明
                   </h4>
                   <ul className="text-gray-600 dark:text-gray-400 leading-relaxed space-y-0.5 list-disc list-inside text-xs">
-                    <li>
-                      支持导入Excel文件，文件需包含"问题"和"答案"列（或question/answer）
-                    </li>
-                    <li>所有数据自动保存到浏览器本地存储</li>
-                    <li>可随时编辑和删除问答</li>
+                    <li>点击"刷新数据"从API加载最新的知识库问答</li>
+                    <li>所有数据自动保存到浏览器本地存储并同步到AI对话</li>
+                    <li>可随时新增、编辑和删除问答</li>
                     <li>点击问题可展开/折叠答案，一次只能展开一个</li>
-                    <li>数据仅存储在本地，不会上传到服务器</li>
+                    <li>本地编辑的数据会覆盖从API加载的相同ID的问答</li>
                   </ul>
                 </div>
               </div>

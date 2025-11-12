@@ -160,4 +160,34 @@ export function registerIPCHandlers(): void {
     quitAndInstall();
     return { success: true };
   });
+
+  // 获取知识库数据
+  ipcMain.handle("fetch_knowledge_base", async () => {
+    try {
+      const https = await import("https");
+      
+      return new Promise((resolve, reject) => {
+        https.get("https://api-oa.rwkvos.com/qa/all-question-answer", (res) => {
+          let data = "";
+          
+          res.on("data", (chunk) => {
+            data += chunk;
+          });
+          
+          res.on("end", () => {
+            try {
+              const jsonData = JSON.parse(data);
+              resolve({ success: true, data: jsonData });
+            } catch (error: any) {
+              reject(new Error(`解析JSON失败: ${error.message}`));
+            }
+          });
+        }).on("error", (error) => {
+          reject(new Error(`请求失败: ${error.message}`));
+        });
+      });
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
 }

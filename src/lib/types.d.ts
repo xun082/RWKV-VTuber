@@ -158,5 +158,10 @@ interface Window {
     checkForUpdates: () => Promise<void>;
     downloadUpdate: () => Promise<void>;
     quitAndInstall: () => Promise<void>;
+    fetchKnowledgeBase: () => Promise<{
+      success: boolean;
+      data?: any;
+      error?: string;
+    }>;
   };
 }

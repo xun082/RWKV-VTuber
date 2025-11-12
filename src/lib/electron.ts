@@ -66,5 +66,10 @@ if (isElectron()) {
     quitAndInstall: async () => {
       return invoke("quit_and_install");
     },
+
+    // 获取知识库数据
+    fetchKnowledgeBase: async () => {
+      return invoke("fetch_knowledge_base");
+    },
   };
 }

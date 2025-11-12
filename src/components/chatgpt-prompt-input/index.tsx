@@ -15,19 +15,27 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { BarChart3, RotateCcw, Trash2, Volume2, VolumeX } from "lucide-react";
+import {
+  ArrowUp,
+  BarChart3,
+  Mic,
+  RotateCcw,
+  Trash2,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import React from "react";
-import { toast } from "sonner";
-import { useSpeakApi } from "../../stores/useSpeakApi.ts";
-// Dialog removed
 
 type ClassValue = string | number | boolean | null | undefined;
+
 function cn(...inputs: ClassValue[]): string {
   return inputs.filter(Boolean).join(" ");
 }
+
 const TooltipProvider = TooltipPrimitive.Provider;
 const Tooltip = TooltipPrimitive.Root;
 const TooltipTrigger = TooltipPrimitive.Trigger;
+
 const TooltipContent = React.forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & {
@@ -39,71 +47,19 @@ const TooltipContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "relative z-50 max-w-[280px] rounded-md bg-popover text-popover-foreground px-1.5 py-1 text-xs animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        "relative z-50 max-w-[280px] rounded-lg bg-gray-900/95 dark:bg-gray-800/95 text-white px-3 py-2 text-xs font-medium shadow-xl backdrop-blur-sm border border-gray-700/50 animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
         className
       )}
       {...props}
     >
       {props.children}
-      {showArrow && <TooltipPrimitive.Arrow className="-my-px fill-popover" />}
+      {showArrow && (
+        <TooltipPrimitive.Arrow className="-my-px fill-gray-900/95 dark:fill-gray-800/95" />
+      )}
     </TooltipPrimitive.Content>
   </TooltipPrimitive.Portal>
 ));
 TooltipContent.displayName = TooltipPrimitive.Content.displayName;
-// Popover removed
-// Dialog components removed
-
-// --- SVG Icon Components ---
-// Removed Plus and Settings icons
-const SendIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    {" "}
-    <path
-      d="M12 5.25L12 18.75"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />{" "}
-    <path
-      d="M18.75 12L12 5.25L5.25 12"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />{" "}
-  </svg>
-);
-// XIcon removed
-// Removed tool-related icons
-// NEW: MicIcon
-const MicIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    {" "}
-    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>{" "}
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>{" "}
-    <line x1="12" y1="19" x2="12" y2="23"></line>{" "}
-  </svg>
-);
-
-// Tools list removed
 
 interface ChatActionsProps {
   disabled: boolean;
@@ -133,7 +89,6 @@ interface PromptBoxProps
   chatActions?: ChatActionsProps;
 }
 
-// --- The Final, Self-Contained PromptBox Component ---
 export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
   (
     {
@@ -152,17 +107,15 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
   ) => {
     const internalTextareaRef = React.useRef<HTMLTextAreaElement>(null);
     const [internalValue, setInternalValue] = React.useState("");
-    // tool state removed
     const [isComposing, setIsComposing] = React.useState(false);
 
-    // Chat actions logic
     const hasMessages = chatActions ? chatActions.messagesLength > 0 : false;
     const isActionsDisabled = chatActions
       ? chatActions.disabled || !hasMessages
       : false;
 
-    // Use external value if provided, otherwise use internal state
     const value = externalValue !== undefined ? externalValue : internalValue;
+
     React.useLayoutEffect(() => {
       const textarea = internalTextareaRef.current;
       if (textarea) {
@@ -204,12 +157,16 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
 
         <div
           className={cn(
-            "flex flex-col rounded-xl sm:rounded-2xl p-3 sm:p-3.5 shadow-xl transition-all duration-300 bg-white/98 dark:bg-gray-800/98 border border-gray-200/30 dark:border-gray-700/30 cursor-text hover:shadow-2xl hover:border-blue-300/60 dark:hover:border-blue-600/60 focus-within:border-blue-400/80 dark:focus-within:border-blue-500/80 focus-within:shadow-2xl focus-within:shadow-blue-500/15 backdrop-blur-xl ring-1 ring-white/30 dark:ring-gray-700/30",
+            "group flex flex-col rounded-xl p-2.5 sm:p-3 shadow-md transition-all duration-300",
+            "bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl",
+            "border border-gray-200/50 dark:border-gray-700/50",
+            "hover:shadow-lg hover:border-blue-300/60 dark:hover:border-blue-600/60",
+            "focus-within:border-blue-500/70 dark:focus-within:border-blue-400/70",
+            "focus-within:shadow-lg focus-within:shadow-blue-500/10 dark:focus-within:shadow-blue-400/10",
+            "focus-within:ring-1 focus-within:ring-blue-500/20 dark:focus-within:ring-blue-400/20",
             className
           )}
         >
-          {/* Image attach and preview removed */}
-
           <textarea
             ref={internalTextareaRef}
             rows={1}
@@ -218,16 +175,14 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
             onKeyDown={handleKeyDown}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
-            placeholder={props.placeholder || "Message..."}
+            placeholder={props.placeholder || "输入消息..."}
             disabled={disabled}
-            className="custom-scrollbar w-full resize-none border-0 bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-0 focus-visible:outline-none min-h-10 text-[15px] leading-relaxed p-1 font-normal"
+            className="custom-scrollbar w-full resize-none border-0 bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-0 focus-visible:outline-none min-h-7 text-sm leading-relaxed px-0.5 py-0.5 font-normal"
             {...props}
           />
 
-          {/* 底部操作区域 - 响应式优化 */}
-          <div className="flex items-center justify-between pt-2 sm:pt-2.5 border-t border-gray-100/50 dark:border-gray-700/50 mt-2 sm:mt-2.5">
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200/50 dark:border-gray-700/50 mt-2">
             <TooltipProvider delayDuration={100}>
-              {/* 左侧操作按钮 - 响应式优化 */}
               <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                 {chatActions && hasMessages && (
                   <>
@@ -235,29 +190,29 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                       <AlertDialogTrigger asChild>
                         <button
                           disabled={isActionsDisabled}
-                          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-700 dark:text-gray-300 hover:text-purple-700 dark:hover:text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-purple-200 dark:hover:border-purple-700/50 hover:shadow-sm"
+                          className="cursor-pointer group/btn flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-linear-to-r hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-950/30 dark:hover:to-pink-950/30 border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600/50 hover:text-purple-700 dark:hover:text-purple-300 hover:shadow-sm"
                         >
-                          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:rotate-12" />
                           <span className="hidden sm:inline">更新记忆</span>
                           <span className="sm:hidden">记忆</span>
                         </button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-2xl border-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl">
+                      <AlertDialogContent className="rounded-2xl border border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-gray-900 shadow-2xl">
                         <AlertDialogHeader>
-                          <AlertDialogTitle className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                          <AlertDialogTitle className="text-xl font-bold bg-linear-to-r from-purple-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">
                             确认更新记忆
                           </AlertDialogTitle>
-                          <AlertDialogDescription className="text-gray-600 dark:text-gray-300">
+                          <AlertDialogDescription className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
                             您确定要立即更新记忆吗？这将把当前对话保存到记忆中并清空当前对话。
                           </AlertDialogDescription>
                         </AlertDialogHeader>
-                        <AlertDialogFooter className="gap-3">
-                          <AlertDialogCancel className="rounded-xl">
+                        <AlertDialogFooter className="gap-2 sm:gap-3">
+                          <AlertDialogCancel className="rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800">
                             取消
                           </AlertDialogCancel>
                           <AlertDialogAction
                             onClick={chatActions.onUpdateMemory}
-                            className="rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+                            className="rounded-xl bg-linear-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all"
                           >
                             确定
                           </AlertDialogAction>
@@ -269,29 +224,29 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                       <AlertDialogTrigger asChild>
                         <button
                           disabled={isActionsDisabled}
-                          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-700 dark:text-gray-300 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-red-200 dark:hover:border-red-700/50 hover:shadow-sm"
+                          className="cursor-pointer group/btn flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-linear-to-r hover:from-red-50 hover:to-orange-50 dark:hover:from-red-950/30 dark:hover:to-orange-950/30 border border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600/50 hover:text-red-700 dark:hover:text-red-300 hover:shadow-sm"
                         >
-                          <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:-rotate-180" />
                           <span className="hidden sm:inline">清除对话</span>
                           <span className="sm:hidden">清除</span>
                         </button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-2xl border-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl">
+                      <AlertDialogContent className="rounded-2xl border border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-gray-900 shadow-2xl">
                         <AlertDialogHeader>
-                          <AlertDialogTitle className="text-lg font-semibold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+                          <AlertDialogTitle className="text-xl font-bold bg-linear-to-r from-red-600 via-orange-600 to-red-600 bg-clip-text text-transparent">
                             确认清除对话
                           </AlertDialogTitle>
-                          <AlertDialogDescription className="text-gray-600 dark:text-gray-300">
+                          <AlertDialogDescription className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
                             您确定要清除当前对话吗？此操作不可撤销。
                           </AlertDialogDescription>
                         </AlertDialogHeader>
-                        <AlertDialogFooter className="gap-3">
-                          <AlertDialogCancel className="rounded-xl">
+                        <AlertDialogFooter className="gap-2 sm:gap-3">
+                          <AlertDialogCancel className="rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800">
                             取消
                           </AlertDialogCancel>
                           <AlertDialogAction
                             onClick={chatActions.onClearChat}
-                            className="rounded-xl bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                            className="rounded-xl bg-linear-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all"
                           >
                             确定
                           </AlertDialogAction>
@@ -301,37 +256,42 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                   </>
                 )}
 
-                {/* 自动播放开关按钮 - 响应式优化 */}
                 {chatActions && (
-                  <button
-                    onClick={chatActions.onToggleAutoTTS}
-                    disabled={disabled}
-                    className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:shadow-sm ${
-                      chatActions.autoTTS
-                        ? "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:border-emerald-200 dark:hover:border-emerald-700/50"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-200 dark:hover:border-gray-600/50"
-                    }`}
-                    title={
-                      chatActions.autoTTS
-                        ? "AI回复时自动播放语音"
-                        : "AI回复时不自动播放语音"
-                    }
-                  >
-                    {chatActions.autoTTS ? (
-                      <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    ) : (
-                      <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    )}
-                    <span className="hidden sm:inline">
-                      {chatActions.autoTTS ? "自动播放" : "手动播放"}
-                    </span>
-                    <span className="sm:hidden">
-                      {chatActions.autoTTS ? "自动" : "手动"}
-                    </span>
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={chatActions.onToggleAutoTTS}
+                        disabled={disabled}
+                        className={cn(
+                          "cursor-pointer group/btn flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 border hover:shadow-sm",
+                          chatActions.autoTTS
+                            ? "text-emerald-700 dark:text-emerald-300 bg-linear-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-emerald-300 dark:border-emerald-700/50 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-900/40 dark:hover:to-green-900/40"
+                            : "text-gray-700 dark:text-gray-300 bg-transparent border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600"
+                        )}
+                      >
+                        {chatActions.autoTTS ? (
+                          <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110" />
+                        ) : (
+                          <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110" />
+                        )}
+                        <span className="hidden sm:inline">
+                          {chatActions.autoTTS ? "自动播放" : "手动播放"}
+                        </span>
+                        <span className="sm:hidden">
+                          {chatActions.autoTTS ? "自动" : "手动"}
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" showArrow={true}>
+                      <p>
+                        {chatActions.autoTTS
+                          ? "AI回复时自动播放语音"
+                          : "AI回复时不自动播放语音"}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
 
-                {/* Token统计 */}
                 {chatActions &&
                   typeof chatActions.usedToken === "number" &&
                   chatActions.usedToken > 0 && (
@@ -339,17 +299,17 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                       <PopoverTrigger asChild>
                         <button
                           disabled={disabled}
-                          className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-lg transition-all duration-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-blue-200 dark:hover:border-blue-700/50"
+                          className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 text-gray-600 dark:text-gray-400 bg-transparent hover:bg-linear-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-950/30 dark:hover:to-indigo-950/30 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600/50 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm"
                         >
                           <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent className="rounded-xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-gray-200/60 dark:border-gray-700/60">
+                      <PopoverContent className="rounded-xl bg-white dark:bg-gray-900 backdrop-blur-xl border-gray-200 dark:border-gray-700 shadow-xl">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
-                          <p className="text-sm font-medium">
+                          <div className="w-1.5 h-1.5 bg-linear-to-r from-blue-500 to-indigo-600 rounded-full animate-pulse"></div>
+                          <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
                             上次词元用量:{" "}
-                            <span className="text-blue-600 dark:text-blue-400">
+                            <span className="font-bold text-blue-600 dark:text-blue-400">
                               {chatActions.usedToken}
                             </span>
                           </p>
@@ -359,8 +319,7 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                   )}
               </div>
 
-              {/* 右侧按钮 - 响应式优化 */}
-              <div className="flex items-center gap-2 sm:gap-2.5">
+              <div className="flex items-center gap-1.5">
                 {allowSpeech && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -371,21 +330,28 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                         }
                         disabled={disabled}
                         className={cn(
-                          "flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition-all duration-200 focus-visible:outline-none hover:scale-105 active:scale-95 border shadow-sm",
+                          "group/mic flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg transition-all duration-300 focus-visible:outline-none focus-visible:ring-1 disabled:opacity-40 disabled:cursor-not-allowed",
                           allowSpeech.recording
-                            ? "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-500/40 animate-pulse border-red-400/50"
-                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/70 hover:text-gray-800 dark:hover:text-gray-200 border-gray-200/60 dark:border-gray-600/60 hover:border-gray-300 dark:hover:border-gray-500 hover:shadow-md"
+                            ? "bg-linear-to-br from-red-500 via-red-600 to-rose-600 text-white shadow-lg shadow-red-500/40 animate-pulse border border-red-400 dark:border-red-400 scale-105"
+                            : "text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 hover:bg-linear-to-br hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md hover:scale-105 active:scale-95 focus-visible:ring-blue-500/30"
                         )}
                       >
-                        <MicIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        <span className="sr-only">Record voice</span>
+                        <Mic
+                          className={cn(
+                            "cursor-pointer h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform",
+                            allowSpeech.recording
+                              ? "scale-110"
+                              : "group-hover/mic:scale-110"
+                          )}
+                        />
+                        <span className="sr-only">
+                          {allowSpeech.recording ? "停止录音" : "开始录音"}
+                        </span>
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="top" showArrow={true}>
                       <p>
-                        {allowSpeech.recording
-                          ? "Stop recording"
-                          : "Record voice"}
+                        {allowSpeech.recording ? "停止录音" : "开始语音输入"}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -397,20 +363,27 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                       type="button"
                       onClick={handleSubmit}
                       disabled={disabled || loading || !hasValue}
-                      className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 disabled:pointer-events-none bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-600/40 hover:shadow-xl hover:shadow-blue-700/50 disabled:from-gray-400 disabled:to-gray-500 disabled:shadow-none hover:scale-105 active:scale-95 border border-blue-500/30"
+                      className={cn(
+                        "group/send flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/50 disabled:cursor-not-allowed border",
+                        disabled || loading || !hasValue
+                          ? "bg-linear-to-br from-gray-300 to-gray-400 dark:from-gray-700 dark:to-gray-800 text-gray-500 dark:text-gray-500 border-gray-300 dark:border-gray-700 opacity-50"
+                          : "bg-linear-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-700/40 border-blue-400 dark:border-blue-500 hover:scale-105 active:scale-95"
+                      )}
                     >
                       {loading ? (
-                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <div className="relative">
+                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        </div>
                       ) : (
-                        <SendIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <ArrowUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform group-hover/send:-translate-y-0.5 group-active/send:translate-y-0" />
                       )}
                       <span className="sr-only">
-                        {loading ? "Processing..." : "Send message"}
+                        {loading ? "发送中..." : "发送消息"}
                       </span>
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top" showArrow={true}>
-                    <p>{loading ? "Processing..." : "Send"}</p>
+                    <p>{loading ? "发送中..." : "发送 (Enter)"}</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -421,4 +394,5 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
     );
   }
 );
+
 PromptBox.displayName = "PromptBox";

@@ -136,7 +136,6 @@ pnpm electron:build:linux # 仅 Linux
   live2dPositionX: 0,            // X 轴位置
   live2dPositionY: 0,           // Y 轴位置
   live2dScale: 1.0,             // 缩放比例
-  backgroundImage: "back.png"   // 背景图片
 }
 ```
 

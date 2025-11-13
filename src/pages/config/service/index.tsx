@@ -1,13 +1,14 @@
-import { Shield, Download, CheckCircle2 } from "lucide-react";
+import { Shield, Download, CheckCircle2, FileDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ConfigSection, ConfigInput } from "@/components/config";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useSherpaConfig } from "@/stores/useSherpaConfig.ts";
 import { useSherpaTtsConfig } from "@/stores/useSherpaTtsConfig.ts";
 import { useChatApi } from "@/stores/useChatApi.ts";
+import { useChatSession } from "@/stores/useChatSession.ts";
+import { db, isDatabaseReady } from "@/lib/db/index.ts";
 
 // 固定配置
 const FIXED_MODEL_NAME = "deepseek-ai/DeepSeek-V3";
@@ -36,6 +37,69 @@ export default function ConfigServicePage() {
   const [asrDownloaded, setAsrDownloaded] = useState(false);
   const [asrDownloading, setAsrDownloading] = useState(false);
   const [asrProgress, setAsrProgress] = useState(0);
+
+  // 获取当前会话信息用于导出
+  const currentSessionId = useChatSession((state) => state.currentSessionId);
+
+  // 导出聊天记录为JSONL格式
+  const handleExportMessages = async () => {
+    try {
+      if (!isDatabaseReady()) {
+        toast.error("数据库未准备就绪，请稍后重试");
+        return;
+      }
+
+      if (!currentSessionId) {
+        toast.error("当前会话未初始化");
+        return;
+      }
+
+      // 获取当前会话的所有消息（包括已清除的）
+      const allMessages = await db.getAllSessionMessages(currentSessionId);
+
+      if (allMessages.length === 0) {
+        toast.warning("暂无聊天记录可导出");
+        return;
+      }
+
+      // 转换为JSONL格式（每行一个JSON对象）
+      const jsonlContent = allMessages
+        .map((msg) => {
+          // 标准JSONL格式，每个消息一行
+          return JSON.stringify({
+            role: msg.role,
+            content: msg.content,
+            timestamp: msg.timestamp,
+            uuid: msg.uuid,
+            sessionId: msg.sessionId,
+            date: new Date(msg.timestamp).toISOString(),
+          });
+        })
+        .join("\n");
+
+      // 创建Blob并下载
+      const blob = new Blob([jsonlContent], {
+        type: "application/x-jsonlines",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      // 使用时间戳作为文件名
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      a.download = `chat-history-${timestamp}.jsonl`;
+
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`成功导出 ${allMessages.length} 条聊天记录！`);
+    } catch (error) {
+      console.error("导出失败:", error);
+      toast.error(error instanceof Error ? error.message : "导出失败，请重试");
+    }
+  };
 
   // 同步 API Key
   useEffect(() => {
@@ -178,123 +242,150 @@ export default function ConfigServicePage() {
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       <div
-        className={`flex-1 overflow-y-auto scroll-smooth ${
-          isMobile ? "px-3 py-3" : "px-4 py-4"
+        className={`flex-1 overflow-y-auto ${
+          isMobile ? "px-3 py-4" : "px-6 py-5"
         }`}
       >
-        <div className="mx-auto max-w-full space-y-4">
+        <div className="mx-auto max-w-4xl space-y-6">
           {/* Header */}
           <div className="text-center space-y-2 py-2">
             <h1
-              className={`font-bold bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent ${
+              className={`font-bold bg-linear-to-r from-blue-600 via-purple-600 to-blue-600 bg-clip-text text-transparent ${
                 isMobile ? "text-2xl" : "text-3xl"
               }`}
             >
-              🔧 服务配置
+              服务配置
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               配置 API 密钥并下载所需模型
             </p>
           </div>
 
           <TooltipProvider>
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* API 密钥配置 */}
-              <ConfigSection
-                icon={<span className="text-3xl">🔑</span>}
-                title="硅基流动 API 密钥"
-                subtitle={`使用 ${FIXED_MODEL_NAME} 模型`}
-                colorClass="from-purple-500 to-indigo-500"
-                isMobile={isMobile}
-              >
-                <ConfigInput
-                  icon={Shield}
-                  label="API 密钥"
-                  badge="必填"
-                  value={apiKeyValue}
-                  onChange={(value) => {
-                    setApiKeyValue(value);
-                    setApiKeyModified(true);
-                  }}
-                  placeholder="请输入硅基流动 API 密钥"
-                  type="password"
-                  color="blue"
-                  isModified={apiKeyModified}
-                  onReset={async () => {
-                    setApiKeyValue("");
-                    await chatApi.setApiKey("");
-                    setApiKeyModified(false);
-                    toast.success("API 密钥已清空");
-                  }}
-                  onSave={async () => {
-                    if (!apiKeyValue) return toast.error("请输入 API 密钥");
-                    await chatApi.setApiKey(apiKeyValue);
-                    setApiKeyModified(false);
-                    toast.success("API 密钥已保存");
-                  }}
-                  isMobile={isMobile}
-                />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
+                    API 密钥
+                  </h2>
+                  <span className="text-xs px-2 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
+                    必填
+                  </span>
+                </div>
 
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-100 dark:border-blue-800/30">
-                  <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
-                    <span className="text-blue-500">💡</span>
-                    <span>
-                      前往{" "}
-                      <a
-                        href="https://cloud.siliconflow.cn"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-400 underline hover:text-blue-700"
-                      >
-                        硅基流动官网
-                      </a>{" "}
-                      注册并获取 API 密钥
-                    </span>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-700 dark:text-gray-300">
+                        硅基流动 API 密钥 ({FIXED_MODEL_NAME})
+                      </label>
+                      {apiKeyModified && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          未保存
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="password"
+                      value={apiKeyValue}
+                      onChange={(e) => {
+                        setApiKeyValue(e.target.value);
+                        setApiKeyModified(true);
+                      }}
+                      placeholder="请输入硅基流动 API 密钥"
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={async () => {
+                        if (!apiKeyValue) return toast.error("请输入 API 密钥");
+                        await chatApi.setApiKey(apiKeyValue);
+                        setApiKeyModified(false);
+                        toast.success("API 密钥已保存");
+                      }}
+                      disabled={!apiKeyModified}
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                    >
+                      保存
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        setApiKeyValue("");
+                        await chatApi.setApiKey("");
+                        setApiKeyModified(false);
+                        toast.success("API 密钥已清空");
+                      }}
+                      variant="outline"
+                      size="sm"
+                    >
+                      清空
+                    </Button>
+                  </div>
+
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    前往{" "}
+                    <a
+                      href="https://cloud.siliconflow.cn"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      硅基流动官网
+                    </a>{" "}
+                    注册并获取 API 密钥
                   </p>
                 </div>
-              </ConfigSection>
+              </div>
 
               {/* 语音合成 TTS 模型 */}
-              <ConfigSection
-                icon={<span className="text-3xl">🎵</span>}
-                title="语音合成模型 (TTS)"
-                subtitle="下载本地语音合成模型文件"
-                colorClass="from-green-500 to-emerald-500"
-                isMobile={isMobile}
-              >
-                <div className="space-y-3">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Download className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
+                    语音合成模型 (TTS)
+                  </h2>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
                   {/* Matcha 模型 */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                          Matcha 声学模型
-                        </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          ~80MB
-                        </p>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Matcha 声学模型
+                          </h4>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            ~80MB
+                          </span>
+                        </div>
                       </div>
                       {matchaDownloaded ? (
-                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                          <CheckCircle2 className="w-5 h-5" />
-                          <span className="text-sm font-medium">已下载</span>
+                        <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-sm">已下载</span>
                         </div>
                       ) : (
                         <Button
                           onClick={() => downloadModel("matcha")}
                           disabled={matchaDownloading}
                           size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white"
+                          variant="outline"
                         >
-                          <Download className="w-4 h-4 mr-1" />
-                          {matchaDownloading ? "下载中..." : "下载"}
+                          <Download className="w-3.5 h-3.5 mr-1.5" />
+                          {matchaDownloading ? `${matchaProgress}%` : "下载"}
                         </Button>
                       )}
                     </div>
                     {matchaDownloading && (
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                         <div
-                          className="bg-green-600 h-2 rounded-full transition-all"
+                          className="bg-blue-600 h-1.5 rounded-full transition-all"
                           style={{ width: `${matchaProgress}%` }}
                         />
                       </div>
@@ -302,111 +393,134 @@ export default function ConfigServicePage() {
                   </div>
 
                   {/* Vocoder 模型 */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                          Vocoder 模型
-                        </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          ~45MB
-                        </p>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            Vocoder 模型
+                          </h4>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            ~45MB
+                          </span>
+                        </div>
                       </div>
                       {vocoderDownloaded ? (
-                        <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                          <CheckCircle2 className="w-5 h-5" />
-                          <span className="text-sm font-medium">已下载</span>
+                        <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-sm">已下载</span>
                         </div>
                       ) : (
                         <Button
                           onClick={() => downloadModel("vocoder")}
                           disabled={vocoderDownloading}
                           size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white"
+                          variant="outline"
                         >
-                          <Download className="w-4 h-4 mr-1" />
-                          {vocoderDownloading ? "下载中..." : "下载"}
+                          <Download className="w-3.5 h-3.5 mr-1.5" />
+                          {vocoderDownloading ? `${vocoderProgress}%` : "下载"}
                         </Button>
                       )}
                     </div>
                     {vocoderDownloading && (
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                         <div
-                          className="bg-green-600 h-2 rounded-full transition-all"
+                          className="bg-blue-600 h-1.5 rounded-full transition-all"
                           style={{ width: `${vocoderProgress}%` }}
                         />
                       </div>
                     )}
                   </div>
+                </div>
 
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 border border-green-100 dark:border-green-800/30">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
-                      <span className="text-green-500">💡</span>
-                      <span>
-                        模型会自动保存到应用数据目录，下载完成后自动启用
-                      </span>
-                    </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  模型会自动保存到应用数据目录，下载完成后自动启用
+                </p>
+              </div>
+
+              {/* 数据导出 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileDown className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
+                    数据导出
+                  </h2>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                        导出聊天记录 (JSONL)
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        您的对话会自动保存，可随时导出为 JSONL 格式
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleExportMessages}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <FileDown className="w-3.5 h-3.5 mr-1.5" />
+                      导出
+                    </Button>
                   </div>
                 </div>
-              </ConfigSection>
+              </div>
 
               {/* 语音识别 ASR 模型 */}
-              <ConfigSection
-                icon={<span className="text-3xl">🎤</span>}
-                title="语音识别模型 (ASR)"
-                subtitle="下载本地语音识别模型文件"
-                colorClass="from-blue-500 to-cyan-500"
-                isMobile={isMobile}
-              >
-                <div className="space-y-3">
-                  {/* ASR 模型 */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Download className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
+                    语音识别模型 (ASR)
+                  </h2>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           Paraformer 流式模型
                         </h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           ~70MB · 支持中英文
-                        </p>
+                        </span>
                       </div>
-                      {asrDownloaded ? (
-                        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                          <CheckCircle2 className="w-5 h-5" />
-                          <span className="text-sm font-medium">已下载</span>
-                        </div>
-                      ) : (
-                        <Button
-                          onClick={downloadASRModel}
-                          disabled={asrDownloading}
-                          size="sm"
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <Download className="w-4 h-4 mr-1" />
-                          {asrDownloading ? "下载中..." : "下载"}
-                        </Button>
-                      )}
                     </div>
-                    {asrDownloading && (
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all"
-                          style={{ width: `${asrProgress}%` }}
-                        />
+                    {asrDownloaded ? (
+                      <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-sm">已下载</span>
                       </div>
+                    ) : (
+                      <Button
+                        onClick={downloadASRModel}
+                        disabled={asrDownloading}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Download className="w-3.5 h-3.5 mr-1.5" />
+                        {asrDownloading ? `${asrProgress}%` : "下载"}
+                      </Button>
                     )}
                   </div>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-100 dark:border-blue-800/30">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
-                      <span className="text-blue-500">💡</span>
-                      <span>
-                        模型会自动保存到应用数据目录，下载完成后自动启用
-                      </span>
-                    </p>
-                  </div>
+                  {asrDownloading && (
+                    <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                      <div
+                        className="bg-blue-600 h-1.5 rounded-full transition-all"
+                        style={{ width: `${asrProgress}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
-              </ConfigSection>
+
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  模型会自动保存到应用数据目录，下载完成后自动启用
+                </p>
+              </div>
             </div>
           </TooltipProvider>
         </div>

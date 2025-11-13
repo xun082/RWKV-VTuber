@@ -90,17 +90,10 @@ export const useChatSession = create<ChatSessionState>()(
       },
 
       clearMessages: async () => {
-        const { currentSessionId } = get();
+        // 只清空界面显示，不删除数据库中的消息
+        // 所有消息都会保留在数据库中，用于最终导出
+        console.log("🗑️ 清空界面显示（数据库消息保留）");
         set({ messages: [] });
-        if (currentSessionId && isDatabaseReady()) {
-          try {
-            await db.clearSessionMessages(currentSessionId);
-          } catch (dbError) {
-            console.error("清除数据库消息失败:", dbError);
-            const errorMessage = handleDatabaseError(dbError);
-            toast.warning(`清除数据库失败: ${errorMessage}`);
-          }
-        }
       },
 
       setCurrentSessionId: (sessionId) => {

@@ -213,7 +213,7 @@ export default function ConfigLayoutPage() {
           {/* Header */}
           <div className="text-center space-y-2 py-3">
             <h1
-              className={`font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent ${
+              className={`font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent ${
                 isMobile ? "text-2xl" : "text-3xl"
               }`}
             >

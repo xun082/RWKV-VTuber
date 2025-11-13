@@ -237,7 +237,7 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                             确认清除对话
                           </AlertDialogTitle>
                           <AlertDialogDescription className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                            您确定要清除当前对话吗？此操作不可撤销。
+                            清空当前对话列表，让界面更清爽。
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="gap-2 sm:gap-3">

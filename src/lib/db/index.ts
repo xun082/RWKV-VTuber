@@ -125,6 +125,30 @@ class DigitalLifeDB extends Dexie {
 		}
 	}
 
+	// 获取所有消息（用于导出）
+	async getAllMessages(): Promise<ChatMessage[]> {
+		try {
+			const messages = await this.chatMessages.orderBy('timestamp').toArray()
+			return messages
+		} catch (error) {
+			console.error('获取所有消息失败:', error)
+			return []
+		}
+	}
+
+	// 获取指定会话的所有消息（用于导出）
+	async getAllSessionMessages(sessionId: number): Promise<ChatMessage[]> {
+		try {
+			const messages = await this.chatMessages
+				.filter((msg) => msg.sessionId === sessionId)
+				.sortBy('timestamp')
+			return messages
+		} catch (error) {
+			console.error('获取会话消息失败:', error)
+			return []
+		}
+	}
+
 	// 添加记忆
 	async addMemory(memory: Omit<Memory, 'id'>): Promise<number> {
 		try {

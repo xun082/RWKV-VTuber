@@ -83,25 +83,50 @@ function getTtsInstance(offlineTtsConfig: any): any {
     typeof sherpa_onnx?.createOfflineTts
   );
 
-  const result = sherpa_onnx.createOfflineTts(offlineTtsConfig);
+  let result;
+  try {
+    result = sherpa_onnx.createOfflineTts(offlineTtsConfig);
+  } catch (e: any) {
+    // 只记录错误信息，直接抛出原始错误
+    console.error("[Sherpa-TTS] createOfflineTts 抛出异常:");
+    console.error("  错误:", e);
+    console.error("  错误消息:", e.message);
+    console.error("  错误类型:", typeof e);
+    console.error("  错误堆栈:", e.stack);
+    // 直接抛出原始错误
+    throw e;
+  }
 
   console.log("[Sherpa-TTS] createOfflineTts 返回值类型:", typeof result);
   console.log("[Sherpa-TTS] createOfflineTts 返回值:", result);
 
   // 检查返回值是否是数字（错误码）
   if (typeof result === "number") {
-    throw new Error(`创建 TTS 实例失败，错误码: ${result}`);
+    // 记录详细的错误码信息
+    console.error("[Sherpa-TTS] createOfflineTts 返回错误码:");
+    console.error("  错误码 (十进制):", result);
+    console.error("  错误码 (十六进制):", `0x${result.toString(16)}`);
+    console.error("  错误码 (二进制):", result.toString(2));
+
+    // 抛出包含原始错误码的错误
+    throw new Error(`createOfflineTts failed with error code: ${result}`);
   }
 
   // 检查返回值是否有效
   if (!result || typeof result !== "object") {
-    throw new Error(`创建 TTS 实例失败，返回无效对象: ${typeof result}`);
+    console.error("[Sherpa-TTS] 返回值无效，类型:", typeof result);
+    throw new Error(`Invalid TTS instance, got type: ${typeof result}`);
   }
 
   // 检查是否有 generate 方法
   if (typeof result.generate !== "function") {
+    const availableMethods = Object.keys(result || {});
+    console.error("[Sherpa-TTS] TTS 实例缺少 generate 方法");
+    console.error("  可用方法:", availableMethods);
     throw new Error(
-      `TTS 实例缺少 generate 方法，可用方法: ${Object.keys(result).join(", ")}`
+      `TTS instance missing generate method. Available methods: ${availableMethods.join(
+        ", "
+      )}`
     );
   }
 
@@ -222,6 +247,13 @@ export async function generateSpeech(
   // 获取或创建 TTS 实例（使用单例模式）
   try {
     console.log("[Sherpa-TTS] 获取 TTS 实例...");
+    console.log("[Sherpa-TTS] 模型路径:");
+    console.log(`  - 声学模型: ${acousticModelPath}`);
+    console.log(`  - Vocoder: ${vocoderPath}`);
+    console.log(`  - 词典: ${lexiconPath}`);
+    console.log(`  - Tokens: ${tokensPath}`);
+    console.log(`  - Rule FSTs: ${ruleFsts || "(无)"}`);
+
     const tts = getTtsInstance(offlineTtsConfig);
 
     console.log("[Sherpa-TTS] TTS 实例类型:", typeof tts);
@@ -236,6 +268,8 @@ export async function generateSpeech(
     }
 
     console.log("[Sherpa-TTS] 开始生成语音...");
+    console.log(`[Sherpa-TTS] 文本长度: ${args.text.length} 字符`);
+    console.log(`[Sherpa-TTS] 速度: ${args.speed}`);
 
     const audio = tts.generate({
       text: args.text,
@@ -246,6 +280,10 @@ export async function generateSpeech(
     if (!audio?.samples || !audio?.sampleRate) {
       throw new Error("语音生成失败：未返回音频数据");
     }
+
+    console.log(
+      `[Sherpa-TTS] 音频生成成功: ${audio.samples.length} samples, ${audio.sampleRate}Hz`
+    );
 
     // 转换为 WAV 格式
     const pcm16 = new Int16Array(audio.samples.length);
@@ -273,7 +311,17 @@ export async function generateSpeech(
 
     return { audio: Array.from(wavBuffer) };
   } catch (error: any) {
-    console.error("[Sherpa-TTS] 生成语音失败:", error);
+    // 只记录错误信息到控制台，方便排查
+    console.error("[Sherpa-TTS] 生成语音失败:");
+    console.error("  错误:", error);
+    console.error("  错误消息:", error.message);
+    console.error("  错误类型:", typeof error);
+    console.error("  错误堆栈:", error.stack);
+    console.error("  文本 (前50字符):", args.text.substring(0, 50) + "...");
+    console.error("  文本长度:", args.text.length);
+    console.error("  速度参数:", args.speed);
+
+    // 直接抛出原始错误，不修改
     throw error;
   }
   // 注意：不要在这里释放实例！实例会被复用

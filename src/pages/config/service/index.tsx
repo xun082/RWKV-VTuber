@@ -1,4 +1,10 @@
-import { Download, CheckCircle2, FileDown } from "lucide-react";
+import {
+  Download,
+  CheckCircle2,
+  FileDown,
+  AlertCircle,
+  Trash2,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,6 +14,7 @@ import { useSherpaConfig } from "@/stores/useSherpaConfig.ts";
 import { useSherpaTtsConfig } from "@/stores/useSherpaTtsConfig.ts";
 import { useChatSession } from "@/stores/useChatSession.ts";
 import { db, isDatabaseReady } from "@/lib/db/index.ts";
+import { errorLogger } from "@/lib/error-logger";
 
 export default function ConfigServicePage() {
   const { isMobile } = useResponsive();
@@ -31,6 +38,15 @@ export default function ConfigServicePage() {
 
   // 获取当前会话信息用于导出
   const currentSessionId = useChatSession((state) => state.currentSessionId);
+
+  // 错误日志统计
+  const [errorStats, setErrorStats] = useState<{
+    total: number;
+    byType: Record<string, number>;
+  }>({
+    total: 0,
+    byType: {},
+  });
 
   // 导出聊天记录为JSONL格式
   const handleExportMessages = async () => {
@@ -92,6 +108,75 @@ export default function ConfigServicePage() {
     }
   };
 
+  // 导出错误日志
+  const handleExportErrors = async () => {
+    try {
+      if (!isDatabaseReady()) {
+        toast.error("数据库未准备就绪，请稍后重试");
+        return;
+      }
+
+      const errorLogs = await errorLogger.getAllLogs();
+
+      if (errorLogs.length === 0) {
+        toast.warning("暂无错误日志可导出");
+        return;
+      }
+
+      // 转换为JSON格式（更易读）
+      const jsonContent = JSON.stringify(errorLogs, null, 2);
+
+      // 创建Blob并下载
+      const blob = new Blob([jsonContent], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+
+      // 使用时间戳作为文件名
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      a.download = `error-logs-${timestamp}.json`;
+
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`成功导出 ${errorLogs.length} 条错误日志！`);
+    } catch (error) {
+      console.error("导出错误日志失败:", error);
+      toast.error(error instanceof Error ? error.message : "导出失败，请重试");
+    }
+  };
+
+  // 清除错误日志
+  const handleClearErrors = async () => {
+    try {
+      if (!isDatabaseReady()) {
+        toast.error("数据库未准备就绪，请稍后重试");
+        return;
+      }
+
+      await errorLogger.clearAllLogs();
+      await updateErrorStats();
+      toast.success("错误日志已清除");
+    } catch (error) {
+      console.error("清除错误日志失败:", error);
+      toast.error(error instanceof Error ? error.message : "清除失败，请重试");
+    }
+  };
+
+  // 更新错误统计
+  const updateErrorStats = async () => {
+    try {
+      const stats = await errorLogger.getStats();
+      setErrorStats(stats);
+    } catch (error) {
+      console.error("获取错误统计失败:", error);
+    }
+  };
+
   // 初始化配置（仅在组件挂载时执行一次）
   useEffect(() => {
     const initializeConfig = async () => {
@@ -133,6 +218,9 @@ export default function ConfigServicePage() {
       } catch (error) {
         console.error("检查模型失败:", error);
       }
+
+      // 更新错误统计
+      await updateErrorStats();
     };
 
     initializeConfig();
@@ -351,24 +439,85 @@ export default function ConfigServicePage() {
                   </h2>
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                        导出聊天记录 (JSONL)
-                      </h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        您的对话会自动保存，可随时导出为 JSONL 格式
-                      </p>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+                  {/* 聊天记录导出 */}
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                          导出聊天记录 (JSONL)
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          您的对话会自动保存，可随时导出为 JSONL 格式
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleExportMessages}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <FileDown className="w-3.5 h-3.5 mr-1.5" />
+                        导出
+                      </Button>
                     </div>
-                    <Button
-                      onClick={handleExportMessages}
-                      size="sm"
-                      variant="outline"
-                    >
-                      <FileDown className="w-3.5 h-3.5 mr-1.5" />
-                      导出
-                    </Button>
+                  </div>
+
+                  {/* 错误日志导出 */}
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            导出错误日志 (JSON)
+                          </h4>
+                          {errorStats.total > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                              <AlertCircle className="w-3 h-3" />
+                              {errorStats.total} 条错误
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          应用运行期间的所有错误会自动记录，用于排错和改进
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        {errorStats.total > 0 && (
+                          <Button
+                            onClick={handleClearErrors}
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                            清除
+                          </Button>
+                        )}
+                        <Button
+                          onClick={handleExportErrors}
+                          size="sm"
+                          variant="outline"
+                          disabled={errorStats.total === 0}
+                        >
+                          <FileDown className="w-3.5 h-3.5 mr-1.5" />
+                          导出
+                        </Button>
+                      </div>
+                    </div>
+                    {errorStats.total > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {Object.entries(errorStats.byType).map(
+                          ([type, count]) => (
+                            <span
+                              key={type}
+                              className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                            >
+                              {type}: {count}
+                            </span>
+                          )
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

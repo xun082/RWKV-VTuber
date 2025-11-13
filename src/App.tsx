@@ -1,12 +1,24 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { ChatSessionProvider } from "./components/ChatSessionProvider";
 import { DesktopLayout } from "./components/Layout/DesktopLayout";
 import { UpdateNotification } from "./components/UpdateNotification";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useLive2dEffects } from "./hooks/useLive2dEffects";
 import { useWelcomeMessage } from "./hooks/useWelcomeMessage";
+import { errorLogger } from "./lib/error-logger";
 import "./lib/electron"; // 初始化 Electron API
 
 export default function App() {
+  // 初始化错误日志系统
+  useEffect(() => {
+    errorLogger.init();
+    
+    return () => {
+      errorLogger.destroy();
+    };
+  }, []);
+
   // 初始化 Live2D 效果
   useLive2dEffects();
 
@@ -15,10 +27,12 @@ export default function App() {
 
   // 统一使用桌面布局，小屏幕自动适配
   return (
-    <ChatSessionProvider>
-      <DesktopLayout />
-      <UpdateNotification />
-      <Toaster />
-    </ChatSessionProvider>
+    <ErrorBoundary>
+      <ChatSessionProvider>
+        <DesktopLayout />
+        <UpdateNotification />
+        <Toaster />
+      </ChatSessionProvider>
+    </ErrorBoundary>
   );
 }

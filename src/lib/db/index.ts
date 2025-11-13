@@ -33,12 +33,25 @@ export interface AudioCache {
 	audio: ArrayBuffer
 }
 
+export interface ErrorLog {
+	id?: number
+	timestamp: number
+	message: string
+	stack?: string
+	type: 'javascript' | 'react' | 'promise' | 'network' | 'custom'
+	componentStack?: string
+	url?: string
+	userAgent?: string
+	metadata?: Record<string, any>
+}
+
 // 数据库类
 class DigitalLifeDB extends Dexie {
 	chatMessages!: Table<ChatMessage>
 	chatSessions!: Table<ChatSession>
 	memories!: Table<Memory>
 	audioCache!: Table<AudioCache>
+	errorLogs!: Table<ErrorLog>
 
 	constructor() {
 		super('DigitalLifeDB')
@@ -49,6 +62,15 @@ class DigitalLifeDB extends Dexie {
 			chatSessions: '++id, isActive, createdAt',
 			memories: '++id, timestamp, importance',
 			audioCache: '++id, timestamp',
+		})
+
+		// 添加错误日志表（版本2）
+		this.version(2).stores({
+			chatMessages: '++id, sessionId, timestamp',
+			chatSessions: '++id, isActive, createdAt',
+			memories: '++id, timestamp, importance',
+			audioCache: '++id, timestamp',
+			errorLogs: '++id, timestamp, type',
 		})
 	}
 
@@ -221,6 +243,58 @@ class DigitalLifeDB extends Dexie {
 		} catch (error) {
 			console.error('获取音频缓存失败:', error)
 			return undefined
+		}
+	}
+
+	// 添加错误日志
+	async addErrorLog(errorLog: Omit<ErrorLog, 'id'>): Promise<number> {
+		try {
+			const id = await this.errorLogs.add(errorLog)
+			return id as number
+		} catch (error) {
+			console.error('添加错误日志失败:', error)
+			throw error
+		}
+	}
+
+	// 获取所有错误日志
+	async getAllErrorLogs(): Promise<ErrorLog[]> {
+		try {
+			const logs = await this.errorLogs.orderBy('timestamp').reverse().toArray()
+			return logs
+		} catch (error) {
+			console.error('获取错误日志失败:', error)
+			return []
+		}
+	}
+
+	// 清除错误日志
+	async clearErrorLogs(): Promise<void> {
+		try {
+			await this.errorLogs.clear()
+		} catch (error) {
+			console.error('清除错误日志失败:', error)
+			throw error
+		}
+	}
+
+	// 获取错误统计
+	async getErrorStats(): Promise<{ total: number; byType: Record<string, number> }> {
+		try {
+			const logs = await this.errorLogs.toArray()
+			const byType: Record<string, number> = {}
+			
+			logs.forEach(log => {
+				byType[log.type] = (byType[log.type] || 0) + 1
+			})
+
+			return {
+				total: logs.length,
+				byType
+			}
+		} catch (error) {
+			console.error('获取错误统计失败:', error)
+			return { total: 0, byType: {} }
 		}
 	}
 }

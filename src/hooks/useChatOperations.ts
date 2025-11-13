@@ -207,9 +207,6 @@ export function useChatOperations({
           assistantContent = "抱歉，我无法回应。";
         }
 
-        // 硅基流动API暂不返回token使用量，保持原有token值
-        // await setUsedToken(tokens);
-
         // Process motion commands first
         processAIResponse(assistantContent);
 
@@ -352,18 +349,16 @@ export function useChatOperations({
       const errorMessage = error instanceof Error ? error.message : "未知错误";
       console.error("聊天失败:", errorMessage);
 
-      // 显示更详细的错误信息
-      if (errorMessage.includes("API key")) {
-        toast.error("API密钥错误，请检查配置");
-      } else if (errorMessage.includes("model")) {
-        toast.error("模型错误，请检查模型名称");
-      } else if (
+      // 显示错误信息（不暴露敏感信息）
+      if (
         errorMessage.includes("Connection") ||
         errorMessage.includes("network")
       ) {
         toast.error("网络连接失败，请检查网络");
+      } else if (errorMessage.includes("401") || errorMessage.includes("403")) {
+        toast.error("服务暂时不可用，请稍后再试");
       } else {
-        toast.error(`聊天失败: ${errorMessage}`);
+        toast.error("抱歉，处理消息时出现问题");
       }
     } finally {
       // 确保在任何情况下都重置禁用状态

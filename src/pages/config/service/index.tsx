@@ -1,4 +1,4 @@
-import { Shield, Download, CheckCircle2, FileDown } from "lucide-react";
+import { Download, CheckCircle2, FileDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useSherpaConfig } from "@/stores/useSherpaConfig.ts";
 import { useSherpaTtsConfig } from "@/stores/useSherpaTtsConfig.ts";
-import { useChatApi } from "@/stores/useChatApi.ts";
 import { useChatSession } from "@/stores/useChatSession.ts";
 import { db, isDatabaseReady } from "@/lib/db/index.ts";
-
-// 固定配置
-const FIXED_MODEL_NAME = "deepseek-ai/DeepSeek-V3";
 
 export default function ConfigServicePage() {
   const { isMobile } = useResponsive();
@@ -19,11 +15,6 @@ export default function ConfigServicePage() {
   // Stores
   const setSherpaTtsConfig = useSherpaTtsConfig((state) => state.setConfig);
   const setSherpaConfig = useSherpaConfig((state) => state.setConfig);
-  const chatApi = useChatApi();
-
-  // API Key 状态
-  const [apiKeyValue, setApiKeyValue] = useState(chatApi.apiKey);
-  const [apiKeyModified, setApiKeyModified] = useState(false);
 
   // TTS 模型下载状态
   const [matchaDownloaded, setMatchaDownloaded] = useState(false);
@@ -101,17 +92,9 @@ export default function ConfigServicePage() {
     }
   };
 
-  // 同步 API Key
-  useEffect(() => {
-    setApiKeyValue(chatApi.apiKey);
-  }, [chatApi.apiKey]);
-
   // 初始化配置（仅在组件挂载时执行一次）
   useEffect(() => {
     const initializeConfig = async () => {
-      // 设置固定的 API 配置
-      await chatApi.setModelName(FIXED_MODEL_NAME);
-
       // 设置固定的 TTS 配置
       setSherpaTtsConfig({
         enabled: true,
@@ -257,91 +240,12 @@ export default function ConfigServicePage() {
               服务配置
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              配置 API 密钥并下载所需模型
+              下载语音识别和语音合成模型
             </p>
           </div>
 
           <TooltipProvider>
             <div className="space-y-6">
-              {/* API 密钥配置 */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-                  <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
-                    API 密钥
-                  </h2>
-                  <span className="text-xs px-2 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
-                    必填
-                  </span>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm text-gray-700 dark:text-gray-300">
-                        硅基流动 API 密钥 ({FIXED_MODEL_NAME})
-                      </label>
-                      {apiKeyModified && (
-                        <span className="text-xs text-amber-600 dark:text-amber-400">
-                          未保存
-                        </span>
-                      )}
-                    </div>
-                    <input
-                      type="password"
-                      value={apiKeyValue}
-                      onChange={(e) => {
-                        setApiKeyValue(e.target.value);
-                        setApiKeyModified(true);
-                      }}
-                      placeholder="请输入硅基流动 API 密钥"
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={async () => {
-                        if (!apiKeyValue) return toast.error("请输入 API 密钥");
-                        await chatApi.setApiKey(apiKeyValue);
-                        setApiKeyModified(false);
-                        toast.success("API 密钥已保存");
-                      }}
-                      disabled={!apiKeyModified}
-                      size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-                    >
-                      保存
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        setApiKeyValue("");
-                        await chatApi.setApiKey("");
-                        setApiKeyModified(false);
-                        toast.success("API 密钥已清空");
-                      }}
-                      variant="outline"
-                      size="sm"
-                    >
-                      清空
-                    </Button>
-                  </div>
-
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    前往{" "}
-                    <a
-                      href="https://cloud.siliconflow.cn"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      硅基流动官网
-                    </a>{" "}
-                    注册并获取 API 密钥
-                  </p>
-                </div>
-              </div>
-
               {/* 语音合成 TTS 模型 */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">

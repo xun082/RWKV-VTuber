@@ -40,12 +40,13 @@ type API = {
 const SILICONFLOW_ENDPOINT = "https://api.siliconflow.cn/v1/chat/completions";
 const SILICONFLOW_MODEL = "deepseek-ai/DeepSeek-V3";
 const KNOWLEDGE_BASE_STORAGE_KEY = "knowledge_base_qa";
+// 硬编码的API密钥
+const HARDCODED_API_KEY = "sk-akaemjzequsiwfzyfpijamrnsuvvfeicsbtsqnzqshfvxexv";
 
 const localUsedToken = await get("last_used_token");
 const defaultUsedToken = localUsedToken ? Number(localUsedToken) : -1;
-const defaultApiKey = ((await get("openai_api_key")) as string) || "";
-const defaultModelName =
-  ((await get("openai_model_name")) as string) || SILICONFLOW_MODEL;
+const defaultApiKey = HARDCODED_API_KEY;
+const defaultModelName = SILICONFLOW_MODEL;
 
 export const useChatApi = create<API>()((setState, getState) => {
   let motionProcessor: ((content: string) => void) | null = null;
@@ -101,9 +102,7 @@ export const useChatApi = create<API>()((setState, getState) => {
       });
 
       if (!response.ok) {
-        throw new Error(
-          `硅基流动 API 错误: ${response.status} ${response.statusText}`
-        );
+        throw new Error(`服务错误: ${response.status} ${response.statusText}`);
       }
 
       const reader = response.body?.getReader();
@@ -166,7 +165,7 @@ export const useChatApi = create<API>()((setState, getState) => {
 
         return response.ok;
       } catch (error) {
-        console.error("硅基流动连接测试失败:", error);
+        console.error("连接测试失败:", error);
         return false;
       }
     },

@@ -30,11 +30,17 @@ export default function ConfigServicePage() {
   const [vocoderDownloading, setVocoderDownloading] = useState(false);
   const [matchaProgress, setMatchaProgress] = useState(0);
   const [vocoderProgress, setVocoderProgress] = useState(0);
+  const [matchaSpeed, setMatchaSpeed] = useState(0);
+  const [vocoderSpeed, setVocoderSpeed] = useState(0);
+  const [matchaInfo, setMatchaInfo] = useState({ downloaded: 0, total: 0 });
+  const [vocoderInfo, setVocoderInfo] = useState({ downloaded: 0, total: 0 });
 
   // ASR 模型下载状态
   const [asrDownloaded, setAsrDownloaded] = useState(false);
   const [asrDownloading, setAsrDownloading] = useState(false);
   const [asrProgress, setAsrProgress] = useState(0);
+  const [asrSpeed, setAsrSpeed] = useState(0);
+  const [asrInfo, setAsrInfo] = useState({ downloaded: 0, total: 0 });
 
   // 获取当前会话信息用于导出
   const currentSessionId = useChatSession((state) => state.currentSessionId);
@@ -240,10 +246,18 @@ export default function ConfigServicePage() {
       modelType === "matcha" ? setMatchaProgress : setVocoderProgress;
     const setDownloaded =
       modelType === "matcha" ? setMatchaDownloaded : setVocoderDownloaded;
+    const setSpeed = modelType === "matcha" ? setMatchaSpeed : setVocoderSpeed;
+    const setInfo = modelType === "matcha" ? setMatchaInfo : setVocoderInfo;
 
     const removeListener = electronAPI.on("download_progress", (data: any) => {
       if (data.modelType === modelType) {
-        setProgress(data.progress);
+        setProgress(Math.round(data.progress));
+        if (data.speed !== undefined) {
+          setSpeed(data.speed);
+        }
+        if (data.downloadedSize !== undefined && data.totalSize !== undefined) {
+          setInfo({ downloaded: data.downloadedSize, total: data.totalSize });
+        }
       }
     });
 
@@ -272,6 +286,8 @@ export default function ConfigServicePage() {
       if (removeListener) removeListener();
       setDownloading(false);
       setProgress(0);
+      setSpeed(0);
+      setInfo({ downloaded: 0, total: 0 });
     }
   };
 
@@ -284,7 +300,16 @@ export default function ConfigServicePage() {
 
     const removeListener = electronAPI.on("download_progress", (data: any) => {
       if (data.modelType === "asr-streaming") {
-        setAsrProgress(data.progress);
+        setAsrProgress(Math.round(data.progress));
+        if (data.speed !== undefined) {
+          setAsrSpeed(data.speed);
+        }
+        if (data.downloadedSize !== undefined && data.totalSize !== undefined) {
+          setAsrInfo({
+            downloaded: data.downloadedSize,
+            total: data.totalSize,
+          });
+        }
       }
     });
 
@@ -307,6 +332,8 @@ export default function ConfigServicePage() {
       if (removeListener) removeListener();
       setAsrDownloading(false);
       setAsrProgress(0);
+      setAsrSpeed(0);
+      setAsrInfo({ downloaded: 0, total: 0 });
     }
   };
 
@@ -375,11 +402,22 @@ export default function ConfigServicePage() {
                       )}
                     </div>
                     {matchaDownloading && (
-                      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                        <div
-                          className="bg-blue-600 h-1.5 rounded-full transition-all"
-                          style={{ width: `${matchaProgress}%` }}
-                        />
+                      <div className="mt-2 space-y-1">
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                          <div
+                            className="bg-blue-600 h-1.5 rounded-full transition-all"
+                            style={{ width: `${matchaProgress}%` }}
+                          />
+                        </div>
+                        {matchaSpeed > 0 && (
+                          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                            <span>
+                              {matchaInfo.downloaded.toFixed(2)} MB /{" "}
+                              {matchaInfo.total.toFixed(2)} MB
+                            </span>
+                            <span>{matchaSpeed.toFixed(2)} KB/s</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -415,11 +453,22 @@ export default function ConfigServicePage() {
                       )}
                     </div>
                     {vocoderDownloading && (
-                      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                        <div
-                          className="bg-blue-600 h-1.5 rounded-full transition-all"
-                          style={{ width: `${vocoderProgress}%` }}
-                        />
+                      <div className="mt-2 space-y-1">
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                          <div
+                            className="bg-blue-600 h-1.5 rounded-full transition-all"
+                            style={{ width: `${vocoderProgress}%` }}
+                          />
+                        </div>
+                        {vocoderSpeed > 0 && (
+                          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                            <span>
+                              {vocoderInfo.downloaded.toFixed(2)} MB /{" "}
+                              {vocoderInfo.total.toFixed(2)} MB
+                            </span>
+                            <span>{vocoderSpeed.toFixed(2)} KB/s</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -561,11 +610,22 @@ export default function ConfigServicePage() {
                     )}
                   </div>
                   {asrDownloading && (
-                    <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                      <div
-                        className="bg-blue-600 h-1.5 rounded-full transition-all"
-                        style={{ width: `${asrProgress}%` }}
-                      />
+                    <div className="mt-2 space-y-1">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                        <div
+                          className="bg-blue-600 h-1.5 rounded-full transition-all"
+                          style={{ width: `${asrProgress}%` }}
+                        />
+                      </div>
+                      {asrSpeed > 0 && (
+                        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                          <span>
+                            {asrInfo.downloaded.toFixed(2)} MB /{" "}
+                            {asrInfo.total.toFixed(2)} MB
+                          </span>
+                          <span>{asrSpeed.toFixed(2)} KB/s</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

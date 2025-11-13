@@ -17,91 +17,211 @@ export type ModelType = "matcha" | "vocoder" | "asr-streaming";
 export interface DownloadProgress {
   modelType: ModelType;
   progress: number;
+  speed?: number; // 下载速度 KB/s
+  downloadedSize?: number; // 已下载大小 MB
+  totalSize?: number; // 总大小 MB
 }
 
 /**
- * 下载文件（增强版：支持超时和重试）
+ * GitHub 镜像站列表（用于解决国内访问 GitHub Releases 慢的问题）
+ * 使用测试成功的高速镜像源
+ */
+const GITHUB_MIRRORS = [
+  "https://gh-proxy.com/", // 国内高速镜像（已测试，速度 2-6 MB/s）
+  "", // 官方源（备用）
+];
+
+/**
+ * 为 GitHub URL 添加镜像前缀
+ */
+function applyMirror(url: string, mirrorIndex: number): string {
+  const mirror = GITHUB_MIRRORS[mirrorIndex];
+  if (!mirror || !url.startsWith("https://github.com/")) {
+    return url;
+  }
+  return `${mirror}${url}`;
+}
+
+/**
+ * 检查文件是否支持断点续传
+ */
+function getPartialFileSize(destPath: string): number {
+  try {
+    if (fsSync.existsSync(destPath)) {
+      const stats = fsSync.statSync(destPath);
+      return stats.size;
+    }
+  } catch {}
+  return 0;
+}
+
+/**
+ * 下载文件（增强版：支持断点续传、超时、重试和智能镜像切换）
  */
 async function downloadFile(
   url: string,
   destPath: string,
   onProgress?: (progress: number) => void,
-  retries = 3,
+  retries = 2, // 减少到2次，加快切换速度
   timeout = 3600000 // 1小时总超时
 ): Promise<void> {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      await downloadFileAttempt(url, destPath, onProgress, timeout);
-      return; // 成功就返回
-    } catch (error: any) {
-      console.error(
-        `[Model] 下载尝试 ${attempt}/${retries} 失败:`,
-        error.message
-      );
+  let lastSuccessfulMirror = 0; // 记录上次成功的镜像，避免频繁切换
 
-      // 最后一次尝试失败就抛出错误
-      if (attempt === retries) {
-        throw new Error(`下载失败（已重试 ${retries} 次）: ${error.message}`);
-      }
+  for (
+    let mirrorIndex = 0;
+    mirrorIndex < GITHUB_MIRRORS.length;
+    mirrorIndex++
+  ) {
+    // 从上次成功的镜像开始尝试
+    const currentMirrorIndex =
+      (lastSuccessfulMirror + mirrorIndex) % GITHUB_MIRRORS.length;
+    const mirroredUrl = applyMirror(url, currentMirrorIndex);
+    const mirrorName = GITHUB_MIRRORS[currentMirrorIndex]
+      ? `镜像站 ${currentMirrorIndex + 1}`
+      : "官方源";
 
-      // 等待后重试（指数退避）
-      const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-      console.log(`[Model] ${waitTime}ms 后重试...`);
-      await new Promise((resolve) => setTimeout(resolve, waitTime));
-
-      // 删除部分下载的文件
+    // 对每个镜像源重试指定次数
+    for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        if (fsSync.existsSync(destPath)) {
-          fsSync.unlinkSync(destPath);
+        console.log(
+          `[Model] 下载尝试 - ${mirrorName} (第 ${attempt}/${retries} 次)`
+        );
+
+        await downloadFileAttempt(
+          mirroredUrl,
+          destPath,
+          onProgress,
+          timeout,
+          true // 启用断点续传
+        );
+
+        console.log(`[Model] ✅ 下载成功 (使用 ${mirrorName})`);
+        lastSuccessfulMirror = currentMirrorIndex; // 记录成功的镜像
+        return; // 成功就返回
+      } catch (error: any) {
+        console.error(
+          `[Model] ❌ ${mirrorName} 第 ${attempt} 次尝试失败:`,
+          error.message
+        );
+
+        // 如果不是最后一次重试，等待后继续
+        if (attempt < retries) {
+          const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 3000);
+          console.log(`[Model] ${waitTime}ms 后重试 ${mirrorName}...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
-      } catch {}
+      }
     }
+
+    // 当前镜像所有重试都失败，尝试下一个镜像
+    console.log(`[Model] ${mirrorName} 所有尝试均失败，切换到下一个镜像源...`);
   }
+
+  // 所有镜像都失败了
+  throw new Error(
+    `下载失败：已尝试所有 ${GITHUB_MIRRORS.length} 个镜像源，每个源重试 ${retries} 次`
+  );
 }
 
 /**
- * 单次下载尝试
+ * 单次下载尝试（支持断点续传）
  */
 async function downloadFileAttempt(
   url: string,
   destPath: string,
-  onProgress?: (progress: number) => void,
-  timeout = 3600000 // 1小时总超时
+  onProgress?: (
+    progress: number,
+    speed?: number,
+    downloadedMB?: number,
+    totalMB?: number
+  ) => void,
+  timeout = 3600000, // 1小时总超时
+  enableResume = true // 是否启用断点续传
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith("https") ? https : http;
 
-    const request = protocol.get(url, (response) => {
+    // 检查是否有部分下载的文件（断点续传）
+    const startByte = enableResume ? getPartialFileSize(destPath) : 0;
+    const isResume = startByte > 0;
+
+    if (isResume) {
+      console.log(
+        `[Model] 发现部分下载文件，从 ${(startByte / 1024 / 1024).toFixed(
+          2
+        )} MB 处继续下载`
+      );
+    }
+
+    const options = {
+      headers: isResume ? { Range: `bytes=${startByte}-` } : {},
+    };
+
+    const request = protocol.get(url, options, (response) => {
       // 处理重定向
       if ([301, 302, 307, 308].includes(response.statusCode || 0)) {
         const redirectUrl = response.headers.location;
         if (redirectUrl) {
-          downloadFileAttempt(redirectUrl, destPath, onProgress, timeout)
+          downloadFileAttempt(
+            redirectUrl,
+            destPath,
+            onProgress,
+            timeout,
+            enableResume
+          )
             .then(resolve)
             .catch(reject);
           return;
         }
       }
 
-      if (response.statusCode !== 200) {
+      // 206 表示断点续传成功，200 表示全新下载
+      // 416 表示请求的范围无效（文件可能已损坏），需要删除重新下载
+      if (response.statusCode === 416) {
+        console.log("[Model] 检测到 416 错误，删除损坏的文件并重新下载...");
+        try {
+          if (fsSync.existsSync(destPath)) {
+            fsSync.unlinkSync(destPath);
+          }
+        } catch {}
+        // 不启用断点续传，从头开始下载
+        downloadFileAttempt(url, destPath, onProgress, timeout, false)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+
+      if (response.statusCode !== 200 && response.statusCode !== 206) {
         reject(new Error(`下载失败，状态码: ${response.statusCode}`));
         return;
       }
 
-      const totalSize = parseInt(response.headers["content-length"] || "0", 10);
-      let downloadedSize = 0;
+      // 处理断点续传的总大小计算
+      const contentLength = parseInt(
+        response.headers["content-length"] || "0",
+        10
+      );
+      const totalSize =
+        isResume && response.statusCode === 206
+          ? startByte + contentLength
+          : contentLength;
+      let downloadedSize =
+        isResume && response.statusCode === 206 ? startByte : 0;
       let lastProgressTime = Date.now();
-      let lastDownloadedSize = 0;
+      let lastDownloadedSize = downloadedSize;
 
-      const fileStream = createWriteStream(destPath);
+      // 如果是断点续传，使用追加模式；否则覆盖模式
+      const fileStream = createWriteStream(destPath, {
+        flags: isResume && response.statusCode === 206 ? "a" : "w",
+      });
 
-      // 设置超时检测（放宽到60秒，适应慢速网络）
+      // 设置超时检测和速度计算（每秒更新）
       const timeoutCheck = setInterval(() => {
         const now = Date.now();
         const timeSinceLastProgress = now - lastProgressTime;
 
-        // 如果60秒内没有新数据，认为超时
-        if (timeSinceLastProgress > 60000) {
+        // 如果30秒内没有新数据，认为超时（加快切换）
+        if (timeSinceLastProgress > 30000) {
           clearInterval(timeoutCheck);
           request.destroy();
           fileStream.destroy();
@@ -115,38 +235,40 @@ async function downloadFileAttempt(
               )} 秒内无新数据`
             )
           );
+          return;
         }
 
-        // 每10秒记录下载速度
-        if (timeSinceLastProgress > 0 && timeSinceLastProgress % 10000 < 1000) {
-          const speed = (
-            (downloadedSize - lastDownloadedSize) /
-            1024 /
-            10
-          ).toFixed(2);
+        // 每秒计算并报告下载速度
+        const timeDiff = now - lastProgressTime;
+        if (timeDiff >= 1000) {
+          const bytesDiff = downloadedSize - lastDownloadedSize;
+          const currentSpeed = bytesDiff / (timeDiff / 1000) / 1024; // KB/s
           const progressPercent =
-            totalSize > 0
-              ? ((downloadedSize / totalSize) * 100).toFixed(1)
-              : "未知";
+            totalSize > 0 ? (downloadedSize / totalSize) * 100 : 0;
+          const downloadedMB = downloadedSize / 1024 / 1024;
+          const totalMB = totalSize / 1024 / 1024;
+
+          // 报告进度和速度
+          if (onProgress && totalSize > 0) {
+            onProgress(progressPercent, currentSpeed, downloadedMB, totalMB);
+          }
+
+          // 控制台日志
           console.log(
-            `[Model] 下载进度: ${progressPercent}% (${(
-              downloadedSize /
-              1024 /
-              1024
-            ).toFixed(2)} MB / ${(totalSize / 1024 / 1024).toFixed(
+            `[Model] 下载进度: ${progressPercent.toFixed(
+              1
+            )}% (${downloadedMB.toFixed(2)} MB / ${totalMB.toFixed(
               2
-            )} MB) - 速度: ${speed} KB/s`
+            )} MB) - 速度: ${currentSpeed.toFixed(2)} KB/s`
           );
+
           lastDownloadedSize = downloadedSize;
+          lastProgressTime = now;
         }
       }, 1000);
 
       response.on("data", (chunk) => {
         downloadedSize += chunk.length;
-        lastProgressTime = Date.now();
-        if (totalSize > 0 && onProgress) {
-          onProgress((downloadedSize / totalSize) * 100);
-        }
       });
 
       response.pipe(fileStream);

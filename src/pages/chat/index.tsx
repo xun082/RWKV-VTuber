@@ -149,7 +149,6 @@ export default function ChatPage() {
                     recording: recognition !== null,
                     onRecordingChange: async (recording: boolean) => {
                       if (recording) {
-                        toast.info("再次点击按钮结束说话");
                         const api = listen();
                         setRecognition(api);
                         api.start();
@@ -157,22 +156,15 @@ export default function ChatPage() {
                       }
                       try {
                         if (!recognition) {
-                          throw new Error("语音识别未初始化");
+                          return;
                         }
                         recognition.stop();
                         const text = await recognition.result;
-                        if (!text) {
-                          throw new Error("未识别到任何文字");
+                        if (text && text.trim()) {
+                          setInputValue(text);
                         }
-                        setInputValue(text);
                       } catch (e) {
-                        toast.warning(
-                          e instanceof Error
-                            ? e.message
-                            : typeof e === "string"
-                            ? e
-                            : "未知错误"
-                        );
+                        console.error("语音识别错误:", e);
                       } finally {
                         setRecognition(null);
                       }

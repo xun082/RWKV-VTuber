@@ -34,7 +34,20 @@ export function MessageItem({
   const [isGloballyPlaying, setIsGloballyPlaying] = useState(false);
 
   // 过滤掉动作标签 [MMOTION:xxx]
-  const displayContent = content.replace(/\[MMOTION:[^\]]+\]\s*/g, "").trim();
+  let displayContent = content.replace(/\[MMOTION:[^\]]+\]\s*/g, "").trim();
+  
+  // 修复 markdown 粗体/斜体识别问题（仅对 AI 回复）
+  if (isAssistant) {
+    // 修复错误的粗体格式：** 文本 ** → **文本**
+    // AI 有时会在 ** 内部添加空格，这不符合标准 markdown 语法
+    // 需要移除星号内部紧邻的空格
+    displayContent = displayContent.replace(/\*\*\s+/g, '**');  // 移除 ** 后的空格
+    displayContent = displayContent.replace(/\s+\*\*/g, '**');  // 移除 ** 前的空格
+    
+    // 同样处理斜体（单星号，但要避免影响粗体）
+    displayContent = displayContent.replace(/([^\*])\*\s+/g, '$1*');  // 移除单 * 后的空格
+    displayContent = displayContent.replace(/\s+\*([^\*])/g, '*$1');  // 移除单 * 前的空格
+  }
 
   // 渲染 Markdown（仅对 AI 回复）
   const renderedContent = useMemo(() => {

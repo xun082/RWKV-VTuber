@@ -2,6 +2,112 @@ import emojiReg from "emoji-regex";
 import { db } from "./db/index.ts";
 import { useSpeakApi } from "../stores/useSpeakApi.ts";
 
+/**
+ * 清理Markdown格式，转换为适合TTS的纯文本
+ * - 移除链接URL，只保留链接文本：[文本](URL) → 文本
+ * - 移除图片：![alt](URL) → 空
+ * - 移除粗体/斜体标记：**text** / *text* → text
+ * - 移除代码标记：`code` → code
+ * - 移除标题标记：# heading → heading
+ * - 移除引用标记：> quote → quote
+ * - 处理英文内容以适配中文TTS模型
+ */
+function cleanMarkdownForTTS(text: string): string {
+  let cleaned = text;
+
+  // 1. 移除图片 ![alt](url) → 空
+  cleaned = cleaned.replace(/!\[([^\]]*)\]\([^\)]+\)/g, "");
+
+  // 2. 转换链接 [文本](URL) → 文本
+  cleaned = cleaned.replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1");
+
+  // 3. 移除粗体 **text** 或 __text__ → text
+  cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, "$1");
+  cleaned = cleaned.replace(/__([^_]+)__/g, "$1");
+
+  // 4. 移除斜体 *text* 或 _text_ → text
+  cleaned = cleaned.replace(/\*([^*]+)\*/g, "$1");
+  cleaned = cleaned.replace(/_([^_]+)_/g, "$1");
+
+  // 5. 移除行内代码 `code` → code
+  cleaned = cleaned.replace(/`([^`]+)`/g, "$1");
+
+  // 6. 移除代码块标记 ```language\ncode\n``` → code
+  cleaned = cleaned.replace(/```[\s\S]*?\n([\s\S]*?)```/g, "$1");
+
+  // 7. 移除标题标记 # heading → heading
+  cleaned = cleaned.replace(/^#{1,6}\s+/gm, "");
+
+  // 8. 移除引用标记 > quote → quote
+  cleaned = cleaned.replace(/^>\s+/gm, "");
+
+  // 9. 移除水平线 --- 或 ***
+  cleaned = cleaned.replace(/^[\-*]{3,}$/gm, "");
+
+  // 10. 移除列表标记 - item 或 * item 或 1. item → item
+  cleaned = cleaned.replace(/^[\s]*[\-*+]\s+/gm, "");
+  cleaned = cleaned.replace(/^[\s]*\d+\.\s+/gm, "");
+
+  // 11. 处理英文内容以适配中文TTS
+  // 常见符号转换为中文
+  cleaned = cleaned.replace(/&/g, "和");
+  cleaned = cleaned.replace(/\+/g, "加");
+  cleaned = cleaned.replace(/@/g, "在");
+
+  // 英文字母到中文读音的映射
+  const letterToPinyin: { [key: string]: string } = {
+    A: "诶",
+    B: "比",
+    C: "西",
+    D: "迪",
+    E: "伊",
+    F: "艾弗",
+    G: "基",
+    H: "艾奇",
+    I: "艾",
+    J: "杰",
+    K: "开",
+    L: "艾勒",
+    M: "艾姆",
+    N: "恩",
+    O: "欧",
+    P: "批",
+    Q: "克优",
+    R: "阿尔",
+    S: "艾斯",
+    T: "提",
+    U: "优",
+    V: "维",
+    W: "达不溜",
+    X: "艾克斯",
+    Y: "歪",
+    Z: "贼德",
+  };
+
+  // 将常见的英文缩写转换为中文读音
+  // CEO -> 西伊欧, AI -> 诶艾, API -> 诶批艾
+  cleaned = cleaned.replace(/\b([A-Z]{2,})\b/g, (match) => {
+    return match
+      .split("")
+      .map((letter) => letterToPinyin[letter] || letter)
+      .join("");
+  });
+
+  // 处理单个大写字母（如果周围是中文）
+  cleaned = cleaned.replace(
+    /([\u4e00-\u9fa5])\s*([A-Z])\s*([\u4e00-\u9fa5])/g,
+    (_match, before, letter, after) => {
+      return before + (letterToPinyin[letter] || letter) + after;
+    }
+  );
+
+  // 12. 清理多余的空白
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n"); // 多个换行变为两个
+  cleaned = cleaned.replace(/[ \t]{2,}/g, " "); // 多个空格变为一个
+
+  return cleaned.trim();
+}
+
 // 全局音频播放管理器
 class AudioPlaybackManager {
   private currentAudio: HTMLAudioElement | null = null;
@@ -216,8 +322,10 @@ export async function generateAndPlayTTS(
     return;
   }
 
+  // 清理文本：先清理markdown，再移除emoji
   const emoji = emojiReg();
-  const cleanContent = text.replace(emoji, "").trim();
+  let cleanContent = cleanMarkdownForTTS(text); // 先清理markdown
+  cleanContent = cleanContent.replace(emoji, "").trim(); // 再移除emoji
 
   if (!cleanContent) {
     return;
@@ -317,8 +425,10 @@ export async function generateTTSOnly(
     return null;
   }
 
+  // 清理文本：先清理markdown，再移除emoji
   const emoji = emojiReg();
-  const cleanContent = text.replace(emoji, "").trim();
+  let cleanContent = cleanMarkdownForTTS(text); // 先清理markdown
+  cleanContent = cleanContent.replace(emoji, "").trim(); // 再移除emoji
 
   if (!cleanContent) {
     return null;

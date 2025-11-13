@@ -55,8 +55,12 @@ export function resolveModelPath(
   baseDir?: string
 ): string {
   // 规范化路径：将所有正斜杠转换为平台特定的分隔符
-  const normalizedPath = relativePath.split('/').join(path.sep).split('\\').join(path.sep);
-  
+  const normalizedPath = relativePath
+    .split("/")
+    .join(path.sep)
+    .split("\\")
+    .join(path.sep);
+
   if (path.isAbsolute(normalizedPath)) {
     return path.normalize(normalizedPath);
   }
@@ -80,7 +84,9 @@ export function resolveModelPath(
   }
 
   // 如果都不存在，默认返回 TTS 模型目录下的路径
-  const defaultPath = path.normalize(path.join(getTTSModelsDir(), normalizedPath));
+  const defaultPath = path.normalize(
+    path.join(getTTSModelsDir(), normalizedPath)
+  );
   console.warn(`[Paths] 模型文件不存在，使用默认路径: ${defaultPath}`);
   return defaultPath;
 }

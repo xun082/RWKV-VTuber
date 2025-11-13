@@ -2,9 +2,10 @@ import type { Model } from "l2d";
 import { create } from "zustand";
 import { cleanupLive2d } from "../lib/api/shared/api.live2d.ts";
 import { get, live2dList, set } from "../lib/utils.ts";
+import defaultBackgroundImage from "/back.jpg";
 
 // ==================== 常量定义 ====================
-const DEFAULT_BACKGROUND = "./back.jpg";
+const DEFAULT_BACKGROUND = defaultBackgroundImage;
 const DEFAULT_LIVE2D_NAME = "Tororo";
 const DEFAULT_POSITION = 0;
 const DEFAULT_SCALE = 1.0;

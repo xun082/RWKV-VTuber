@@ -1,6 +1,7 @@
 import emojiRegex from "emoji-regex";
 import { get } from "../shared/api.store";
 import type { SherpaTTSConfig } from "../../../stores/useSherpaTtsConfig";
+import { errorLogger } from "../../error-logger";
 
 const emoji = emojiRegex();
 
@@ -85,6 +86,15 @@ const speak_sherpa_tts = async (
     return { audio: new Uint8Array(result.audio) };
   } catch (e) {
     console.error("❌ [Sherpa-TTS] 合成失败:", e);
+    
+    // 记录模型调用错误
+    errorLogger.logCustomError("Sherpa-ONNX TTS 语音合成失败", {
+      model: "sherpa-tts",
+      operation: "tts_synthesis",
+      text: text.substring(0, 100), // 只记录前100个字符
+      error: e instanceof Error ? e.message : String(e),
+    });
+    
     throw new Error(
       `Sherpa-ONNX TTS 错误: ${e instanceof Error ? e.message : e}`
     );

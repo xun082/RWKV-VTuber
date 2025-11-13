@@ -12,6 +12,7 @@ import { useStates } from "../stores/useStates.ts";
 import { useContextManager } from "./useContextManager.ts";
 import { useLive2dTextProcessor } from "./useLive2dTextProcessor.ts";
 import { useSmartMemory } from "./useSmartMemory.ts";
+import { errorLogger } from "../lib/error-logger.ts";
 
 interface SimpleMessage {
   role: "user" | "assistant" | "system";
@@ -348,6 +349,16 @@ export function useChatOperations({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "未知错误";
       console.error("聊天失败:", errorMessage);
+
+      // 记录 AI 对话调用错误
+      errorLogger.logCustomError("AI 对话生成失败", {
+        model: modelName || "unknown",
+        operation: "ai_chat",
+        mode: isFullscreen ? "fullscreen" : "normal",
+        userMessage: text.substring(0, 100), // 只记录前100个字符
+        error: errorMessage,
+        contextSize: messagesToSend?.length || 0,
+      });
 
       // 显示错误信息（不暴露敏感信息）
       if (

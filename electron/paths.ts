@@ -48,33 +48,39 @@ export function ensureDir(dirPath: string): void {
 /**
  * 解析模型路径（支持相对和绝对路径）
  * 优先在 TTS/ASR 模型目录中查找
+ * 跨平台兼容：自动处理 Windows/Unix 路径分隔符
  */
 export function resolveModelPath(
   relativePath: string,
   baseDir?: string
 ): string {
-  if (path.isAbsolute(relativePath)) {
-    return relativePath;
+  // 规范化路径：将所有正斜杠转换为平台特定的分隔符
+  const normalizedPath = relativePath.split('/').join(path.sep).split('\\').join(path.sep);
+  
+  if (path.isAbsolute(normalizedPath)) {
+    return path.normalize(normalizedPath);
   }
 
   // 优先级：TTS模型目录 -> ASR模型目录 -> 指定的baseDir -> 应用数据目录 -> 当前目录
   const possiblePaths = [
-    path.join(getTTSModelsDir(), relativePath),
-    path.join(getASRModelsDir(), relativePath),
-    baseDir ? path.join(baseDir, relativePath) : null,
-    path.join(getAppDataDir(), relativePath),
-    path.join(process.cwd(), relativePath),
+    path.join(getTTSModelsDir(), normalizedPath),
+    path.join(getASRModelsDir(), normalizedPath),
+    baseDir ? path.join(baseDir, normalizedPath) : null,
+    path.join(getAppDataDir(), normalizedPath),
+    path.join(process.cwd(), normalizedPath),
   ].filter(Boolean) as string[];
 
   for (const tryPath of possiblePaths) {
-    if (fsSync.existsSync(tryPath)) {
-      console.log(`[Paths] 找到模型文件: ${tryPath}`);
-      return tryPath;
+    // 规范化并检查文件是否存在
+    const normalizedTryPath = path.normalize(tryPath);
+    if (fsSync.existsSync(normalizedTryPath)) {
+      console.log(`[Paths] 找到模型文件: ${normalizedTryPath}`);
+      return normalizedTryPath;
     }
   }
 
   // 如果都不存在，默认返回 TTS 模型目录下的路径
-  const defaultPath = path.join(getTTSModelsDir(), relativePath);
+  const defaultPath = path.normalize(path.join(getTTSModelsDir(), normalizedPath));
   console.warn(`[Paths] 模型文件不存在，使用默认路径: ${defaultPath}`);
   return defaultPath;
 }

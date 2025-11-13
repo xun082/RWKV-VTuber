@@ -16,6 +16,7 @@ export interface ChatSession {
 	createdAt: number
 	updatedAt: number
 	isActive: number // 使用数字而不是布尔值，避免索引问题
+	lastClearTime?: number // 上次清除对话的时间戳（用于界面显示过滤）
 }
 
 export interface Memory {
@@ -110,13 +111,22 @@ class DigitalLifeDB extends Dexie {
 		}
 	}
 
-	// 获取会话的聊天记录
-	async getSessionMessages(sessionId: number): Promise<ChatMessage[]> {
+	// 获取会话的聊天记录（可选择是否过滤已清除的消息）
+	async getSessionMessages(sessionId: number, includeCleared = false): Promise<ChatMessage[]> {
 		try {
 			// 使用更安全的查询方式
 			const messages = await this.chatMessages
 				.filter((msg) => msg.sessionId === sessionId)
 				.sortBy('timestamp')
+			
+			// 如果不包含已清除的消息，需要根据清除时间过滤
+			if (!includeCleared) {
+				const session = await this.chatSessions.get(sessionId)
+				if (session?.lastClearTime) {
+					return messages.filter(msg => msg.timestamp > session.lastClearTime!)
+				}
+			}
+			
 			return messages
 		} catch (error) {
 			console.error('获取消息失败:', error)
@@ -135,7 +145,20 @@ class DigitalLifeDB extends Dexie {
 		}
 	}
 
-	// 清除会话消息
+	// 标记会话已清除（用于界面显示，不删除实际消息）
+	async markSessionAsCleared(sessionId: number): Promise<void> {
+		try {
+			await this.chatSessions.update(sessionId, {
+				lastClearTime: Date.now()
+			})
+			console.log('✅ 会话已标记为已清除，消息已保留在数据库中')
+		} catch (error) {
+			console.error('标记会话清除失败:', error)
+			throw error
+		}
+	}
+
+	// 清除会话消息（真正删除消息，仅在必要时使用）
 	async clearSessionMessages(sessionId: number): Promise<void> {
 		try {
 			await this.chatMessages
@@ -158,7 +181,7 @@ class DigitalLifeDB extends Dexie {
 		}
 	}
 
-	// 获取指定会话的所有消息（用于导出）
+	// 获取指定会话的所有消息（用于导出，包含所有历史消息，忽略清除标记）
 	async getAllSessionMessages(sessionId: number): Promise<ChatMessage[]> {
 		try {
 			const messages = await this.chatMessages

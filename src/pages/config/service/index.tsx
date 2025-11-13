@@ -67,7 +67,7 @@ export default function ConfigServicePage() {
         return;
       }
 
-      // 获取当前会话的所有消息（包括已清除的）
+      // 获取当前会话的所有消息（包括已清除的，用于完整导出）
       const allMessages = await db.getAllSessionMessages(currentSessionId);
 
       if (allMessages.length === 0) {
@@ -110,7 +110,9 @@ export default function ConfigServicePage() {
       toast.success(`成功导出 ${allMessages.length} 条聊天记录！`);
     } catch (error) {
       console.error("导出失败:", error);
-      toast.error(error instanceof Error ? error.message : "导出失败，请重试");
+      const errorMessage =
+        error instanceof Error ? error.message : "导出失败，请重试";
+      toast.error(errorMessage);
     }
   };
 
@@ -152,7 +154,9 @@ export default function ConfigServicePage() {
       toast.success(`成功导出 ${errorLogs.length} 条错误日志！`);
     } catch (error) {
       console.error("导出错误日志失败:", error);
-      toast.error(error instanceof Error ? error.message : "导出失败，请重试");
+      const errorMessage =
+        error instanceof Error ? error.message : "导出失败，请重试";
+      toast.error(errorMessage);
     }
   };
 
@@ -169,7 +173,9 @@ export default function ConfigServicePage() {
       toast.success("错误日志已清除");
     } catch (error) {
       console.error("清除错误日志失败:", error);
-      toast.error(error instanceof Error ? error.message : "清除失败，请重试");
+      const errorMessage =
+        error instanceof Error ? error.message : "清除失败，请重试";
+      toast.error(errorMessage);
     }
   };
 
@@ -279,9 +285,8 @@ export default function ConfigServicePage() {
         );
       }
     } catch (error) {
-      toast.error(
-        `下载失败: ${error instanceof Error ? error.message : "未知错误"}`
-      );
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`下载失败: ${errorMessage}`);
     } finally {
       if (removeListener) removeListener();
       setDownloading(false);
@@ -325,9 +330,8 @@ export default function ConfigServicePage() {
         toast.success("ASR 模型下载成功！");
       }
     } catch (error) {
-      toast.error(
-        `下载失败: ${error instanceof Error ? error.message : "未知错误"}`
-      );
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`下载失败: ${errorMessage}`);
     } finally {
       if (removeListener) removeListener();
       setAsrDownloading(false);
@@ -497,7 +501,7 @@ export default function ConfigServicePage() {
                           导出聊天记录 (JSONL)
                         </h4>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          您的对话会自动保存，可随时导出为 JSONL 格式
+                          导出所有历史聊天记录，包括已清除的对话
                         </p>
                       </div>
                       <Button

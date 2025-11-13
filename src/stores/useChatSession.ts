@@ -90,10 +90,23 @@ export const useChatSession = create<ChatSessionState>()(
       },
 
       clearMessages: async () => {
-        // 只清空界面显示，不删除数据库中的消息
-        // 所有消息都会保留在数据库中，用于最终导出
-        console.log("🗑️ 清空界面显示（数据库消息保留）");
+        const { currentSessionId } = get();
+        
+        // 清空界面显示
+        console.log("🗑️ 清空界面显示的聊天记录");
         set({ messages: [] });
+        
+        // 标记会话已清除（不删除数据库消息，保留用于导出）
+        if (currentSessionId && isDatabaseReady()) {
+          try {
+            await db.markSessionAsCleared(currentSessionId);
+            console.log("✅ 会话已标记为已清除，所有消息仍保留在数据库中供导出");
+          } catch (dbError) {
+            console.error("标记会话清除失败:", dbError);
+            const errorMessage = handleDatabaseError(dbError);
+            toast.warning(`清除失败: ${errorMessage}`);
+          }
+        }
       },
 
       setCurrentSessionId: (sessionId) => {
@@ -126,7 +139,8 @@ export const useChatSession = create<ChatSessionState>()(
           if (session?.id) {
             console.log(`会话初始化成功，ID: ${session.id}`);
 
-            const dbMessages = await db.getSessionMessages(session.id);
+            // 只加载未被清除的消息（已清除的消息仍保留在数据库中供导出）
+            const dbMessages = await db.getSessionMessages(session.id, false);
             const simpleMessages: SimpleMessage[] = dbMessages.map((msg) => ({
               role: msg.role,
               content: msg.content,
@@ -141,7 +155,7 @@ export const useChatSession = create<ChatSessionState>()(
               isInitialized: true,
             });
 
-            console.log(`加载了 ${simpleMessages.length} 条历史消息`);
+            console.log(`加载了 ${simpleMessages.length} 条历史消息（已清除的消息不显示）`);
           } else {
             throw new Error("会话对象无效");
           }

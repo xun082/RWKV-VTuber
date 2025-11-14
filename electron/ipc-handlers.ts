@@ -100,13 +100,10 @@ export function registerIPCHandlers(): void {
   );
 
   // MiniMax TTS 语音合成（新版）
-  ipcMain.handle(
-    "minimax_tts_generate",
-    async (_event, args: any) => {
-      const { generateSpeechMiniMax } = await import("./minimax-tts.js");
-      return await generateSpeechMiniMax(args);
-    }
-  );
+  ipcMain.handle("minimax_tts_generate", async (_event, args: any) => {
+    const { generateSpeechMiniMax } = await import("./minimax-tts.js");
+    return await generateSpeechMiniMax(args);
+  });
 
   // 下载 TTS 模型（使用跨平台路径）
   ipcMain.handle(
@@ -155,7 +152,7 @@ export function registerIPCHandlers(): void {
   // 删除 TTS 模型
   ipcMain.handle(
     "delete_tts_model",
-    async (_event, args: { modelType: ModelType }) => {
+    async (_event, args: { modelType: "matcha" | "vocoder" }) => {
       try {
         const { deleteTTSModel } = await import("./model-downloader.js");
         const modelsDir = getTTSModelsDir();
@@ -243,26 +240,28 @@ export function registerIPCHandlers(): void {
   ipcMain.handle("fetch_knowledge_base", async () => {
     try {
       const https = await import("https");
-      
+
       return new Promise((resolve, reject) => {
-        https.get("https://api-oa.rwkvos.com/qa/all-question-answer", (res) => {
-          let data = "";
-          
-          res.on("data", (chunk) => {
-            data += chunk;
+        https
+          .get("https://api-oa.rwkvos.com/qa/all-question-answer", (res) => {
+            let data = "";
+
+            res.on("data", (chunk) => {
+              data += chunk;
+            });
+
+            res.on("end", () => {
+              try {
+                const jsonData = JSON.parse(data);
+                resolve({ success: true, data: jsonData });
+              } catch (error: any) {
+                reject(new Error(`解析JSON失败: ${error.message}`));
+              }
+            });
+          })
+          .on("error", (error) => {
+            reject(new Error(`请求失败: ${error.message}`));
           });
-          
-          res.on("end", () => {
-            try {
-              const jsonData = JSON.parse(data);
-              resolve({ success: true, data: jsonData });
-            } catch (error: any) {
-              reject(new Error(`解析JSON失败: ${error.message}`));
-            }
-          });
-        }).on("error", (error) => {
-          reject(new Error(`请求失败: ${error.message}`));
-        });
       });
     } catch (error: any) {
       return { success: false, error: error.message };

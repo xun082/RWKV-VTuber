@@ -170,6 +170,48 @@ export function registerIPCHandlers(): void {
     return { success: true };
   });
 
+  // 保存 MiniMax 配置
+  ipcMain.handle(
+    "save_minimax_config",
+    async (_event, args: { apiKey: string }) => {
+      try {
+        const { app } = await import("electron");
+        const configPath = path.join(
+          app.getPath("userData"),
+          "minimax-config.json"
+        );
+        await fs.writeFile(
+          configPath,
+          JSON.stringify({ apiKey: args.apiKey }, null, 2),
+          "utf-8"
+        );
+        return { success: true };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    }
+  );
+
+  // 读取 MiniMax 配置
+  ipcMain.handle("get_minimax_config", async () => {
+    try {
+      const { app } = await import("electron");
+      const configPath = path.join(
+        app.getPath("userData"),
+        "minimax-config.json"
+      );
+      try {
+        const data = await fs.readFile(configPath, "utf-8");
+        const config = JSON.parse(data);
+        return { success: true, apiKey: config.apiKey || "" };
+      } catch {
+        return { success: true, apiKey: "" };
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
   // 获取知识库数据
   ipcMain.handle("fetch_knowledge_base", async () => {
     try {

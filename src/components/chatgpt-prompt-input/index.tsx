@@ -108,6 +108,7 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
     const internalTextareaRef = React.useRef<HTMLTextAreaElement>(null);
     const [internalValue, setInternalValue] = React.useState("");
     const [isComposing, setIsComposing] = React.useState(false);
+    const [showRecordingTip, setShowRecordingTip] = React.useState(false);
 
     const hasMessages = chatActions ? chatActions.messagesLength > 0 : false;
     const isActionsDisabled = chatActions
@@ -115,6 +116,19 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
       : false;
 
     const value = externalValue !== undefined ? externalValue : internalValue;
+
+    // 监听录音状态变化，显示提示
+    React.useEffect(() => {
+      if (allowSpeech?.recording) {
+        setShowRecordingTip(true);
+      } else {
+        // 延迟隐藏提示，让用户看到录音已停止
+        const timer = setTimeout(() => {
+          setShowRecordingTip(false);
+        }, 300);
+        return () => clearTimeout(timer);
+      }
+    }, [allowSpeech?.recording]);
 
     React.useLayoutEffect(() => {
       const textarea = internalTextareaRef.current;
@@ -155,6 +169,46 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
       <div ref={ref} className="w-full">
         {header && <div className="mb-2">{header}</div>}
 
+        {/* 录音状态提示 */}
+        {showRecordingTip && allowSpeech?.recording && (
+          <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-linear-to-r from-red-50 via-rose-50 to-red-50 dark:from-red-950/30 dark:via-rose-950/30 dark:to-red-950/30 border border-red-200 dark:border-red-800/50 animate-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-2 flex-1">
+              <div className="relative flex items-center justify-center">
+                <div className="absolute w-3 h-3 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                <div className="relative w-2 h-2 bg-red-600 rounded-full"></div>
+              </div>
+              <span className="text-sm font-medium text-red-700 dark:text-red-300">
+                正在录音中...
+              </span>
+              <div className="flex items-center gap-0.5 ml-2">
+                <div
+                  className="w-1 h-2 bg-red-500 rounded-full animate-pulse"
+                  style={{ animationDelay: "0ms" }}
+                ></div>
+                <div
+                  className="w-1 h-3 bg-red-500 rounded-full animate-pulse"
+                  style={{ animationDelay: "150ms" }}
+                ></div>
+                <div
+                  className="w-1 h-4 bg-red-500 rounded-full animate-pulse"
+                  style={{ animationDelay: "300ms" }}
+                ></div>
+                <div
+                  className="w-1 h-3 bg-red-500 rounded-full animate-pulse"
+                  style={{ animationDelay: "450ms" }}
+                ></div>
+                <div
+                  className="w-1 h-2 bg-red-500 rounded-full animate-pulse"
+                  style={{ animationDelay: "600ms" }}
+                ></div>
+              </div>
+            </div>
+            <span className="text-xs text-red-600 dark:text-red-400 whitespace-nowrap">
+              再次点击停止
+            </span>
+          </div>
+        )}
+
         <div
           className={cn(
             "group flex flex-col rounded-xl p-2.5 sm:p-3 shadow-md transition-all duration-300",
@@ -164,6 +218,8 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
             "focus-within:border-blue-500/70 dark:focus-within:border-blue-400/70",
             "focus-within:shadow-lg focus-within:shadow-blue-500/10 dark:focus-within:shadow-blue-400/10",
             "focus-within:ring-1 focus-within:ring-blue-500/20 dark:focus-within:ring-blue-400/20",
+            allowSpeech?.recording &&
+              "border-red-300 dark:border-red-700/70 ring-2 ring-red-500/20 dark:ring-red-400/20",
             className
           )}
         >
@@ -349,9 +405,11 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                         </span>
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" showArrow={true}>
+                    <TooltipContent side="left" showArrow={true}>
                       <p>
-                        {allowSpeech.recording ? "停止录音" : "开始语音输入"}
+                        {allowSpeech.recording
+                          ? "点击停止录音"
+                          : "点击开始语音输入"}
                       </p>
                     </TooltipContent>
                   </Tooltip>

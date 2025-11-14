@@ -36,8 +36,12 @@ export function MessageItem({
   // 过滤掉动作标签 [MMOTION:xxx]
   let displayContent = content.replace(/\[MMOTION:[^\]]+\]\s*/g, "").trim();
   
-  // 修复 markdown 粗体/斜体识别问题（仅对 AI 回复）
+  // 修复 markdown 格式问题（仅对 AI 回复）
   if (isAssistant) {
+    // 修复列表格式：-Text → - Text（在 - 后添加空格）
+    displayContent = displayContent.replace(/^-([^\s-])/gm, '- $1');
+    displayContent = displayContent.replace(/\n-([^\s-])/g, '\n- $1');
+    
     // 修复错误的粗体格式：** 文本 ** → **文本**
     // AI 有时会在 ** 内部添加空格，这不符合标准 markdown 语法
     // 需要移除星号内部紧邻的空格

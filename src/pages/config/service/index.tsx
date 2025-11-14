@@ -4,10 +4,12 @@ import {
   FileDown,
   AlertCircle,
   Trash2,
+  Key,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useSherpaConfig } from "@/stores/useSherpaConfig.ts";
@@ -44,6 +46,10 @@ export default function ConfigServicePage() {
 
   // 获取当前会话信息用于导出
   const currentSessionId = useChatSession((state) => state.currentSessionId);
+
+  // MiniMax API Key 配置
+  const [miniMaxApiKey, setMiniMaxApiKey] = useState("");
+  const [savingApiKey, setSavingApiKey] = useState(false);
 
   // 错误日志统计
   const [errorStats, setErrorStats] = useState<{
@@ -189,6 +195,32 @@ export default function ConfigServicePage() {
     }
   };
 
+  // 保存 MiniMax API Key
+  const saveMiniMaxApiKey = async () => {
+    const electronAPI = (window as any).electronAPI;
+    if (!electronAPI) {
+      return toast.error("保存功能仅在 Electron 环境可用");
+    }
+
+    try {
+      setSavingApiKey(true);
+      const result = await electronAPI.invoke("save_minimax_config", {
+        apiKey: miniMaxApiKey,
+      });
+
+      if (result.success) {
+        toast.success("MiniMax API Key 保存成功！");
+      } else {
+        toast.error(`保存失败: ${result.error}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`保存失败: ${errorMessage}`);
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
+
   // 初始化配置（仅在组件挂载时执行一次）
   useEffect(() => {
     const initializeConfig = async () => {
@@ -218,15 +250,21 @@ export default function ConfigServicePage() {
       if (!electronAPI) return;
 
       try {
-        const [matchaResult, vocoderResult, asrResult] = await Promise.all([
-          electronAPI.invoke("check_tts_model", { modelType: "matcha" }),
-          electronAPI.invoke("check_tts_model", { modelType: "vocoder" }),
-          electronAPI.invoke("check_asr_model"),
-        ]);
+        const [matchaResult, vocoderResult, asrResult, miniMaxConfigResult] =
+          await Promise.all([
+            electronAPI.invoke("check_tts_model", { modelType: "matcha" }),
+            electronAPI.invoke("check_tts_model", { modelType: "vocoder" }),
+            electronAPI.invoke("check_asr_model"),
+            electronAPI.invoke("get_minimax_config"),
+          ]);
 
         setMatchaDownloaded(matchaResult.downloaded);
         setVocoderDownloaded(vocoderResult.downloaded);
         setAsrDownloaded(asrResult.downloaded);
+
+        if (miniMaxConfigResult.success) {
+          setMiniMaxApiKey(miniMaxConfigResult.apiKey);
+        }
       } catch (error) {
         console.error("检查模型失败:", error);
       }
@@ -365,6 +403,35 @@ export default function ConfigServicePage() {
 
           <TooltipProvider>
             <div className="space-y-6">
+              {/* MiniMax API Key 配置 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Key className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
+                    MiniMax TTS 配置
+                  </h2>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      placeholder="请输入 MiniMax API Key"
+                      value={miniMaxApiKey}
+                      onChange={(e) => setMiniMaxApiKey(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={saveMiniMaxApiKey}
+                      disabled={savingApiKey || !miniMaxApiKey.trim()}
+                      size="sm"
+                    >
+                      {savingApiKey ? "保存中..." : "保存"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               {/* 语音合成 TTS 模型 */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">

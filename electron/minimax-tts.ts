@@ -2,6 +2,10 @@
  * MiniMax TTS 语音合成模块
  */
 
+import { app } from "electron";
+import * as path from "node:path";
+import * as fs from "node:fs";
+
 // MiniMax TTS 配置接口
 export interface MiniMaxTTSGenerateArgs {
   text: string;
@@ -16,8 +20,35 @@ export interface MiniMaxTTSGenerateArgs {
 
 // MiniMax API 配置
 const MINIMAX_API_URL = "https://api.minimaxi.com/v1/t2a_v2";
-const MINIMAX_API_TOKEN =
-  "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJHcm91cE5hbWUiOiLmt7HlnLPlhYPlp4vmmbrog73mnInpmZDlhazlj7giLCJVc2VyTmFtZSI6Iuexs-aLiSIsIkFjY291bnQiOiIiLCJTdWJqZWN0SUQiOiIxOTY1NjQ5NDAxODI1MjAyNzU3IiwiUGhvbmUiOiIxNzgyMDQwNjc0OCIsIkdyb3VwSUQiOiIxOTY1NjQ5NDAxODIxMDA4NDUzIiwiUGFnZU5hbWUiOiIiLCJNYWlsIjoiIiwiQ3JlYXRlVGltZSI6IjIwMjUtMTEtMTQgMDc6NTE6MjMiLCJUb2tlblR5cGUiOjEsImlzcyI6Im1pbmltYXgifQ.w8yfDA5hcr8aN6R5ddbFR6GZDuSCZ0H4PGg1uVGphumFPVcP08vFVXgzBnhmFH-muJWVy_keIPVk1h_VPATVM8N8qLveZmuclv2llRT5Sqj5CwxrXTQlk0_pJECG6k4pQRiC9SGAx2Pj1hkO-UkGxDisve_L1gnAL1WYlWGuWOFM3It53SJeh0FD-7eF2VFRa1nYgiM7IsEzkMxeme8qoxmBEmA0lEcb5tVhWFO3x2B3a0WfKqoULCROXcK7nKHctJJ85larCecUNbtT5aNVCMoEX_QGj24z2MS-rZV8eDnM896aG19GwVeLTUWs_IxZSD8LIXCP-iIz8iXYXuF3rA";
+
+// 配置文件路径
+const CONFIG_FILE_PATH = path.join(
+  app.getPath("userData"),
+  "minimax-config.json"
+);
+
+// 从配置文件读取 API Key
+function getApiKey(): string {
+  try {
+    if (fs.existsSync(CONFIG_FILE_PATH)) {
+      const configData = fs.readFileSync(CONFIG_FILE_PATH, "utf-8");
+      const config = JSON.parse(configData);
+      return config.apiKey || "";
+    }
+  } catch (error) {
+    console.error("[MiniMax-TTS] 读取配置文件失败:", error);
+  }
+  return "";
+}
+
+/**
+ * 流式音频块回调接口
+ */
+export interface StreamAudioCallback {
+  onChunk: (audioChunk: number[]) => void;
+  onComplete: () => void;
+  onError: (error: Error) => void;
+}
 
 /**
  * 初始化 MiniMax TTS
@@ -40,9 +71,15 @@ export async function generateSpeechMiniMax(
   console.log(`[MiniMax-TTS] 文本长度: ${args.text.length} 字符`);
 
   try {
+    // 获取 API Key
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error("未配置 MiniMax API Key，请在设置中配置");
+    }
+
     // 构建请求体
     const requestBody = {
-      model: "speech-2.6-hd",
+      model: "speech-2.6-turbo",
       text: args.text,
       stream: false,
       voice_setting: {
@@ -61,13 +98,16 @@ export async function generateSpeechMiniMax(
       subtitle_enable: false,
     };
 
-    console.log("[MiniMax-TTS] 请求配置:", JSON.stringify(requestBody, null, 2));
+    console.log(
+      "[MiniMax-TTS] 请求配置:",
+      JSON.stringify(requestBody, null, 2)
+    );
 
     // 发送请求
     const response = await fetch(MINIMAX_API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${MINIMAX_API_TOKEN}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
@@ -98,21 +138,29 @@ export async function generateSpeechMiniMax(
     const audioHex: string = result.data.audio;
     console.log(`[MiniMax-TTS] HEX 音频长度: ${audioHex.length} 字符`);
     console.log(`[MiniMax-TTS] HEX 前50字符: ${audioHex.substring(0, 50)}`);
-    
+
     // 使用 HEX 解码而不是 Base64
     const audioBuffer = Buffer.from(audioHex, "hex");
     const audioArray = Array.from(audioBuffer);
-    
+
     // 打印音频数据的前16字节（WAV 头部）
     const header = audioArray.slice(0, Math.min(16, audioArray.length));
-    console.log(`[MiniMax-TTS] 音频前16字节 (hex): ${header.map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
-    console.log(`[MiniMax-TTS] 音频前4字节 (ASCII): ${String.fromCharCode(...header.slice(0, 4))}`);
+    console.log(
+      `[MiniMax-TTS] 音频前16字节 (hex): ${header
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join(" ")}`
+    );
+    console.log(
+      `[MiniMax-TTS] 音频前4字节 (ASCII): ${String.fromCharCode(
+        ...header.slice(0, 4)
+      )}`
+    );
 
     const elapsed = Date.now() - startTime;
     console.log(
-      `[MiniMax-TTS] ✅ 合成完成 (${(elapsed / 1000).toFixed(
-        2
-      )}s, ${audioArray.length} bytes, 格式: ${args.format || "wav"})`
+      `[MiniMax-TTS] ✅ 合成完成 (${(elapsed / 1000).toFixed(2)}s, ${
+        audioArray.length
+      } bytes, 格式: ${args.format || "wav"})`
     );
 
     return { audio: audioArray };
@@ -128,3 +176,180 @@ export async function generateSpeechMiniMax(
   }
 }
 
+/**
+ * 流式生成语音（边生成边播放，降低首字延迟）
+ */
+export async function generateSpeechMiniMaxStreaming(
+  args: MiniMaxTTSGenerateArgs,
+  callback: StreamAudioCallback
+): Promise<void> {
+  const startTime = Date.now();
+  let firstChunkTime: number | null = null;
+
+  console.log("[MiniMax-TTS-Stream] 🌊 开始流式生成语音...");
+  console.log(`[MiniMax-TTS-Stream] 文本: ${args.text.substring(0, 50)}...`);
+  console.log(`[MiniMax-TTS-Stream] 文本长度: ${args.text.length} 字符`);
+
+  try {
+    // 获取 API Key
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error("未配置 MiniMax API Key，请在设置中配置");
+    }
+
+    // 构建请求体（stream: true）
+    const requestBody = {
+      model: "speech-2.6-hd",
+      text: args.text,
+      stream: true, // 启用流式传输
+      voice_setting: {
+        voice_id: args.voiceId || "male-qn-qingse",
+        speed: args.speed || 1.0,
+        vol: args.vol || 1.0,
+        pitch: args.pitch || 0,
+        emotion: args.emotion || "happy",
+      },
+      audio_setting: {
+        sample_rate: args.sampleRate || 32000,
+        bitrate: 128000,
+        format: args.format || "wav", // 使用 WAV 格式
+        channel: 1,
+      },
+      subtitle_enable: false,
+    };
+
+    console.log(
+      "[MiniMax-TTS-Stream] 请求配置:",
+      JSON.stringify(requestBody, null, 2)
+    );
+
+    // 发送请求
+    const response = await fetch(MINIMAX_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[MiniMax-TTS-Stream] API 请求失败:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText,
+      });
+      throw new Error(
+        `MiniMax API 错误 (${response.status}): ${response.statusText}\n${errorText}`
+      );
+    }
+
+    if (!response.body) {
+      throw new Error("响应体为空");
+    }
+
+    // 读取流式响应
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let chunkCount = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        console.log("[MiniMax-TTS-Stream] ✅ 流式传输完成");
+        break;
+      }
+
+      // 解码数据
+      buffer += decoder.decode(value, { stream: true });
+
+      // 处理缓冲区中的 JSON 对象（可能有多个）
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || ""; // 保留最后一个不完整的行
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        try {
+          const chunk = JSON.parse(trimmed);
+
+          // 检查是否有音频数据
+          if (chunk.data?.audio) {
+            chunkCount++;
+            if (!firstChunkTime) {
+              firstChunkTime = Date.now();
+              const ttfb = (firstChunkTime - startTime) / 1000;
+              console.log(
+                `[MiniMax-TTS-Stream] ⚡ 首块到达 (TTFB: ${ttfb.toFixed(2)}s)`
+              );
+            }
+
+            // 解码 HEX 音频数据
+            const audioHex: string = chunk.data.audio;
+            const audioBuffer = Buffer.from(audioHex, "hex");
+            const audioArray = Array.from(audioBuffer);
+
+            console.log(
+              `[MiniMax-TTS-Stream] 📦 收到音频块 #${chunkCount} (${audioArray.length} bytes, status: ${chunk.data.status})`
+            );
+
+            // 立即发送音频块给回调
+            callback.onChunk(audioArray);
+
+            // status: 2 表示最后一块
+            if (chunk.data.status === 2) {
+              const elapsed = Date.now() - startTime;
+              console.log(
+                `[MiniMax-TTS-Stream] ✅ 全部完成 (${(elapsed / 1000).toFixed(
+                  2
+                )}s, 共 ${chunkCount} 块)`
+              );
+              callback.onComplete();
+              return;
+            }
+          }
+        } catch (parseError) {
+          console.warn(
+            "[MiniMax-TTS-Stream] JSON 解析失败:",
+            parseError,
+            "原始数据:",
+            trimmed
+          );
+        }
+      }
+    }
+
+    // 处理剩余的缓冲区
+    if (buffer.trim()) {
+      try {
+        const chunk = JSON.parse(buffer);
+        if (chunk.data?.audio) {
+          const audioHex: string = chunk.data.audio;
+          const audioBuffer = Buffer.from(audioHex, "hex");
+          const audioArray = Array.from(audioBuffer);
+          callback.onChunk(audioArray);
+        }
+      } catch (parseError) {
+        console.warn(
+          "[MiniMax-TTS-Stream] 最后一块 JSON 解析失败:",
+          parseError
+        );
+      }
+    }
+
+    callback.onComplete();
+  } catch (error: any) {
+    console.error("[MiniMax-TTS-Stream] 流式生成失败:");
+    console.error("  错误:", error);
+    console.error("  错误消息:", error.message);
+    console.error("  错误类型:", typeof error);
+    console.error("  错误堆栈:", error.stack);
+
+    callback.onError(error);
+    throw error;
+  }
+}

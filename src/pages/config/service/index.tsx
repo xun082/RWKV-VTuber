@@ -1,11 +1,4 @@
-import {
-  Download,
-  CheckCircle2,
-  FileDown,
-  AlertCircle,
-  Trash2,
-  Mic,
-} from "lucide-react";
+import { Download, FileDown, AlertCircle, Trash2, Mic } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -354,6 +347,37 @@ export default function ConfigServicePage() {
     }
   };
 
+  // 删除 TTS 模型
+  const deleteModel = async (modelType: "matcha" | "vocoder") => {
+    const electronAPI = (window as any).electronAPI;
+    if (!electronAPI) {
+      return toast.error("删除功能仅在 Electron 环境可用");
+    }
+
+    const modelName =
+      modelType === "matcha" ? "Matcha 声学模型" : "Vocoder 模型";
+    const setDownloaded =
+      modelType === "matcha" ? setMatchaDownloaded : setVocoderDownloaded;
+
+    try {
+      toast.info(`正在删除 ${modelName}...`);
+
+      const result = await electronAPI.invoke("delete_tts_model", {
+        modelType,
+      });
+
+      if (result.success) {
+        setDownloaded(false);
+        toast.success(`${modelName} 删除成功！`);
+      } else {
+        toast.error(`删除失败: ${result.error || "未知错误"}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`删除失败: ${errorMessage}`);
+    }
+  };
+
   // 下载 ASR 模型
   const downloadASRModel = async () => {
     const electronAPI = (window as any).electronAPI;
@@ -396,6 +420,30 @@ export default function ConfigServicePage() {
       setAsrProgress(0);
       setAsrSpeed(0);
       setAsrInfo({ downloaded: 0, total: 0 });
+    }
+  };
+
+  // 删除 ASR 模型
+  const deleteASRModel = async () => {
+    const electronAPI = (window as any).electronAPI;
+    if (!electronAPI) {
+      return toast.error("删除功能仅在 Electron 环境可用");
+    }
+
+    try {
+      toast.info("正在删除 ASR 模型...");
+
+      const result = await electronAPI.invoke("delete_asr_model");
+
+      if (result.success) {
+        setAsrDownloaded(false);
+        toast.success("ASR 模型删除成功！");
+      } else {
+        toast.error(`删除失败: ${result.error || "未知错误"}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`删除失败: ${errorMessage}`);
     }
   };
 
@@ -509,10 +557,15 @@ export default function ConfigServicePage() {
                               </div>
                             </div>
                             {matchaDownloaded ? (
-                              <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                                <CheckCircle2 className="w-4 h-4" />
-                                <span className="text-sm">已下载</span>
-                              </div>
+                              <Button
+                                onClick={() => deleteModel("matcha")}
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 border-red-200 hover:border-red-300 dark:border-red-800 dark:hover:border-red-700"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                                删除
+                              </Button>
                             ) : (
                               <Button
                                 onClick={() => downloadModel("matcha")}
@@ -562,10 +615,15 @@ export default function ConfigServicePage() {
                               </div>
                             </div>
                             {vocoderDownloaded ? (
-                              <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                                <CheckCircle2 className="w-4 h-4" />
-                                <span className="text-sm">已下载</span>
-                              </div>
+                              <Button
+                                onClick={() => deleteModel("vocoder")}
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 border-red-200 hover:border-red-300 dark:border-red-800 dark:hover:border-red-700"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                                删除
+                              </Button>
                             ) : (
                               <Button
                                 onClick={() => downloadModel("vocoder")}
@@ -724,10 +782,15 @@ export default function ConfigServicePage() {
                       </div>
                     </div>
                     {asrDownloaded ? (
-                      <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span className="text-sm">已下载</span>
-                      </div>
+                      <Button
+                        onClick={deleteASRModel}
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 border-red-200 hover:border-red-300 dark:border-red-800 dark:hover:border-red-700"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                        删除
+                      </Button>
                     ) : (
                       <Button
                         onClick={downloadASRModel}

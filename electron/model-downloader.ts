@@ -508,3 +508,72 @@ export function checkASRModel(modelsDir: string): {
     tokensPath: downloaded ? tokensPath : null,
   };
 }
+
+/**
+ * 递归删除目录
+ */
+async function removeDirectory(dirPath: string): Promise<void> {
+  if (!fsSync.existsSync(dirPath)) {
+    return;
+  }
+
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      await removeDirectory(fullPath);
+    } else {
+      await fs.unlink(fullPath);
+    }
+  }
+
+  await fs.rmdir(dirPath);
+}
+
+/**
+ * 删除 TTS 模型
+ */
+export async function deleteTTSModel(
+  modelType: "matcha" | "vocoder",
+  modelsDir: string
+): Promise<void> {
+  console.log(`[Model] 开始删除 ${modelType} 模型...`);
+
+  if (modelType === "matcha") {
+    const matchaDir = path.join(modelsDir, "matcha-icefall-zh-baker");
+    if (fsSync.existsSync(matchaDir)) {
+      await removeDirectory(matchaDir);
+      console.log(`[Model] ✅ Matcha 模型删除成功`);
+    } else {
+      throw new Error("Matcha 模型目录不存在");
+    }
+  } else if (modelType === "vocoder") {
+    const vocoderPath = path.join(modelsDir, "vocos-22khz-univ.onnx");
+    if (fsSync.existsSync(vocoderPath)) {
+      await fs.unlink(vocoderPath);
+      console.log(`[Model] ✅ Vocoder 模型删除成功`);
+    } else {
+      throw new Error("Vocoder 模型文件不存在");
+    }
+  }
+}
+
+/**
+ * 删除 ASR 模型
+ */
+export async function deleteASRModel(modelsDir: string): Promise<void> {
+  console.log("[Model] 开始删除 ASR 模型...");
+
+  const asrDir = path.join(
+    modelsDir,
+    "sherpa-onnx-streaming-paraformer-bilingual-zh-en"
+  );
+
+  if (fsSync.existsSync(asrDir)) {
+    await removeDirectory(asrDir);
+    console.log("[Model] ✅ ASR 模型删除成功");
+  } else {
+    throw new Error("ASR 模型目录不存在");
+  }
+}

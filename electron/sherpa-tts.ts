@@ -16,6 +16,17 @@ export interface SherpaTTSGenerateArgs {
   ruleFsts: string;
 }
 
+/**
+ * 移除文本中的 emoji 表情符号
+ */
+function removeEmojis(text: string): string {
+  // 使用 Unicode 范围移除 emoji
+  return text.replace(
+    /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu,
+    ""
+  );
+}
+
 // TTS 模块引用（从共享模块获取）
 let sherpa_onnx: any = null;
 // TTS 实例单例（关键：不要每次都创建和释放）
@@ -134,6 +145,12 @@ export async function generateSpeech(
     throw new Error("Sherpa-ONNX TTS 模块未初始化");
   }
 
+  // 移除 emoji 表情符号
+  const cleanText = removeEmojis(args.text);
+  if (cleanText.trim().length === 0) {
+    throw new Error("文本为空或仅包含表情符号");
+  }
+
   // 解析所有路径（使用跨平台路径管理）
   const acousticModelPath = resolveModelPath(args.acousticModel);
   const vocoderPath = resolveModelPath(args.vocoder);
@@ -209,7 +226,7 @@ export async function generateSpeech(
     }
 
     const audio = tts.generate({
-      text: args.text,
+      text: cleanText,
       sid: 0,
       speed: args.speed,
     });

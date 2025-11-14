@@ -14,6 +14,50 @@ export interface MiniMaxTTSGenerateArgs {
   vol?: number;
 }
 
+/**
+ * 检测文本主要语言
+ * @param text 要检测的文本
+ * @returns 'en' | 'zh'
+ */
+function detectLanguage(text: string): "en" | "zh" {
+  // 移除空格和标点符号
+  const cleanText = text.replace(/[\s\p{P}]/gu, "");
+
+  // 统计中文字符数量
+  const chineseChars = cleanText.match(/[\u4e00-\u9fa5]/g);
+  const chineseCount = chineseChars ? chineseChars.length : 0;
+
+  // 统计英文字符数量
+  const englishChars = cleanText.match(/[a-zA-Z]/g);
+  const englishCount = englishChars ? englishChars.length : 0;
+
+  // 如果英文字符占比超过 50%，判定为英文
+  const totalChars = chineseCount + englishCount;
+  if (totalChars === 0) return "zh"; // 默认中文
+
+  const englishRatio = englishCount / totalChars;
+
+  console.log(
+    `[MiniMax-TTS] 语言检测 - 中文: ${chineseCount}, 英文: ${englishCount}, 英文占比: ${(
+      englishRatio * 100
+    ).toFixed(1)}%`
+  );
+
+  return englishRatio > 0.5 ? "en" : "zh";
+}
+
+/**
+ * 根据语言选择合适的音色
+ * @param language 语言类型
+ * @returns 音色ID
+ */
+function getVoiceIdByLanguage(language: "en" | "zh"): string {
+  if (language === "en") {
+    return "English_radiant_girl"; // 英文音色
+  }
+  return "male-qn-qingse"; // 中文音色（默认）
+}
+
 // MiniMax API 配置
 const MINIMAX_API_URL = "https://api.minimaxi.com/v1/t2a_v2";
 
@@ -56,12 +100,20 @@ export async function generateSpeechMiniMax(
       throw new Error("未配置 MiniMax API Key，请在设置中配置");
     }
 
+    // 如果没有指定音色，自动检测语言并选择音色
+    let voiceId = args.voiceId;
+    if (!voiceId) {
+      const language = detectLanguage(args.text);
+      voiceId = getVoiceIdByLanguage(language);
+      console.log(`[MiniMax-TTS] 自动选择音色: ${voiceId} (语言: ${language})`);
+    }
+
     const requestBody = {
       model: "speech-2.6-turbo",
       text: args.text,
       stream: false,
       voice_setting: {
-        voice_id: args.voiceId || "male-qn-qingse",
+        voice_id: voiceId,
         speed: args.speed || 1.0,
         vol: args.vol || 1.0,
         pitch: 0,

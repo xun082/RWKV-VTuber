@@ -152,6 +152,33 @@ export function registerIPCHandlers(): void {
     return checkASRModel(modelsDir);
   });
 
+  // 删除 TTS 模型
+  ipcMain.handle(
+    "delete_tts_model",
+    async (_event, args: { modelType: ModelType }) => {
+      try {
+        const { deleteTTSModel } = await import("./model-downloader.js");
+        const modelsDir = getTTSModelsDir();
+        await deleteTTSModel(args.modelType, modelsDir);
+        return { success: true };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    }
+  );
+
+  // 删除 ASR 模型
+  ipcMain.handle("delete_asr_model", async () => {
+    try {
+      const { deleteASRModel } = await import("./model-downloader.js");
+      const modelsDir = getASRModelsDir();
+      await deleteASRModel(modelsDir);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
   // 手动检查更新
   ipcMain.handle("check_for_updates", async () => {
     checkForUpdates();

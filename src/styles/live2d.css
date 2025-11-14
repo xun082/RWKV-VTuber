@@ -52,22 +52,27 @@
 	transition: opacity 0.5s;
 	position: absolute;
 	top: 0;
-	width: 200px;
-	height: 100px;
+	width: 320px;
+	min-height: 120px;
 	display: flex;
 	justify-content: center;
 	align-items: center;
 	z-index: 3;
-	color: #1f1f1f;
-	background-color: white;
-	border: 1px solid #233889;
-	border-radius: 10px;
+	color: #1a1a2e;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	border: 2px solid rgba(255, 255, 255, 0.3);
+	border-radius: 16px;
 	animation: up-down 2.5s ease-in-out infinite;
-	padding: 8px;
-	font-size: 0.9rem;
+	padding: 16px 20px;
+	font-size: 1rem;
+	font-weight: 500;
 	overflow: hidden;
 	text-align: center;
 	pointer-events: auto;
+	box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+	backdrop-filter: blur(10px);
+	color: white;
+	line-height: 1.6;
 }
 
 #back-container {
@@ -101,9 +106,10 @@
 	}
 
 	#live2d-container #live2d-message {
-		width: 150px;
-		height: 80px;
-		font-size: 0.8rem;
+		width: 260px;
+		min-height: 100px;
+		font-size: 0.9rem;
+		padding: 14px 18px;
 	}
 }
 
@@ -113,10 +119,10 @@
 	}
 
 	#live2d-container #live2d-message {
-		width: 120px;
-		height: 60px;
-		font-size: 0.7rem;
-		padding: 6px;
+		width: 200px;
+		min-height: 80px;
+		font-size: 0.8rem;
+		padding: 12px 16px;
 	}
 }
 

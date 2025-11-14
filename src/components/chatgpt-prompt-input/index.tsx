@@ -47,7 +47,7 @@ const TooltipContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "relative z-50 max-w-[280px] rounded-lg bg-gray-900/95 dark:bg-gray-800/95 text-white px-3 py-2 text-xs font-medium shadow-xl backdrop-blur-sm border border-gray-700/50 animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+        "relative z-50 max-w-[280px] rounded-lg bg-gray-900/95 dark:bg-gray-800/95 text-white px-3 py-2 text-xs font-medium shadow-xl backdrop-blur-sm border border-gray-700/50 animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 cursor-default",
         className
       )}
       {...props}
@@ -211,7 +211,7 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
 
         <div
           className={cn(
-            "group flex flex-col rounded-xl p-2.5 sm:p-3 shadow-md transition-all duration-300",
+            "group flex flex-col rounded-xl p-2.5 sm:p-3 shadow-md transition-all duration-300 cursor-text",
             "bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl",
             "border border-gray-200/50 dark:border-gray-700/50",
             "hover:shadow-lg hover:border-blue-300/60 dark:hover:border-blue-600/60",
@@ -245,15 +245,20 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button
+                          type="button"
                           disabled={isActionsDisabled}
                           className="cursor-pointer group/btn flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-linear-to-r hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-950/30 dark:hover:to-pink-950/30 border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600/50 hover:text-purple-700 dark:hover:text-purple-300 hover:shadow-sm"
                         >
-                          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:rotate-12" />
-                          <span className="hidden sm:inline">更新记忆</span>
-                          <span className="sm:hidden">记忆</span>
+                          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:rotate-12 pointer-events-none" />
+                          <span className="hidden sm:inline pointer-events-none">
+                            更新记忆
+                          </span>
+                          <span className="sm:hidden pointer-events-none">
+                            记忆
+                          </span>
                         </button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-2xl border border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-gray-900 shadow-2xl">
+                      <AlertDialogContent className="rounded-2xl border border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-gray-900 shadow-2xl cursor-default">
                         <AlertDialogHeader>
                           <AlertDialogTitle className="text-xl font-bold bg-linear-to-r from-purple-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">
                             确认更新记忆
@@ -263,12 +268,12 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="gap-2 sm:gap-3">
-                          <AlertDialogCancel className="rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800">
+                          <AlertDialogCancel className="rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
                             取消
                           </AlertDialogCancel>
                           <AlertDialogAction
                             onClick={chatActions.onUpdateMemory}
-                            className="rounded-xl bg-linear-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all"
+                            className="rounded-xl bg-linear-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all cursor-pointer"
                           >
                             确定
                           </AlertDialogAction>
@@ -279,15 +284,20 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button
+                          type="button"
                           disabled={isActionsDisabled}
                           className="cursor-pointer group/btn flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-linear-to-r hover:from-red-50 hover:to-orange-50 dark:hover:from-red-950/30 dark:hover:to-orange-950/30 border border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600/50 hover:text-red-700 dark:hover:text-red-300 hover:shadow-sm"
                         >
-                          <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:-rotate-180" />
-                          <span className="hidden sm:inline">清除对话</span>
-                          <span className="sm:hidden">清除</span>
+                          <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:-rotate-180 pointer-events-none" />
+                          <span className="hidden sm:inline pointer-events-none">
+                            清除对话
+                          </span>
+                          <span className="sm:hidden pointer-events-none">
+                            清除
+                          </span>
                         </button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-2xl border border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-gray-900 shadow-2xl">
+                      <AlertDialogContent className="rounded-2xl border border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-gray-900 shadow-2xl cursor-default">
                         <AlertDialogHeader>
                           <AlertDialogTitle className="text-xl font-bold bg-linear-to-r from-red-600 via-orange-600 to-red-600 bg-clip-text text-transparent">
                             确认清除对话
@@ -297,12 +307,12 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter className="gap-2 sm:gap-3">
-                          <AlertDialogCancel className="rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800">
+                          <AlertDialogCancel className="rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
                             取消
                           </AlertDialogCancel>
                           <AlertDialogAction
                             onClick={chatActions.onClearChat}
-                            className="rounded-xl bg-linear-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all"
+                            className="rounded-xl bg-linear-to-r from-red-500 to-orange-600 hover:from-red-600 hover:to-orange-700 shadow-lg shadow-red-500/25 hover:shadow-xl hover:shadow-red-500/30 transition-all cursor-pointer"
                           >
                             确定
                           </AlertDialogAction>
@@ -316,6 +326,7 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
+                        type="button"
                         onClick={chatActions.onToggleAutoTTS}
                         disabled={disabled}
                         className={cn(
@@ -326,14 +337,14 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                         )}
                       >
                         {chatActions.autoTTS ? (
-                          <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110" />
+                          <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110 pointer-events-none" />
                         ) : (
-                          <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110" />
+                          <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110 pointer-events-none" />
                         )}
-                        <span className="hidden sm:inline">
+                        <span className="hidden sm:inline pointer-events-none">
                           {chatActions.autoTTS ? "自动播放" : "手动播放"}
                         </span>
-                        <span className="sm:hidden">
+                        <span className="sm:hidden pointer-events-none">
                           {chatActions.autoTTS ? "自动" : "手动"}
                         </span>
                       </button>
@@ -354,13 +365,14 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
+                          type="button"
                           disabled={disabled}
-                          className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 text-gray-600 dark:text-gray-400 bg-transparent hover:bg-linear-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-950/30 dark:hover:to-indigo-950/30 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600/50 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm"
+                          className="cursor-pointer flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-md transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 text-gray-600 dark:text-gray-400 bg-transparent hover:bg-linear-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-950/30 dark:hover:to-indigo-950/30 border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600/50 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm"
                         >
-                          <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          <BarChart3 className="w-3 h-3 sm:w-3.5 sm:h-3.5 pointer-events-none" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent className="rounded-xl bg-white dark:bg-gray-900 backdrop-blur-xl border-gray-200 dark:border-gray-700 shadow-xl">
+                      <PopoverContent className="rounded-xl bg-white dark:bg-gray-900 backdrop-blur-xl border-gray-200 dark:border-gray-700 shadow-xl cursor-default">
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 bg-linear-to-r from-blue-500 to-indigo-600 rounded-full animate-pulse"></div>
                           <p className="text-xs font-medium text-gray-700 dark:text-gray-300">

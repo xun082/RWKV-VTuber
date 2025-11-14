@@ -126,16 +126,48 @@ export async function generateSpeechMiniMax(
     }
 
     const result: any = await response.json();
-    console.log("[MiniMax-TTS] API 响应:", result);
+    console.log("[MiniMax-TTS] API 完整响应:", JSON.stringify(result, null, 2));
 
-    // 检查响应
-    if (!result.data?.audio) {
-      console.error("[MiniMax-TTS] 响应中没有音频数据:", result);
+    // 检查响应是否有错误
+    if (
+      result.base_resp?.status_code !== 0 &&
+      result.base_resp?.status_code !== undefined
+    ) {
+      console.error("[MiniMax-TTS] API 返回错误:", {
+        status_code: result.base_resp?.status_code,
+        status_msg: result.base_resp?.status_msg,
+      });
+      throw new Error(
+        `MiniMax API 错误: ${
+          result.base_resp?.status_msg || "未知错误"
+        } (code: ${result.base_resp?.status_code})`
+      );
+    }
+
+    // 检查响应中是否有音频数据（支持多种可能的响应格式）
+    let audioHex: string | undefined;
+
+    // 尝试多种可能的响应格式
+    if (result.data?.audio) {
+      audioHex = result.data.audio;
+    } else if (result.audio) {
+      audioHex = result.audio;
+    } else if (result.extra_info?.audio_file) {
+      audioHex = result.extra_info.audio_file;
+    }
+
+    if (!audioHex) {
+      console.error("[MiniMax-TTS] 响应中没有音频数据，完整响应:", {
+        hasData: !!result.data,
+        hasAudio: !!result.audio,
+        hasExtraInfo: !!result.extra_info,
+        responseKeys: Object.keys(result),
+        dataKeys: result.data ? Object.keys(result.data) : [],
+      });
       throw new Error("MiniMax API 未返回音频数据");
     }
 
     // 解码 HEX 编码的音频数据（MiniMax 返回的是 HEX，不是 Base64！）
-    const audioHex: string = result.data.audio;
     console.log(`[MiniMax-TTS] HEX 音频长度: ${audioHex.length} 字符`);
     console.log(`[MiniMax-TTS] HEX 前50字符: ${audioHex.substring(0, 50)}`);
 

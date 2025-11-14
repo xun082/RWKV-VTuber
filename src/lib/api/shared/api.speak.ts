@@ -52,12 +52,7 @@ const loadElectronMiniMaxTts = async () => {
   return await electronMiniMaxTtsLoadPromise;
 };
 
-const speakApiListArray: SpeakApiList = [
-  {
-    name: "关闭",
-    api: null,
-  },
-];
+const speakApiListArray: SpeakApiList = [];
 
 // 如果在 Electron 环境，添加 TTS 选项
 if (isElectron) {

@@ -27,6 +27,31 @@ const loadElectronSherpaTts = async () => {
   return await electronSherpaTtsLoadPromise;
 };
 
+// 动态导入 Electron MiniMax TTS API（懒加载）
+let electronMiniMaxTts: any = null;
+let electronMiniMaxTtsLoadPromise: Promise<any> | null = null;
+
+const loadElectronMiniMaxTts = async () => {
+  if (electronMiniMaxTts) return electronMiniMaxTts;
+
+  if (!electronMiniMaxTtsLoadPromise) {
+    electronMiniMaxTtsLoadPromise = (async () => {
+      if (isElectron) {
+        try {
+          electronMiniMaxTts = await import("../electron/api.minimax-tts");
+          return electronMiniMaxTts;
+        } catch (error) {
+          console.warn("Failed to load Electron MiniMax TTS API:", error);
+          return null;
+        }
+      }
+      return null;
+    })();
+  }
+
+  return await electronMiniMaxTtsLoadPromise;
+};
+
 const speakApiListArray: SpeakApiList = [
   {
     name: "关闭",
@@ -34,10 +59,11 @@ const speakApiListArray: SpeakApiList = [
   },
 ];
 
-// 如果在 Electron 环境，添加 Sherpa-ONNX TTS
+// 如果在 Electron 环境，添加 TTS 选项
 if (isElectron) {
+  // 先添加 Sherpa-ONNX TTS（本地离线，备用）
   speakApiListArray.unshift({
-    name: "Sherpa-ONNX TTS",
+    name: "Sherpa-ONNX TTS (离线)",
     api: () => ({
       api: async (text: string) => {
         console.log("🎙️ Using Electron Sherpa-ONNX TTS");
@@ -54,6 +80,29 @@ if (isElectron) {
           throw new Error("Sherpa-ONNX TTS module not available");
         }
         return sherpa.test_sherpa_tts();
+      },
+    }),
+  });
+
+  // 最后添加 MiniMax TTS（在线服务，默认首选）- 会在最前面
+  speakApiListArray.unshift({
+    name: "MiniMax TTS",
+    api: () => ({
+      api: async (text: string) => {
+        console.log("🎙️ Using MiniMax TTS (Online)");
+        const minimax = await loadElectronMiniMaxTts();
+        if (!minimax) {
+          throw new Error("MiniMax TTS module not available");
+        }
+        return minimax.speak_minimax_tts(text);
+      },
+      test: async () => {
+        console.log("🎙️ Testing MiniMax TTS");
+        const minimax = await loadElectronMiniMaxTts();
+        if (!minimax) {
+          throw new Error("MiniMax TTS module not available");
+        }
+        return minimax.test_minimax_tts();
       },
     }),
   });

@@ -91,11 +91,20 @@ export function registerIPCHandlers(): void {
     }
   );
 
-  // Sherpa-ONNX TTS 语音合成
+  // Sherpa-ONNX TTS 语音合成（旧版，已注释）
   ipcMain.handle(
     "sherpa_tts_generate",
     async (_event, args: SherpaTTSGenerateArgs) => {
       return await generateSpeech(args);
+    }
+  );
+
+  // MiniMax TTS 语音合成（新版）
+  ipcMain.handle(
+    "minimax_tts_generate",
+    async (_event, args: any) => {
+      const { generateSpeechMiniMax } = await import("./minimax-tts.js");
+      return await generateSpeechMiniMax(args);
     }
   );
 

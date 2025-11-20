@@ -67,18 +67,44 @@ let currentConfig: string = ""; // 用于检测配置是否变化
  */
 export async function initSherpaTTS(): Promise<boolean> {
   if (sherpa_onnx) {
+    console.log("[Sherpa-TTS] TTS 模块已加载");
     return true;
   }
 
   try {
+    console.log("[Sherpa-TTS] 开始初始化 TTS 模块...");
     sherpa_onnx = await getSharedSherpaONNX();
+
+    if (!sherpa_onnx) {
+      console.error("[Sherpa-TTS] ❌ 获取共享模块失败，返回值为空");
+      return false;
+    }
+
+    console.log("[Sherpa-TTS] 检查 createOfflineTts 方法...");
+    console.log("[Sherpa-TTS] sherpa_onnx 类型:", typeof sherpa_onnx);
+    console.log(
+      "[Sherpa-TTS] createOfflineTts 类型:",
+      typeof sherpa_onnx.createOfflineTts
+    );
+
     if (typeof sherpa_onnx?.createOfflineTts === "function") {
+      console.log("[Sherpa-TTS] ✅ TTS 模块初始化成功");
       return true;
     }
-    console.error("[Sherpa-TTS] createOfflineTts 方法不可用");
+
+    // 详细错误信息
+    console.error("[Sherpa-TTS] ❌ createOfflineTts 方法不可用");
+    const availableMethods = Object.keys(sherpa_onnx).filter(
+      (k) => typeof sherpa_onnx[k] === "function"
+    );
+    console.error("[Sherpa-TTS] 可用的方法:", availableMethods.join(", "));
+    console.error("[Sherpa-TTS] 请检查 sherpa-onnx 模块是否正确安装");
+
     return false;
   } catch (error: any) {
-    console.error("[Sherpa-TTS] 模块加载失败:", error.message);
+    const errorMsg = error?.message || error?.toString() || String(error);
+    console.error("[Sherpa-TTS] ❌ 模块加载失败:", errorMsg);
+    console.error("[Sherpa-TTS] 错误对象:", error);
     return false;
   }
 }
@@ -104,19 +130,44 @@ function getTtsInstance(offlineTtsConfig: any): any {
     ttsInstance = null;
   }
 
+  // 最后一次验证方法存在性
+  if (typeof sherpa_onnx.createOfflineTts !== "function") {
+    throw new Error("createOfflineTts 方法不可用，模块可能未正确初始化");
+  }
+
   // 创建新实例
   let result;
   try {
     console.log("[Sherpa-TTS] 正在创建 TTS 实例...");
-    result = sherpa_onnx.createOfflineTts(offlineTtsConfig);
-    console.log("[Sherpa-TTS] createOfflineTts 返回类型:", typeof result);
-  } catch (e: any) {
-    console.error("[Sherpa-TTS] createOfflineTts 异常:", e.message);
-    console.error(
-      "[Sherpa-TTS] 配置:",
-      JSON.stringify(offlineTtsConfig, null, 2)
+    console.log("[Sherpa-TTS] sherpa_onnx 类型:", typeof sherpa_onnx);
+    console.log(
+      "[Sherpa-TTS] createOfflineTts 类型:",
+      typeof sherpa_onnx.createOfflineTts
     );
-    throw new Error(`创建 TTS 实例异常: ${e.message}`);
+    console.log("[Sherpa-TTS] 配置:");
+    console.log(JSON.stringify(offlineTtsConfig, null, 2));
+
+    // 调用 native 方法
+    console.log("[Sherpa-TTS] 调用 sherpa_onnx.createOfflineTts()...");
+    result = sherpa_onnx.createOfflineTts(offlineTtsConfig);
+
+    console.log("[Sherpa-TTS] createOfflineTts 调用完成");
+    console.log("[Sherpa-TTS] 返回值类型:", typeof result);
+    console.log("[Sherpa-TTS] 返回值:", result);
+  } catch (e: any) {
+    const errorMsg =
+      e?.message || e?.toString() || String(e) || "Unknown error";
+    console.error("[Sherpa-TTS] ❌ createOfflineTts 调用异常");
+    console.error("[Sherpa-TTS] 错误信息:", errorMsg);
+    console.error("[Sherpa-TTS] 错误对象:", e);
+    console.error("[Sherpa-TTS] 错误类型:", typeof e);
+    console.error("[Sherpa-TTS] 错误构造函数:", e?.constructor?.name);
+    if (e?.stack) {
+      console.error("[Sherpa-TTS] 错误堆栈:", e.stack);
+    }
+    console.error("[Sherpa-TTS] 配置:");
+    console.error(JSON.stringify(offlineTtsConfig, null, 2));
+    throw new Error(`创建 TTS 实例异常: ${errorMsg}`);
   }
 
   // 检查返回值是否是数字（错误码）
@@ -208,8 +259,23 @@ export async function generateSpeech(
   args: SherpaTTSGenerateArgs,
   resourcesPath?: string
 ): Promise<{ audio: number[] }> {
+  // 严格检查模块状态
   if (!sherpa_onnx) {
-    throw new Error("Sherpa-ONNX TTS 模块未初始化");
+    throw new Error("Sherpa-ONNX TTS 模块未初始化。请先调用 initSherpaTTS()");
+  }
+
+  if (typeof sherpa_onnx.createOfflineTts !== "function") {
+    console.error("[Sherpa-TTS] 模块状态异常:");
+    console.error("  - sherpa_onnx 类型:", typeof sherpa_onnx);
+    console.error(
+      "  - createOfflineTts 类型:",
+      typeof sherpa_onnx.createOfflineTts
+    );
+    const methods = Object.keys(sherpa_onnx).filter(
+      (k) => typeof sherpa_onnx[k] === "function"
+    );
+    console.error("  - 可用方法:", methods.join(", "));
+    throw new Error("Sherpa-ONNX TTS 模块异常：createOfflineTts 方法不存在");
   }
 
   // 移除 emoji 表情符号

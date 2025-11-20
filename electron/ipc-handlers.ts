@@ -292,6 +292,28 @@ export function registerIPCHandlers(): void {
           return { success: false, error: "路径不存在" };
         }
 
+        // Windows: 不允许选择根目录（如 C:\, D:\）
+        if (process.platform === "win32") {
+          const isRootDir = /^[A-Za-z]:\\?$/.test(args.path);
+          if (isRootDir) {
+            return {
+              success: false,
+              error:
+                "不能使用磁盘根目录（如 C:\\）。请在根目录下创建一个文件夹，例如：C:\\AI-Models 或 D:\\tts-models",
+            };
+          }
+        }
+
+        // 检查路径是否可写
+        try {
+          fsSync.accessSync(args.path, fsSync.constants.W_OK);
+        } catch (e) {
+          return {
+            success: false,
+            error: `该路径没有写入权限，请选择其他文件夹或以管理员身份运行应用`,
+          };
+        }
+
         // 保存配置
         if (args.type === "tts") {
           await saveCustomPaths({ ttsModelsDir: args.path });

@@ -56,31 +56,36 @@ export async function initSherpaONNX(): Promise<boolean> {
   }
 
   try {
+    console.log("[Sherpa-ASR] 开始初始化 ASR 模块...");
+    
     // 使用共享的 sherpa-onnx 实例
     sherpa_onnx = await getSharedSherpaONNX();
 
     if (!sherpa_onnx) {
-      console.error("[Sherpa-ASR] ❌ 获取共享模块失败");
+      console.error("[Sherpa-ASR] ❌ 获取共享模块失败，返回值为空");
       return false;
     }
+
+    console.log("[Sherpa-ASR] 共享模块获取成功，检查方法...");
+    console.log("[Sherpa-ASR] sherpa_onnx 类型:", typeof sherpa_onnx);
+    console.log("[Sherpa-ASR] createOnlineRecognizer 类型:", typeof sherpa_onnx.createOnlineRecognizer);
 
     // 检查必要的方法
     if (typeof sherpa_onnx.createOnlineRecognizer !== "function") {
       console.error("[Sherpa-ASR] ❌ createOnlineRecognizer 方法不可用");
-      console.log(
-        "[Sherpa-ASR] 可用方法:",
-        Object.keys(sherpa_onnx)
-          .filter((k) => typeof sherpa_onnx[k] === "function")
-          .slice(0, 15)
-          .join(", ")
-      );
+      const availableMethods = Object.keys(sherpa_onnx)
+        .filter((k) => typeof sherpa_onnx[k] === "function");
+      console.error("[Sherpa-ASR] 可用方法:", availableMethods.join(", "));
+      console.error("[Sherpa-ASR] 请检查 sherpa-onnx 模块是否正确安装");
       return false;
     }
 
     console.log("[Sherpa-ASR] ✅ ASR 模块加载成功");
     return true;
   } catch (error: any) {
-    console.error("[Sherpa-ASR] ❌ 模块加载失败:", error.message);
+    const errorMsg = error?.message || error?.toString() || String(error);
+    console.error("[Sherpa-ASR] ❌ 模块加载失败:", errorMsg);
+    console.error("[Sherpa-ASR] 错误对象:", error);
     return false;
   }
 }
@@ -150,11 +155,18 @@ export function initRecognizer(
       rule3MinUtteranceLength: 20,
     };
 
+    // 验证方法存在性
+    if (typeof sherpa_onnx.createOnlineRecognizer !== "function") {
+      console.error("[Sherpa-ASR] ❌ createOnlineRecognizer 方法不存在");
+      const methods = Object.keys(sherpa_onnx).filter(k => typeof sherpa_onnx[k] === "function");
+      console.error("[Sherpa-ASR] 可用方法:", methods.join(", "));
+      return false;
+    }
+
     console.log("[Sherpa-ASR] 调用 createOnlineRecognizer...");
-    console.log(
-      "[Sherpa-ASR] 配置:",
-      JSON.stringify(recognizerConfig, null, 2)
-    );
+    console.log("[Sherpa-ASR] 配置:");
+    console.log(JSON.stringify(recognizerConfig, null, 2));
+    
     recognizer = sherpa_onnx.createOnlineRecognizer(recognizerConfig);
 
     if (!recognizer) {
@@ -166,8 +178,12 @@ export function initRecognizer(
     isInitialized = true;
     return true;
   } catch (error: any) {
-    console.error("[Sherpa-ASR] ❌ 识别器初始化失败:", error.message);
-    console.error("[Sherpa-ASR] 错误堆栈:", error.stack);
+    const errorMsg = error?.message || error?.toString() || String(error);
+    console.error("[Sherpa-ASR] ❌ 识别器初始化失败:", errorMsg);
+    console.error("[Sherpa-ASR] 错误对象:", error);
+    if (error?.stack) {
+      console.error("[Sherpa-ASR] 错误堆栈:", error.stack);
+    }
     isInitialized = false;
     return false;
   }

@@ -277,7 +277,10 @@ export default function ConfigServicePage() {
           );
           await loadModelPaths();
         } else {
-          toast.error(`设置路径失败: ${saveResult.error}`);
+          // 显示详细的错误信息
+          toast.error(saveResult.error || "设置路径失败", {
+            duration: 5000,
+          });
         }
       }
     } catch (error) {
@@ -771,7 +774,7 @@ export default function ConfigServicePage() {
                             选择路径
                           </Button>
                         </div>
-                        {modelPaths.ttsModelsDir && (
+                        {modelPaths.ttsModelsDir ? (
                           <div className="flex items-start gap-2">
                             <Folder className="w-3.5 h-3.5 mt-0.5 shrink-0 text-gray-500 dark:text-gray-400" />
                             <Tooltip>
@@ -785,6 +788,11 @@ export default function ConfigServicePage() {
                               </TooltipContent>
                             </Tooltip>
                           </div>
+                        ) : (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            推荐路径：C:/AI-Models 或 D:/tts-models（避免使用
+                            C:\ 等根目录）
+                          </p>
                         )}
                       </div>
 
@@ -1106,7 +1114,7 @@ export default function ConfigServicePage() {
                         选择路径
                       </Button>
                     </div>
-                    {modelPaths.asrModelsDir && (
+                    {modelPaths.asrModelsDir ? (
                       <div className="flex items-start gap-2">
                         <Folder className="w-3.5 h-3.5 mt-0.5 shrink-0 text-gray-500 dark:text-gray-400" />
                         <Tooltip>
@@ -1120,6 +1128,11 @@ export default function ConfigServicePage() {
                           </TooltipContent>
                         </Tooltip>
                       </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        推荐路径：C:/AI-Models 或 D:/asr-models（避免使用 C:\
+                        等根目录）
+                      </p>
                     )}
                   </div>
 

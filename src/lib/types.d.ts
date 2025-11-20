@@ -58,7 +58,9 @@ declare type ConfigKeys =
   | "jina_endpoint"
   | "jina_api_key"
   | "vector_dimension"
-  | "bytedance_voice_config";
+  | "bytedance_voice_config"
+  | "chat_api_type"
+  | "rwkv_endpoint";
 
 declare type MemoryKeys =
   | "self_name"

@@ -58,7 +58,7 @@ export function createMainWindow(
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: file: https:",
             "font-src 'self' data: blob: file:",
-            "connect-src 'self' https: wss: ws:",
+            "connect-src 'self' https: http: wss: ws:",
             "media-src 'self' data: blob: file: https:",
             "worker-src 'self' blob:",
           ].join("; "),

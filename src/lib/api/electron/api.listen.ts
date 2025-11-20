@@ -1,6 +1,3 @@
-// Electron 专用的 Sherpa-ONNX Paraformer 语音识别
-// 使用本地 Sherpa-ONNX 模型
-
 import { errorLogger } from "../../error-logger";
 
 export type ListenApi = (callback?: (text: string) => void) => {
@@ -235,7 +232,7 @@ async function transcribeWithSherpa(audioBlob: Blob): Promise<string> {
     return result.transcript.trim();
   } catch (error) {
     console.error("❌ Sherpa-ONNX 语音识别失败:", error);
-    
+
     // 记录模型调用错误
     errorLogger.logCustomError("Sherpa-ONNX ASR 语音识别失败", {
       model: "sherpa-asr",
@@ -243,7 +240,7 @@ async function transcribeWithSherpa(audioBlob: Blob): Promise<string> {
       audioDuration: audioBlob.size / (16000 * 2), // 估算时长（秒）
       error: error instanceof Error ? error.message : String(error),
     });
-    
+
     throw new Error(
       '本地语音识别不可用。请在配置中切换到"浏览器语音识别"，或使用文字输入。'
     );

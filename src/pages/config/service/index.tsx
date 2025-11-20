@@ -1,4 +1,11 @@
-import { Download, FileDown, AlertCircle, Trash2, Mic } from "lucide-react";
+import {
+  Download,
+  FileDown,
+  AlertCircle,
+  Trash2,
+  Mic,
+  MessageSquare,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,6 +23,7 @@ import { useSherpaConfig } from "@/stores/useSherpaConfig.ts";
 import { useSherpaTtsConfig } from "@/stores/useSherpaTtsConfig.ts";
 import { useChatSession } from "@/stores/useChatSession.ts";
 import { useSpeakApi } from "@/stores/useSpeakApi.ts";
+import { useChatApi, type ChatApiType } from "@/stores/useChatApi.ts";
 import { db, isDatabaseReady } from "@/lib/db/index.ts";
 import { errorLogger } from "@/lib/error-logger";
 
@@ -26,6 +34,8 @@ export default function ConfigServicePage() {
   const setSherpaTtsConfig = useSherpaTtsConfig((state) => state.setConfig);
   const setSherpaConfig = useSherpaConfig((state) => state.setConfig);
   const { currentSpeakApi, setSpeakApi, speakApiList } = useSpeakApi();
+  const { chatApiType, setChatApiType, rwkvEndpoint, setRwkvEndpoint } =
+    useChatApi();
 
   // TTS 模型下载状态
   const [matchaDownloaded, setMatchaDownloaded] = useState(false);
@@ -52,6 +62,10 @@ export default function ConfigServicePage() {
   // MiniMax API Key 配置
   const [miniMaxApiKey, setMiniMaxApiKey] = useState("");
   const [savingApiKey, setSavingApiKey] = useState(false);
+
+  // 本地 RWKV 配置
+  const [rwkvUrl, setRwkvUrl] = useState(rwkvEndpoint);
+  const [savingRwkvUrl, setSavingRwkvUrl] = useState(false);
 
   // 错误日志统计
   const [errorStats, setErrorStats] = useState<{
@@ -208,6 +222,40 @@ export default function ConfigServicePage() {
     }
   };
 
+  // 切换聊天服务
+  const handleChatApiChange = async (apiType: ChatApiType) => {
+    try {
+      await setChatApiType(apiType);
+      toast.success(
+        `已切换到 ${
+          apiType === "siliconflow" ? "硅基流动 (线上)" : "RWKV (本地)"
+        }`
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`切换失败: ${errorMessage}`);
+    }
+  };
+
+  // 保存本地 RWKV URL
+  const saveRwkvUrl = async () => {
+    if (!rwkvUrl.trim()) {
+      toast.error("请输入有效的 URL");
+      return;
+    }
+
+    try {
+      setSavingRwkvUrl(true);
+      await setRwkvEndpoint(rwkvUrl.trim());
+      toast.success("RWKV 服务地址保存成功！");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`保存失败: ${errorMessage}`);
+    } finally {
+      setSavingRwkvUrl(false);
+    }
+  };
+
   // 保存 MiniMax API Key
   const saveMiniMaxApiKey = async () => {
     const electronAPI = (window as any).electronAPI;
@@ -278,6 +326,9 @@ export default function ConfigServicePage() {
         if (miniMaxConfigResult.success) {
           setMiniMaxApiKey(miniMaxConfigResult.apiKey);
         }
+
+        // 初始化 RWKV URL
+        setRwkvUrl(rwkvEndpoint);
       } catch (error) {
         console.error("检查模型失败:", error);
       }
@@ -289,6 +340,11 @@ export default function ConfigServicePage() {
     initializeConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 空依赖数组：只在组件挂载时执行一次
+
+  // 同步 rwkvEndpoint 的变化
+  useEffect(() => {
+    setRwkvUrl(rwkvEndpoint);
+  }, [rwkvEndpoint]);
 
   // 下载 TTS 模型
   const downloadModel = async (modelType: "matcha" | "vocoder") => {
@@ -471,6 +527,73 @@ export default function ConfigServicePage() {
 
           <TooltipProvider>
             <div className="space-y-6">
+              {/* 聊天服务 (Chat API) */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                  <h2 className="text-base font-medium text-gray-900 dark:text-gray-100">
+                    聊天服务 (Chat API)
+                  </h2>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+                  {/* 聊天服务选择器 */}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                      选择服务
+                    </label>
+                    <Select
+                      value={chatApiType}
+                      onValueChange={handleChatApiChange}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="选择聊天服务" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="siliconflow">
+                          硅基流动 (线上)
+                        </SelectItem>
+                        <SelectItem value="rwkv-local">RWKV (本地)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      {chatApiType === "siliconflow"
+                        ? "在线服务 · 高质量多语言 · 需要 API Key"
+                        : "本地服务 · 无需联网 · 需要配置服务地址"}
+                    </p>
+                  </div>
+
+                  {/* 本地 RWKV 配置 - 仅在选择 RWKV (本地) 时显示 */}
+                  {chatApiType === "rwkv-local" && (
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                        服务地址配置
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="url"
+                          placeholder="http://192.168.0.12:8000/v4/chat/completions"
+                          value={rwkvUrl}
+                          onChange={(e) => setRwkvUrl(e.target.value)}
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={saveRwkvUrl}
+                          disabled={savingRwkvUrl || !rwkvUrl.trim()}
+                          size="sm"
+                        >
+                          {savingRwkvUrl ? "保存中..." : "保存"}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        请输入本地 RWKV 服务的完整 URL，例如：
+                        http://192.168.0.12:8000/v4/chat/completions
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* 语音合成服务 (TTS) - 统一区域 */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">

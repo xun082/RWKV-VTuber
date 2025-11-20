@@ -104,15 +104,18 @@ export function resolveModelPath(
   relativePath: string,
   baseDir?: string
 ): string {
-  // 规范化路径：将所有正斜杠转换为平台特定的分隔符
+  // 规范化路径：将所有分隔符转换为平台特定的分隔符
   const normalizedPath = relativePath
     .split("/")
     .join(path.sep)
     .split("\\")
     .join(path.sep);
 
+  // 如果是绝对路径，直接规范化并返回
   if (path.isAbsolute(normalizedPath)) {
-    return path.normalize(normalizedPath);
+    const absolutePath = path.resolve(normalizedPath);
+    console.log(`[Paths] 使用绝对路径: ${absolutePath}`);
+    return absolutePath;
   }
 
   // 优先级：TTS模型目录 -> ASR模型目录 -> 指定的baseDir -> 应用数据目录 -> 当前目录
@@ -125,18 +128,16 @@ export function resolveModelPath(
   ].filter(Boolean) as string[];
 
   for (const tryPath of possiblePaths) {
-    // 规范化并检查文件是否存在
-    const normalizedTryPath = path.normalize(tryPath);
-    if (fsSync.existsSync(normalizedTryPath)) {
-      console.log(`[Paths] 找到模型文件: ${normalizedTryPath}`);
-      return normalizedTryPath;
+    // 使用 path.resolve 确保路径完全规范化（Windows 上会使用反斜杠）
+    const resolvedPath = path.resolve(tryPath);
+    if (fsSync.existsSync(resolvedPath)) {
+      console.log(`[Paths] ✓ 找到模型文件: ${resolvedPath}`);
+      return resolvedPath;
     }
   }
 
   // 如果都不存在，默认返回 TTS 模型目录下的路径
-  const defaultPath = path.normalize(
-    path.join(getTTSModelsDir(), normalizedPath)
-  );
-  console.warn(`[Paths] 模型文件不存在，使用默认路径: ${defaultPath}`);
+  const defaultPath = path.resolve(path.join(getTTSModelsDir(), normalizedPath));
+  console.warn(`[Paths] ⚠️ 模型文件不存在，使用默认路径: ${defaultPath}`);
   return defaultPath;
 }

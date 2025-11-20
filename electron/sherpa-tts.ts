@@ -1,4 +1,5 @@
 import * as fsSync from "fs";
+import * as path from "path";
 import { resolveModelPath } from "./paths.js";
 import { getSharedSherpaONNX } from "./sherpa-shared.js";
 
@@ -285,10 +286,10 @@ export async function generateSpeech(
   }
 
   // 解析所有路径（使用跨平台路径管理）
-  const acousticModelPath = resolveModelPath(args.acousticModel);
-  const vocoderPath = resolveModelPath(args.vocoder);
-  const lexiconPath = resolveModelPath(args.lexicon);
-  const tokensPath = resolveModelPath(args.tokens);
+  let acousticModelPath = resolveModelPath(args.acousticModel);
+  let vocoderPath = resolveModelPath(args.vocoder);
+  let lexiconPath = resolveModelPath(args.lexicon);
+  let tokensPath = resolveModelPath(args.tokens);
 
   // 验证文件存在和可读性
   const filesToCheck = [
@@ -299,6 +300,20 @@ export async function generateSpeech(
   ];
 
   for (const file of filesToCheck) {
+    // 确保路径是绝对路径
+    const originalPath = file.path;
+    const absolutePath = path.resolve(file.path);
+    file.path = absolutePath;
+
+    console.log(`[Sherpa-TTS] 检查 ${file.name}...`);
+    console.log(`[Sherpa-TTS]   原始路径: ${originalPath}`);
+    console.log(`[Sherpa-TTS]   绝对路径: ${absolutePath}`);
+    console.log(
+      `[Sherpa-TTS]   路径类型: ${
+        path.isAbsolute(absolutePath) ? "绝对" : "相对"
+      }`
+    );
+
     // 路径字符验证（Windows）
     const pathValidation = validatePath(file.path);
     if (!pathValidation.valid) {
@@ -339,34 +354,50 @@ export async function generateSpeech(
         `[Sherpa-TTS] ⚠️ 路径可能过长 (${file.path.length} 字符): ${file.path}`
       );
     }
+
+    // 更新到验证后的路径
+    if (file.name === "声学模型") acousticModelPath = file.path;
+    else if (file.name === "Vocoder") vocoderPath = file.path;
+    else if (file.name === "词典") lexiconPath = file.path;
+    else if (file.name === "Tokens") tokensPath = file.path;
   }
 
   // 处理 ruleFsts（使用跨平台路径管理）
-  let ruleFsts = "";
+  let ruleFstsArray: string[] = [];
   if (args.ruleFsts?.trim()) {
     const existingFsts = args.ruleFsts
       .split(",")
       .map((fst) => resolveModelPath(fst.trim()))
-      .filter((fst) => fsSync.existsSync(fst));
+      .filter((fst) => {
+        const exists = fsSync.existsSync(fst);
+        if (!exists) {
+          console.warn(`[Sherpa-TTS] ⚠️ RuleFst 文件不存在: ${fst}`);
+        }
+        return exists;
+      });
 
-    ruleFsts = existingFsts.join(",");
+    ruleFstsArray = existingFsts;
   }
 
-  // ⚠️ Windows 兼容性修复：将所有反斜杠转换为正斜杠
-  // sherpa-onnx native 模块在 Windows 上也能识别 Unix 风格路径
-  const toUnixPath = (p: string) => p.replace(/\\/g, "/");
-  const normalizedAcousticModel = toUnixPath(acousticModelPath);
-  const normalizedVocoder = toUnixPath(vocoderPath);
-  const normalizedLexicon = toUnixPath(lexiconPath);
-  const normalizedTokens = toUnixPath(tokensPath);
-  const normalizedRuleFsts = ruleFsts ? toUnixPath(ruleFsts) : "";
+  // Windows 平台：在 Windows 上需要使用正斜杠分隔多个文件路径
+  // 注意：单个文件路径内部使用反斜杠，但多个路径之间用逗号+正斜杠分隔
+  const normalizedRuleFsts =
+    ruleFstsArray.length > 0 ? ruleFstsArray.join(",") : "";
+
+  console.log("[Sherpa-TTS] 路径信息:");
+  console.log("  - acousticModel:", acousticModelPath);
+  console.log("  - vocoder:", vocoderPath);
+  console.log("  - lexicon:", lexiconPath);
+  console.log("  - tokens:", tokensPath);
+  console.log("  - ruleFsts:", normalizedRuleFsts || "(无)");
+  console.log("  - Platform:", process.platform);
 
   // 构建配置
   const offlineTtsMatchaModelConfig = {
-    acousticModel: normalizedAcousticModel,
-    vocoder: normalizedVocoder,
-    lexicon: normalizedLexicon,
-    tokens: normalizedTokens,
+    acousticModel: acousticModelPath,
+    vocoder: vocoderPath,
+    lexicon: lexiconPath,
+    tokens: tokensPath,
     noiseScale: args.noiseScale,
     lengthScale: args.lengthScale,
   };
@@ -384,32 +415,17 @@ export async function generateSpeech(
     ruleFsts: normalizedRuleFsts,
   };
 
-  // 输出详细的诊断信息（特别是 Windows）
-  if (process.platform === "win32") {
-    console.log("[Sherpa-TTS] Windows 诊断信息:");
-    console.log(
-      "  - 声学模型:",
-      normalizedAcousticModel,
-      `(长度: ${normalizedAcousticModel.length})`
-    );
-    console.log(
-      "  - Vocoder:",
-      normalizedVocoder,
-      `(长度: ${normalizedVocoder.length})`
-    );
-    console.log(
-      "  - 词典:",
-      normalizedLexicon,
-      `(长度: ${normalizedLexicon.length})`
-    );
-    console.log(
-      "  - Tokens:",
-      normalizedTokens,
-      `(长度: ${normalizedTokens.length})`
-    );
-    console.log("  - RuleFsts:", normalizedRuleFsts || "(无)");
-    console.log("  - 文本:", cleanText.substring(0, 100));
-  }
+  // 输出详细的诊断信息
+  console.log("[Sherpa-TTS] 最终配置:");
+  console.log("  - Platform:", process.platform);
+  console.log("  - 声学模型:", acousticModelPath);
+  console.log("  - Vocoder:", vocoderPath);
+  console.log("  - 词典:", lexiconPath);
+  console.log("  - Tokens:", tokensPath);
+  console.log("  - RuleFsts:", normalizedRuleFsts || "(无)");
+  console.log("  - 文本:", cleanText.substring(0, 100));
+  console.log("  - numThreads:", args.numThreads);
+  console.log("  - speed:", args.speed);
 
   try {
     const tts = getTtsInstance(offlineTtsConfig);

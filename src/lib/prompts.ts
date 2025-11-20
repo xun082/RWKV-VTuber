@@ -3,6 +3,53 @@
  */
 
 /**
+ * 获取当前日期时间信息
+ */
+export function getCurrentDateTimeInfo(): string {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const date = now.getDate();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+
+  const weekdays = [
+    "星期日",
+    "星期一",
+    "星期二",
+    "星期三",
+    "星期四",
+    "星期五",
+    "星期六",
+  ];
+  const weekdaysEn = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  const weekday = now.getDay();
+
+  return `
+Current Date & Time Information:
+- Date: ${year}-${month.toString().padStart(2, "0")}-${date
+    .toString()
+    .padStart(2, "0")} (${weekdaysEn[weekday]})
+- Time: ${hours.toString().padStart(2, "0")}:${minutes
+    .toString()
+    .padStart(2, "0")}
+
+当前日期时间信息：
+- 日期：${year}年${month}月${date}日 (${weekdays[weekday]})
+- 时间：${hours}时${minutes}分
+`.trim();
+}
+
+/**
  * 基础系统提示词 - 包含 Live2D 动作指令说明
  */
 export const BASE_SYSTEM_PROMPT = `You are a friendly and lively AI assistant. Please answer user questions in a concise and natural way.
@@ -64,7 +111,8 @@ export const SUMMARY_PROMPT_TEMPLATE = (conversation: string) =>
 export function buildSystemPrompt(
   relevantMemories: Array<{ summary: string }>
 ): string {
-  let systemPrompt = BASE_SYSTEM_PROMPT;
+  // 添加当前日期时间信息
+  let systemPrompt = `${getCurrentDateTimeInfo()}\n\n${BASE_SYSTEM_PROMPT}`;
 
   if (relevantMemories.length > 0) {
     systemPrompt +=

@@ -67,7 +67,21 @@ export async function initSherpaTTS(): Promise<boolean> {
     if (!sherpa_onnx?.createOfflineTts) {
       throw new Error("TTS 模块缺少必要方法");
     }
+
+    // 显示版本信息和平台
     console.log("[Sherpa-TTS] ✓ 初始化成功");
+    console.log("[Sherpa-TTS] 平台:", process.platform, process.arch);
+
+    // Windows 特别提示
+    if (process.platform === "win32") {
+      console.log("[Sherpa-TTS] ⚠️ Windows 平台注意事项:");
+      console.log("  - 确保安装了 Visual C++ Redistributable");
+      console.log("  - 使用纯英文路径存储模型文件");
+      console.log(
+        "  - 如遇到错误码问题，请尝试: npm install sherpa-onnx@latest"
+      );
+    }
+
     return true;
   } catch (error: any) {
     console.error("[Sherpa-TTS] ✗ 初始化失败:", error?.message || error);
@@ -94,50 +108,29 @@ function getTtsInstance(offlineTtsConfig: any): any {
     ttsInstance = null;
   }
 
-  console.log("[Sherpa-TTS] 创建 TTS 实例...");
-
   // 调用 native 方法创建实例
-  const result = sherpa_onnx.createOfflineTts(offlineTtsConfig);
+  console.log("[Sherpa-TTS] 调用 sherpa_onnx.createOfflineTts...");
+  let result;
 
-  // Windows 特定问题：检查是否返回了内存地址而不是对象
-  if (typeof result === "number") {
-    const hexCode = result.toString(16);
-    console.error("[Sherpa-TTS] ✗ 返回了错误码/内存地址:", `0x${hexCode}`);
-    console.error("[Sherpa-TTS] 配置:", {
-      acousticModel:
-        offlineTtsConfig.offlineTtsModelConfig.offlineTtsMatchaModelConfig
-          .acousticModel,
-      vocoder:
-        offlineTtsConfig.offlineTtsModelConfig.offlineTtsMatchaModelConfig
-          .vocoder,
-      lexicon:
-        offlineTtsConfig.offlineTtsModelConfig.offlineTtsMatchaModelConfig
-          .lexicon,
-      tokens:
-        offlineTtsConfig.offlineTtsModelConfig.offlineTtsMatchaModelConfig
-          .tokens,
-    });
-
-    throw new Error(
-      `TTS 实例创建失败 (错误码: 0x${hexCode})。\n` +
-        `这通常是由于：\n` +
-        `1. 模型文件损坏或版本不兼容\n` +
-        `2. sherpa-onnx 版本与模型不匹配\n` +
-        `3. Windows 路径编码问题\n` +
-        `建议：重新下载模型文件并使用纯英文路径`
-    );
+  try {
+    result = sherpa_onnx.createOfflineTts(offlineTtsConfig);
+  } catch (e) {
+    console.error("[Sherpa-TTS] createOfflineTts 抛出异常:", e);
+    throw e;
   }
+
+  console.log("[Sherpa-TTS] createOfflineTts 返回:", typeof result, result);
 
   // 验证返回值
-  if (
-    !result ||
-    typeof result !== "object" ||
-    typeof result.generate !== "function"
-  ) {
-    throw new Error(`TTS 实例无效 (类型: ${typeof result})`);
+  if (!result) {
+    throw new Error("createOfflineTts 返回为空");
   }
 
-  console.log("[Sherpa-TTS] ✓ TTS 实例创建成功");
+  // 简单检查是否看起来像是一个有效的实例（有 generate 方法）
+  // 注意：在 Windows 上，如果返回的是内存地址（数字），这里访问属性可能会有问题
+  // 但为了保持“有什么报错就输出什么”，我们尝试直接使用
+
+  console.log("[Sherpa-TTS] ✓ 实例创建完成");
   ttsInstance = result;
   currentConfig = configKey;
 
@@ -188,7 +181,8 @@ export async function generateSpeech(
   // 移除 emoji 表情符号
   const cleanText = removeEmojis(args.text);
   if (cleanText.trim().length === 0) {
-    throw new Error("文本为空或仅包含表情符号");
+    console.warn("[Sherpa-TTS] 文本为空");
+    return { audio: [] };
   }
 
   // 解析并验证所有路径
@@ -198,14 +192,10 @@ export async function generateSpeech(
   const tokensPath = path.resolve(resolveModelPath(args.tokens));
 
   // 批量验证文件
-  try {
-    validateFilePath(acousticModelPath);
-    validateFilePath(vocoderPath);
-    validateFilePath(lexiconPath);
-    validateFilePath(tokensPath);
-  } catch (error: any) {
-    throw new Error(`模型文件验证失败: ${error.message}`);
-  }
+  validateFilePath(acousticModelPath);
+  validateFilePath(vocoderPath);
+  validateFilePath(lexiconPath);
+  validateFilePath(tokensPath);
 
   // 处理 ruleFsts（可选）
   const ruleFsts = args.ruleFsts?.trim()
@@ -228,15 +218,19 @@ export async function generateSpeech(
         lengthScale: args.lengthScale,
       },
       numThreads: args.numThreads,
-      debug: 0, // 关闭 debug 日志
+      debug: 0,
       provider: "cpu",
     },
     maxNumSentences: 1,
     ruleFsts,
   };
 
-  // 生成语音
+  // 获取实例
   const tts = getTtsInstance(offlineTtsConfig);
+
+  console.log("[Sherpa-TTS] 开始生成语音...");
+
+  // 直接调用生成，不捕获错误
   const audio = tts.generate({
     text: cleanText,
     sid: 0,
@@ -246,6 +240,8 @@ export async function generateSpeech(
   if (!audio?.samples || !audio?.sampleRate) {
     throw new Error("语音生成失败：未返回音频数据");
   }
+
+  console.log("[Sherpa-TTS] ✓ 语音生成成功，样本数:", audio.samples.length);
 
   // 转换为 WAV 格式
   const pcm16 = new Int16Array(audio.samples.length);

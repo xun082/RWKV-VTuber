@@ -26,8 +26,8 @@ export const LoadingStates = {
 	generating: (
 		<LoadingIndicator>
 			<div className='relative'>
-				<div className='w-4 h-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-full animate-pulse'></div>
-				<div className='absolute top-0 left-0 w-4 h-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-full animate-ping opacity-30'></div>
+				<div className='w-4 h-4 bg-linear-to-r from-green-400 to-blue-500 rounded-full animate-pulse'></div>
+				<div className='absolute top-0 left-0 w-4 h-4 bg-linear-to-r from-green-400 to-blue-500 rounded-full animate-ping opacity-30'></div>
 			</div>
 			<span className='text-green-600 font-medium'>正在生成语音...</span>
 		</LoadingIndicator>
@@ -36,7 +36,7 @@ export const LoadingStates = {
 	updating: (
 		<LoadingIndicator>
 			<div className='relative'>
-				<div className='w-4 h-4 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full animate-spin'></div>
+				<div className='w-4 h-4 bg-linear-to-r from-purple-400 to-pink-500 rounded-full animate-spin'></div>
 				<div className='absolute top-1 left-1 w-2 h-2 bg-white rounded-full animate-pulse'></div>
 			</div>
 			<span className='text-purple-600 font-medium'>正在更新记忆...</span>
@@ -46,8 +46,8 @@ export const LoadingStates = {
 	clearing: (
 		<LoadingIndicator>
 			<div className='relative'>
-				<div className='w-4 h-4 bg-gradient-to-r from-red-400 to-orange-500 rounded-full animate-pulse'></div>
-				<div className='absolute inset-0 w-4 h-4 bg-gradient-to-r from-red-400 to-orange-500 rounded-full animate-ping opacity-25'></div>
+				<div className='w-4 h-4 bg-linear-to-r from-red-400 to-orange-500 rounded-full animate-pulse'></div>
+				<div className='absolute inset-0 w-4 h-4 bg-linear-to-r from-red-400 to-orange-500 rounded-full animate-ping opacity-25'></div>
 			</div>
 			<span className='text-red-600 font-medium'>正在清除对话...</span>
 		</LoadingIndicator>
@@ -56,8 +56,8 @@ export const LoadingStates = {
 	sending: (
 		<LoadingIndicator>
 			<div className='relative'>
-				<div className='w-4 h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-bounce'></div>
-				<div className='absolute -top-1 -left-1 w-6 h-6 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-ping opacity-20'></div>
+				<div className='w-4 h-4 bg-linear-to-r from-blue-400 to-purple-500 rounded-full animate-bounce'></div>
+				<div className='absolute -top-1 -left-1 w-6 h-6 bg-linear-to-r from-blue-400 to-purple-500 rounded-full animate-ping opacity-20'></div>
 			</div>
 			<span className='text-blue-600 font-medium'>正在发送消息...</span>
 		</LoadingIndicator>

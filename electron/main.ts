@@ -9,6 +9,7 @@ import { initSherpaTTS } from "./sherpa-tts.js";
 import { registerIPCHandlers } from "./ipc-handlers.js";
 import { createMainWindow } from "./window.js";
 import { initAutoUpdater } from "./auto-updater.js";
+import { loadCustomPaths } from "./paths.js";
 
 process.env["ELECTRON_DISABLE_SECURITY_WARNINGS"] = "true";
 
@@ -33,6 +34,10 @@ let mainWindow: BrowserWindow | null = null;
 
 // 应用准备就绪
 app.whenReady().then(async () => {
+  // 加载自定义路径配置
+  console.log("[Electron] 加载自定义路径配置...");
+  await loadCustomPaths();
+
   // 配置会话
   session.defaultSession.setProxy({ mode: "direct" });
   session.defaultSession.setUserAgent(

@@ -1,8 +1,9 @@
 /**
  * IPC 处理器模块
  */
-import { ipcMain } from "electron";
+import { ipcMain, BrowserWindow } from "electron";
 import * as fs from "fs/promises";
+import * as fsSync from "fs";
 import * as path from "path";
 import { transcribe, reloadConfig, initRecognizer } from "./sherpa-asr.js";
 import { generateSpeech, type SherpaTTSGenerateArgs } from "./sherpa-tts.js";
@@ -13,7 +14,7 @@ import {
   checkASRModel,
   type ModelType,
 } from "./model-downloader.js";
-import { getTTSModelsDir, getASRModelsDir } from "./paths.js";
+import { getTTSModelsDir, getASRModelsDir, saveCustomPaths } from "./paths.js";
 import {
   checkForUpdates,
   downloadUpdate,
@@ -263,6 +264,67 @@ export function registerIPCHandlers(): void {
             reject(new Error(`请求失败: ${error.message}`));
           });
       });
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // 获取模型路径信息
+  ipcMain.handle("get_model_paths", async () => {
+    try {
+      return {
+        success: true,
+        ttsModelsDir: getTTSModelsDir(),
+        asrModelsDir: getASRModelsDir(),
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // 设置自定义模型路径
+  ipcMain.handle(
+    "set_custom_model_path",
+    async (_event, args: { type: "tts" | "asr"; path: string }) => {
+      try {
+        // 验证路径是否存在
+        if (!fsSync.existsSync(args.path)) {
+          return { success: false, error: "路径不存在" };
+        }
+
+        // 保存配置
+        if (args.type === "tts") {
+          await saveCustomPaths({ ttsModelsDir: args.path });
+        } else {
+          await saveCustomPaths({ asrModelsDir: args.path });
+        }
+
+        return { success: true };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    }
+  );
+
+  // 选择文件夹
+  ipcMain.handle("select_folder", async (event) => {
+    try {
+      const { dialog } = await import("electron");
+      const window = BrowserWindow.fromWebContents(event.sender);
+      if (!window) {
+        return { success: false, error: "无法获取窗口" };
+      }
+
+      const result = await dialog.showOpenDialog(window, {
+        properties: ["openDirectory", "createDirectory"],
+        title: "选择模型存储文件夹",
+      });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, canceled: true };
+      }
+
+      return { success: true, path: result.filePaths[0] };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

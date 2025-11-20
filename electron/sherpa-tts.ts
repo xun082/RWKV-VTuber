@@ -27,6 +27,35 @@ function removeEmojis(text: string): string {
   );
 }
 
+/**
+ * 验证路径是否包含可能导致问题的字符（Windows 特定）
+ */
+function validatePath(path: string): { valid: boolean; warning?: string } {
+  if (process.platform !== "win32") {
+    return { valid: true };
+  }
+
+  // Windows 不允许的字符（除了路径分隔符）
+  const invalidChars = /[<>"|?*]/;
+  if (invalidChars.test(path)) {
+    return {
+      valid: false,
+      warning: `路径包含非法字符: ${path}`,
+    };
+  }
+
+  // 检查是否包含非 ASCII 字符（可能导致编码问题）
+  const hasNonAscii = /[^\x00-\x7F]/.test(path);
+  if (hasNonAscii) {
+    return {
+      valid: true,
+      warning: `路径包含非 ASCII 字符（如中文），可能在某些系统配置下导致问题: ${path}`,
+    };
+  }
+
+  return { valid: true };
+}
+
 // TTS 模块引用（从共享模块获取）
 let sherpa_onnx: any = null;
 // TTS 实例单例（关键：不要每次都创建和释放）
@@ -78,15 +107,51 @@ function getTtsInstance(offlineTtsConfig: any): any {
   // 创建新实例
   let result;
   try {
+    console.log("[Sherpa-TTS] 正在创建 TTS 实例...");
     result = sherpa_onnx.createOfflineTts(offlineTtsConfig);
+    console.log("[Sherpa-TTS] createOfflineTts 返回类型:", typeof result);
   } catch (e: any) {
     console.error("[Sherpa-TTS] createOfflineTts 异常:", e.message);
-    throw e;
+    console.error(
+      "[Sherpa-TTS] 配置:",
+      JSON.stringify(offlineTtsConfig, null, 2)
+    );
+    throw new Error(`创建 TTS 实例异常: ${e.message}`);
   }
 
   // 检查返回值是否是数字（错误码）
   if (typeof result === "number") {
-    throw new Error(`createOfflineTts failed with error code: ${result}`);
+    // 将错误码转换为十六进制，可能更容易诊断
+    const hexCode = result.toString(16);
+    console.error(
+      "[Sherpa-TTS] createOfflineTts 返回错误码:",
+      result,
+      `(0x${hexCode})`
+    );
+    console.error("[Sherpa-TTS] 配置信息:");
+    console.error(
+      "  - acousticModel:",
+      offlineTtsConfig.offlineTtsModelConfig.offlineTtsMatchaModelConfig
+        .acousticModel
+    );
+    console.error(
+      "  - vocoder:",
+      offlineTtsConfig.offlineTtsModelConfig.offlineTtsMatchaModelConfig.vocoder
+    );
+    console.error(
+      "  - lexicon:",
+      offlineTtsConfig.offlineTtsModelConfig.offlineTtsMatchaModelConfig.lexicon
+    );
+    console.error(
+      "  - tokens:",
+      offlineTtsConfig.offlineTtsModelConfig.offlineTtsMatchaModelConfig.tokens
+    );
+
+    throw new Error(
+      `创建 TTS 实例失败，错误码: ${result} (0x${hexCode})。` +
+        `可能原因：1) 模型文件损坏或不兼容 2) 路径包含特殊字符 3) 文件编码问题 4) 权限不足。` +
+        `请检查模型文件完整性和路径配置。`
+    );
   }
 
   // 检查返回值是否有效
@@ -98,6 +163,8 @@ function getTtsInstance(offlineTtsConfig: any): any {
   if (typeof result.generate !== "function") {
     throw new Error("TTS instance missing generate method");
   }
+
+  console.log("[Sherpa-TTS] ✓ TTS 实例创建成功");
 
   ttsInstance = result;
   currentConfig = configKey;
@@ -157,7 +224,7 @@ export async function generateSpeech(
   const lexiconPath = resolveModelPath(args.lexicon);
   const tokensPath = resolveModelPath(args.tokens);
 
-  // 验证文件存在
+  // 验证文件存在和可读性
   const filesToCheck = [
     { path: acousticModelPath, name: "声学模型" },
     { path: vocoderPath, name: "Vocoder" },
@@ -166,8 +233,45 @@ export async function generateSpeech(
   ];
 
   for (const file of filesToCheck) {
+    // 路径字符验证（Windows）
+    const pathValidation = validatePath(file.path);
+    if (!pathValidation.valid) {
+      throw new Error(`${file.name}路径验证失败: ${pathValidation.warning}`);
+    }
+    if (pathValidation.warning) {
+      console.warn(`[Sherpa-TTS] ⚠️ ${file.name}: ${pathValidation.warning}`);
+    }
+
     if (!fsSync.existsSync(file.path)) {
       throw new Error(`${file.name}文件不存在: ${file.path}`);
+    }
+
+    // 检查文件是否可读
+    try {
+      fsSync.accessSync(file.path, fsSync.constants.R_OK);
+    } catch (e) {
+      throw new Error(`${file.name}文件无法读取（权限问题）: ${file.path}`);
+    }
+
+    // 检查文件大小
+    const stats = fsSync.statSync(file.path);
+    if (stats.size === 0) {
+      throw new Error(`${file.name}文件为空: ${file.path}`);
+    }
+
+    console.log(
+      `[Sherpa-TTS] ✓ ${file.name}验证通过: ${file.path} (${(
+        stats.size /
+        1024 /
+        1024
+      ).toFixed(2)} MB)`
+    );
+
+    // Windows 路径长度检查
+    if (process.platform === "win32" && file.path.length > 260) {
+      console.warn(
+        `[Sherpa-TTS] ⚠️ 路径可能过长 (${file.path.length} 字符): ${file.path}`
+      );
     }
   }
 
@@ -213,6 +317,33 @@ export async function generateSpeech(
     maxNumSentences: 1,
     ruleFsts: normalizedRuleFsts,
   };
+
+  // 输出详细的诊断信息（特别是 Windows）
+  if (process.platform === "win32") {
+    console.log("[Sherpa-TTS] Windows 诊断信息:");
+    console.log(
+      "  - 声学模型:",
+      normalizedAcousticModel,
+      `(长度: ${normalizedAcousticModel.length})`
+    );
+    console.log(
+      "  - Vocoder:",
+      normalizedVocoder,
+      `(长度: ${normalizedVocoder.length})`
+    );
+    console.log(
+      "  - 词典:",
+      normalizedLexicon,
+      `(长度: ${normalizedLexicon.length})`
+    );
+    console.log(
+      "  - Tokens:",
+      normalizedTokens,
+      `(长度: ${normalizedTokens.length})`
+    );
+    console.log("  - RuleFsts:", normalizedRuleFsts || "(无)");
+    console.log("  - 文本:", cleanText.substring(0, 100));
+  }
 
   try {
     const tts = getTtsInstance(offlineTtsConfig);

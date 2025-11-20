@@ -4,8 +4,15 @@
 import { app } from "electron";
 import * as path from "path";
 import * as fsSync from "fs";
+import * as fs from "fs/promises";
 
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
+
+// 自定义路径配置文件
+let customPathsConfig: {
+  ttsModelsDir?: string;
+  asrModelsDir?: string;
+} = {};
 
 /**
  * 获取应用数据目录（跨平台）
@@ -23,9 +30,49 @@ export function getAppDataDir(): string {
 }
 
 /**
+ * 获取路径配置文件路径
+ */
+function getPathsConfigFile(): string {
+  return path.join(getAppDataDir(), "model-paths-config.json");
+}
+
+/**
+ * 加载自定义路径配置
+ */
+export async function loadCustomPaths(): Promise<void> {
+  const configFile = getPathsConfigFile();
+  try {
+    if (fsSync.existsSync(configFile)) {
+      const data = await fs.readFile(configFile, "utf-8");
+      customPathsConfig = JSON.parse(data);
+      console.log("[Paths] 已加载自定义路径配置:", customPathsConfig);
+    }
+  } catch (error) {
+    console.warn("[Paths] 加载路径配置失败:", error);
+    customPathsConfig = {};
+  }
+}
+
+/**
+ * 保存自定义路径配置
+ */
+export async function saveCustomPaths(config: {
+  ttsModelsDir?: string;
+  asrModelsDir?: string;
+}): Promise<void> {
+  const configFile = getPathsConfigFile();
+  customPathsConfig = { ...customPathsConfig, ...config };
+  await fs.writeFile(configFile, JSON.stringify(customPathsConfig, null, 2), "utf-8");
+  console.log("[Paths] 已保存自定义路径配置:", customPathsConfig);
+}
+
+/**
  * 获取 TTS 模型目录
  */
 export function getTTSModelsDir(): string {
+  if (customPathsConfig.ttsModelsDir && fsSync.existsSync(customPathsConfig.ttsModelsDir)) {
+    return customPathsConfig.ttsModelsDir;
+  }
   return path.join(getAppDataDir(), "tts-models");
 }
 
@@ -33,6 +80,9 @@ export function getTTSModelsDir(): string {
  * 获取 ASR 模型目录
  */
 export function getASRModelsDir(): string {
+  if (customPathsConfig.asrModelsDir && fsSync.existsSync(customPathsConfig.asrModelsDir)) {
+    return customPathsConfig.asrModelsDir;
+  }
   return path.join(getAppDataDir(), "asr-models");
 }
 

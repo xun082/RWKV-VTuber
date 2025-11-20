@@ -5,6 +5,10 @@ import {
   Trash2,
   Mic,
   MessageSquare,
+  Folder,
+  FolderOpen,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -17,7 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useSherpaConfig } from "@/stores/useSherpaConfig.ts";
 import { useSherpaTtsConfig } from "@/stores/useSherpaTtsConfig.ts";
@@ -75,6 +84,18 @@ export default function ConfigServicePage() {
     total: 0,
     byType: {},
   });
+
+  // 模型路径
+  const [modelPaths, setModelPaths] = useState<{
+    ttsModelsDir: string;
+    asrModelsDir: string;
+  }>({
+    ttsModelsDir: "",
+    asrModelsDir: "",
+  });
+
+  // 复制状态
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
   // 导出聊天记录为JSONL格式
   const handleExportMessages = async () => {
@@ -211,6 +232,72 @@ export default function ConfigServicePage() {
     }
   };
 
+  // 加载模型路径
+  const loadModelPaths = async () => {
+    const electronAPI = (window as any).electronAPI;
+    if (!electronAPI) return;
+
+    try {
+      const result = await electronAPI.invoke("get_model_paths");
+      if (result.success) {
+        setModelPaths({
+          ttsModelsDir: result.ttsModelsDir,
+          asrModelsDir: result.asrModelsDir,
+        });
+      }
+    } catch (error) {
+      console.error("获取模型路径失败:", error);
+    }
+  };
+
+  // 选择自定义文件夹
+  const selectCustomFolder = async (type: "tts" | "asr") => {
+    const electronAPI = (window as any).electronAPI;
+    if (!electronAPI) {
+      return toast.error("文件夹选择功能仅在 Electron 环境可用");
+    }
+
+    try {
+      const result = await electronAPI.invoke("select_folder");
+
+      if (result.canceled) {
+        return;
+      }
+
+      if (result.success && result.path) {
+        // 保存自定义路径
+        const saveResult = await electronAPI.invoke("set_custom_model_path", {
+          type,
+          path: result.path,
+        });
+
+        if (saveResult.success) {
+          toast.success(
+            `已设置${type === "tts" ? "TTS" : "ASR"}模型路径：${result.path}`
+          );
+          await loadModelPaths();
+        } else {
+          toast.error(`设置路径失败: ${saveResult.error}`);
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`选择文件夹失败: ${errorMessage}`);
+    }
+  };
+
+  // 复制路径到剪贴板
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedPath(text);
+      toast.success("路径已复制到剪贴板");
+      setTimeout(() => setCopiedPath(null), 2000);
+    } catch (error) {
+      toast.error("复制失败");
+    }
+  };
+
   // 切换 TTS 服务
   const handleSpeakApiChange = async (apiName: string) => {
     try {
@@ -335,6 +422,9 @@ export default function ConfigServicePage() {
 
       // 更新错误统计
       await updateErrorStats();
+
+      // 加载模型路径
+      await loadModelPaths();
     };
 
     initializeConfig();
@@ -390,6 +480,8 @@ export default function ConfigServicePage() {
         toast.success(
           `${modelType === "matcha" ? "Matcha" : "Vocoder"} 模型下载成功！`
         );
+        // 刷新路径信息
+        await loadModelPaths();
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "未知错误";
@@ -466,6 +558,8 @@ export default function ConfigServicePage() {
       if (result.success) {
         setAsrDownloaded(true);
         toast.success("ASR 模型下载成功！");
+        // 刷新路径信息
+        await loadModelPaths();
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "未知错误";
@@ -661,6 +755,39 @@ export default function ConfigServicePage() {
                   {/* Sherpa 模型下载 - 仅在选择 Sherpa-ONNX TTS 时显示 */}
                   {currentSpeakApi === "Sherpa-ONNX TTS (离线)" && (
                     <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                      {/* 路径配置 */}
+                      <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            模型存储路径
+                          </label>
+                          <Button
+                            onClick={() => selectCustomFolder("tts")}
+                            size="sm"
+                            variant="outline"
+                            className="h-7"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
+                            选择路径
+                          </Button>
+                        </div>
+                        {modelPaths.ttsModelsDir && (
+                          <div className="flex items-start gap-2">
+                            <Folder className="w-3.5 h-3.5 mt-0.5 shrink-0 text-gray-500 dark:text-gray-400" />
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate flex-1 cursor-help">
+                                  {modelPaths.ttsModelsDir}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-md break-all">
+                                <p>{modelPaths.ttsModelsDir}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        )}
+                      </div>
+
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 block">
                         模型文件下载
                       </label>
@@ -670,7 +797,7 @@ export default function ConfigServicePage() {
                         <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 mb-1">
                                 <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                   Matcha 声学模型
                                 </h4>
@@ -678,6 +805,41 @@ export default function ConfigServicePage() {
                                   ~80MB
                                 </span>
                               </div>
+                              {matchaDownloaded && modelPaths.ttsModelsDir && (
+                                <div className="flex items-center gap-2 max-w-md">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate cursor-help">
+                                        {modelPaths.ttsModelsDir}
+                                        /matcha-icefall-zh-baker
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-md break-all">
+                                      <p>
+                                        {modelPaths.ttsModelsDir}
+                                        /matcha-icefall-zh-baker
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Button
+                                    onClick={() =>
+                                      copyToClipboard(
+                                        `${modelPaths.ttsModelsDir}/matcha-icefall-zh-baker`
+                                      )
+                                    }
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-5 w-5 p-0 shrink-0"
+                                  >
+                                    {copiedPath ===
+                                    `${modelPaths.ttsModelsDir}/matcha-icefall-zh-baker` ? (
+                                      <Check className="w-3 h-3 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-3 h-3" />
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                             {matchaDownloaded ? (
                               <Button
@@ -728,7 +890,7 @@ export default function ConfigServicePage() {
                         <div className="p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 mb-1">
                                 <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                   Vocoder 模型
                                 </h4>
@@ -736,6 +898,41 @@ export default function ConfigServicePage() {
                                   ~45MB
                                 </span>
                               </div>
+                              {vocoderDownloaded && modelPaths.ttsModelsDir && (
+                                <div className="flex items-center gap-2 max-w-md">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate cursor-help">
+                                        {modelPaths.ttsModelsDir}
+                                        /vocos-22khz-univ.onnx
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-md break-all">
+                                      <p>
+                                        {modelPaths.ttsModelsDir}
+                                        /vocos-22khz-univ.onnx
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Button
+                                    onClick={() =>
+                                      copyToClipboard(
+                                        `${modelPaths.ttsModelsDir}/vocos-22khz-univ.onnx`
+                                      )
+                                    }
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-5 w-5 p-0 shrink-0"
+                                  >
+                                    {copiedPath ===
+                                    `${modelPaths.ttsModelsDir}/vocos-22khz-univ.onnx` ? (
+                                      <Check className="w-3 h-3 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-3 h-3" />
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                             {vocoderDownloaded ? (
                               <Button
@@ -893,9 +1090,42 @@ export default function ConfigServicePage() {
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  {/* 路径配置 */}
+                  <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        模型存储路径
+                      </label>
+                      <Button
+                        onClick={() => selectCustomFolder("asr")}
+                        size="sm"
+                        variant="outline"
+                        className="h-7"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
+                        选择路径
+                      </Button>
+                    </div>
+                    {modelPaths.asrModelsDir && (
+                      <div className="flex items-start gap-2">
+                        <Folder className="w-3.5 h-3.5 mt-0.5 shrink-0 text-gray-500 dark:text-gray-400" />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate flex-1 cursor-help">
+                              {modelPaths.asrModelsDir}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-md break-all">
+                            <p>{modelPaths.asrModelsDir}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mb-1">
                         <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           Paraformer 流式模型
                         </h4>
@@ -903,6 +1133,41 @@ export default function ConfigServicePage() {
                           ~70MB · 支持中英文
                         </span>
                       </div>
+                      {asrDownloaded && modelPaths.asrModelsDir && (
+                        <div className="flex items-center gap-2 max-w-md">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate cursor-help">
+                                {modelPaths.asrModelsDir}
+                                /sherpa-onnx-streaming-paraformer-bilingual-zh-en
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-md break-all">
+                              <p>
+                                {modelPaths.asrModelsDir}
+                                /sherpa-onnx-streaming-paraformer-bilingual-zh-en
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Button
+                            onClick={() =>
+                              copyToClipboard(
+                                `${modelPaths.asrModelsDir}/sherpa-onnx-streaming-paraformer-bilingual-zh-en`
+                              )
+                            }
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 w-5 p-0 shrink-0"
+                          >
+                            {copiedPath ===
+                            `${modelPaths.asrModelsDir}/sherpa-onnx-streaming-paraformer-bilingual-zh-en` ? (
+                              <Check className="w-3 h-3 text-green-600" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     {asrDownloaded ? (
                       <Button

@@ -351,4 +351,15 @@ export function registerIPCHandlers(): void {
       return { success: false, error: error.message };
     }
   });
+
+  // 打开外部链接
+  ipcMain.handle("open_external_link", async (_event, args: { url: string }) => {
+    try {
+      const { shell } = await import("electron");
+      await shell.openExternal(args.url);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
 }

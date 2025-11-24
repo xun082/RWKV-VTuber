@@ -171,6 +171,7 @@
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@tailwindcss/vite": "^4.0.13",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",

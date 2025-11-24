@@ -261,7 +261,12 @@
 }
 
 .prose strong {
-	font-weight: 600;
+	font-weight: 700;
+	color: inherit;
+}
+
+.prose b {
+	font-weight: 700;
 	color: inherit;
 }
 

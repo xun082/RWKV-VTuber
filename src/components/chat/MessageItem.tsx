@@ -1,8 +1,10 @@
 import { Loader2, Volume2, VolumeX, VolumeOff } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import MarkdownIt from "markdown-it";
 import { generateAndPlayTTS, isAudioPlaying } from "../../lib/tts-utils.ts";
 import { useSpeakApi } from "../../stores/useSpeakApi.ts";
+import { isElectron } from "../../lib/electron.ts";
+import { openLink } from "../../lib/utils.ts";
 
 interface MessageItemProps {
   role: "user" | "assistant" | "system";
@@ -16,7 +18,7 @@ const md = new MarkdownIt({
   html: false, // 禁用 HTML 标签
   linkify: true, // 自动识别链接
   breaks: true, // 转换换行符为 <br>
-  typographer: true, // 启用优美的排版替换
+  typographer: false, // 禁用排版替换（避免影响 ** 等符号）
 });
 
 export function MessageItem({
@@ -32,25 +34,20 @@ export function MessageItem({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGloballyPlaying, setIsGloballyPlaying] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // 过滤掉动作标签 [MMOTION:xxx]
   let displayContent = content.replace(/\[MMOTION:[^\]]+\]\s*/g, "").trim();
-  
+
   // 修复 markdown 格式问题（仅对 AI 回复）
   if (isAssistant) {
     // 修复列表格式：-Text → - Text（在 - 后添加空格）
-    displayContent = displayContent.replace(/^-([^\s-])/gm, '- $1');
-    displayContent = displayContent.replace(/\n-([^\s-])/g, '\n- $1');
-    
-    // 修复错误的粗体格式：** 文本 ** → **文本**
-    // AI 有时会在 ** 内部添加空格，这不符合标准 markdown 语法
-    // 需要移除星号内部紧邻的空格
-    displayContent = displayContent.replace(/\*\*\s+/g, '**');  // 移除 ** 后的空格
-    displayContent = displayContent.replace(/\s+\*\*/g, '**');  // 移除 ** 前的空格
-    
-    // 同样处理斜体（单星号，但要避免影响粗体）
-    displayContent = displayContent.replace(/([^\*])\*\s+/g, '$1*');  // 移除单 * 后的空格
-    displayContent = displayContent.replace(/\s+\*([^\*])/g, '*$1');  // 移除单 * 前的空格
+    displayContent = displayContent.replace(/^-([^\s-])/gm, "- $1");
+    displayContent = displayContent.replace(/\n-([^\s-])/g, "\n- $1");
+
+    // 规范化粗体格式：移除 ** 内部首尾的空格
+    // ** 文本 ** → **文本**
+    displayContent = displayContent.replace(/\*\*\s*([^*]+?)\s*\*\*/g, "**$1**");
   }
 
   // 渲染 Markdown（仅对 AI 回复）
@@ -72,6 +69,44 @@ export function MessageItem({
 
     return () => clearInterval(interval);
   }, []);
+
+  // 处理链接点击
+  useEffect(() => {
+    if (!isAssistant || !contentRef.current) return;
+
+    const handleLinkClick = async (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const link = target.closest("a");
+
+      if (link && link.href) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const url = link.href;
+
+        // 在 Electron 环境中使用 IPC 打开外部链接
+        if (isElectron() && window.electronAPI) {
+          try {
+            await window.electronAPI.invoke("open_external_link", { url });
+          } catch (error) {
+            console.error("打开链接失败:", error);
+            // 降级到使用 openLink
+            await openLink(url);
+          }
+        } else {
+          // 在 Web 环境中使用 openLink
+          await openLink(url);
+        }
+      }
+    };
+
+    const container = contentRef.current;
+    container.addEventListener("click", handleLinkClick);
+
+    return () => {
+      container.removeEventListener("click", handleLinkClick);
+    };
+  }, [isAssistant, renderedContent]);
 
   const handleSpeakClick = async () => {
     if (isPlaying || isGenerating) return;
@@ -105,7 +140,8 @@ export function MessageItem({
         )}
 
         {isAssistant ? (
-          <div 
+          <div
+            ref={contentRef}
             className="prose prose-sm dark:prose-invert max-w-none leading-relaxed text-[15px] relative z-10"
             style={{
               color: "inherit",

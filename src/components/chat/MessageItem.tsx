@@ -47,7 +47,10 @@ export function MessageItem({
 
     // 规范化粗体格式：移除 ** 内部首尾的空格
     // ** 文本 ** → **文本**
-    displayContent = displayContent.replace(/\*\*\s*([^*]+?)\s*\*\*/g, "**$1**");
+    displayContent = displayContent.replace(
+      /\*\*\s*([^*]+?)\s*\*\*/g,
+      "**$1**"
+    );
   }
 
   // 渲染 Markdown（仅对 AI 回复）

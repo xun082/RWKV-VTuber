@@ -78,10 +78,10 @@ export default function ChatPage() {
             </div>
             <div>
               <h2 className="text-base font-bold bg-linear-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                AI 工具助手
+                RWKV展会助手
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                在线助手，随时为您服务
+                智能展会助手，为您提供专业服务
               </p>
             </div>
           </div>

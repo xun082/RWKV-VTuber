@@ -19,7 +19,10 @@ import {
   ArrowUp,
   BarChart3,
   Mic,
+  Pause,
+  Play,
   RotateCcw,
+  Square,
   Trash2,
   Volume2,
   VolumeX,
@@ -69,6 +72,10 @@ interface ChatActionsProps {
   onClearChat: () => void;
   autoTTS: boolean;
   onToggleAutoTTS: () => void;
+  ttsPlaybackState?: 'idle' | 'playing' | 'paused';
+  onTtsPause?: () => void;
+  onTtsResume?: () => void;
+  onTtsStop?: () => void;
 }
 
 interface PromptBoxProps
@@ -240,6 +247,7 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
           <div className="flex items-center justify-between pt-2 border-t border-gray-200/50 dark:border-gray-700/50 mt-2">
             <TooltipProvider delayDuration={100}>
               <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                
                 {chatActions && hasMessages && (
                   <>
                     <AlertDialog>
@@ -323,40 +331,43 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                 )}
 
                 {chatActions && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={chatActions.onToggleAutoTTS}
-                        disabled={disabled}
-                        className={cn(
-                          "cursor-pointer group/btn flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 border hover:shadow-sm",
-                          chatActions.autoTTS
-                            ? "text-emerald-700 dark:text-emerald-300 bg-linear-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-emerald-300 dark:border-emerald-700/50 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-900/40 dark:hover:to-green-900/40"
-                            : "text-gray-700 dark:text-gray-300 bg-transparent border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600"
-                        )}
-                      >
-                        {chatActions.autoTTS ? (
-                          <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110 pointer-events-none" />
-                        ) : (
-                          <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110 pointer-events-none" />
-                        )}
-                        <span className="hidden sm:inline pointer-events-none">
-                          {chatActions.autoTTS ? "自动播放" : "手动播放"}
-                        </span>
-                        <span className="sm:hidden pointer-events-none">
-                          {chatActions.autoTTS ? "自动" : "手动"}
-                        </span>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" showArrow={true}>
-                      <p>
-                        {chatActions.autoTTS
-                          ? "AI回复时自动播放语音"
-                          : "AI回复时不自动播放语音"}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={chatActions.onToggleAutoTTS}
+                          disabled={disabled}
+                          className={cn(
+                            "cursor-pointer group/btn flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 border hover:shadow-sm",
+                            chatActions.autoTTS
+                              ? "text-emerald-700 dark:text-emerald-300 bg-linear-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-emerald-300 dark:border-emerald-700/50 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-900/40 dark:hover:to-green-900/40"
+                              : "text-gray-700 dark:text-gray-300 bg-transparent border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600"
+                          )}
+                        >
+                          {chatActions.autoTTS ? (
+                            <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110 pointer-events-none" />
+                          ) : (
+                            <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:scale-110 pointer-events-none" />
+                          )}
+                          <span className="hidden sm:inline pointer-events-none">
+                            {chatActions.autoTTS ? "自动播放" : "手动播放"}
+                          </span>
+                          <span className="sm:hidden pointer-events-none">
+                            {chatActions.autoTTS ? "自动" : "手动"}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" showArrow={true}>
+                        <p>
+                          {chatActions.autoTTS
+                            ? "AI回复时自动播放语音"
+                            : "AI回复时不自动播放语音"}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+
+                  </>
                 )}
 
                 {chatActions &&

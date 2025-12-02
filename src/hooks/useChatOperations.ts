@@ -4,7 +4,13 @@ import { toast } from "sonner";
 import { LoadingStates } from "../components/chat/LoadingIndicator.tsx";
 import { db, isDatabaseReady } from "../lib/db/index.ts";
 import { MOTION_COMMAND_REGEX, buildSystemPrompt } from "../lib/prompts.ts";
-import { generateTTSOnly, playAudioFromBuffer } from "../lib/tts-utils.ts";
+import { 
+  generateTTSOnly, 
+  playAudioFromBuffer,
+  pauseCurrentAudio,
+  resumeCurrentAudio,
+  stopCurrentAudio
+} from "../lib/tts-utils.ts";
 import { uuid } from "../lib/utils.ts";
 import { useChatApi } from "../stores/useChatApi.ts";
 import { useLive2dApi } from "../stores/useLive2dApi.ts";
@@ -46,6 +52,11 @@ export function useChatOperations({
   isFullscreen = false,
 }: UseChatOperationsParams) {
   const setDisabled = useStates((state) => state.setDisabled);
+  const ttsPlaybackState = useStates((state) => state.ttsPlaybackState);
+  const setTtsPlaybackState = useStates((state) => state.setTtsPlaybackState);
+  const setTtsActiveMessageId = useStates(
+    (state) => state.setTtsActiveMessageId
+  );
   const chat = useChatApi((state) => state.chat);
   const usedToken = useChatApi((state) => state.usedToken);
   const setUsedToken = useChatApi((state) => state.setUsedToken);
@@ -245,8 +256,27 @@ export function useChatOperations({
         const ttsTask =
           autoTTS && finalContent && finalContent !== "..."
             ? generateTTSOnly(finalContent, time)
-                .then((buffer) => buffer && playAudioFromBuffer(buffer))
-                .catch((err) => console.error("自动TTS失败:", err))
+                .then(async (buffer) => {
+                  if (buffer) {
+                    setTtsActiveMessageId(assistantMessage.uuid);
+                    await playAudioFromBuffer(buffer, (playing) => {
+                      const newState = playing ? "playing" : "idle";
+                      setTtsPlaybackState(newState);
+                      if (!playing) {
+                        setTtsActiveMessageId((current) =>
+                          current === assistantMessage.uuid ? null : current
+                        );
+                      }
+                    });
+                  }
+                })
+                .catch((err) => {
+                  console.error("❌ 自动TTS失败:", err);
+                  setTtsActiveMessageId((current) =>
+                    current === assistantMessage.uuid ? null : current
+                  );
+                  setTtsPlaybackState("idle");
+                })
             : Promise.resolve();
 
         autoHideTips();
@@ -379,6 +409,32 @@ export function useChatOperations({
     }
   };
 
+  // TTS 控制函数
+  const handleTtsPause = () => {
+    pauseCurrentAudio();
+    setTtsPlaybackState("paused");
+  };
+
+  const handleTtsResume = async () => {
+    setTtsPlaybackState("playing");
+    try {
+      await resumeCurrentAudio();
+      // 播放结束后设置为idle
+      setTtsPlaybackState("idle");
+      setTtsActiveMessageId(null);
+    } catch (err) {
+      console.error("❌ 继续播放失败:", err);
+      setTtsPlaybackState("idle");
+      setTtsActiveMessageId(null);
+    }
+  };
+
+  const handleTtsStop = () => {
+    stopCurrentAudio();
+    setTtsPlaybackState("idle");
+    setTtsActiveMessageId(null);
+  };
+
   return {
     onChat,
     updateMemory,
@@ -386,5 +442,9 @@ export function useChatOperations({
     usedToken,
     contextInfo: lastContextInfo,
     conversationPattern: lastConversationPattern,
+    ttsPlaybackState,
+    handleTtsPause,
+    handleTtsResume,
+    handleTtsStop,
   };
 }

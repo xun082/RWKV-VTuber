@@ -1,8 +1,15 @@
-import { Loader2, Volume2, VolumeX, VolumeOff } from "lucide-react";
+import { Loader2, Volume2, VolumeOff, Pause, Play, Square } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import MarkdownIt from "markdown-it";
-import { generateAndPlayTTS, isAudioPlaying } from "../../lib/tts-utils.ts";
+import {
+  generateAndPlayTTS,
+  isAudioPlaying,
+  pauseCurrentAudio,
+  resumeCurrentAudio,
+  stopCurrentAudio,
+} from "../../lib/tts-utils.ts";
 import { useSpeakApi } from "../../stores/useSpeakApi.ts";
+import { useStates } from "../../stores/useStates.ts";
 import { isElectron } from "../../lib/electron.ts";
 import { openLink } from "../../lib/utils.ts";
 
@@ -11,6 +18,7 @@ interface MessageItemProps {
   content: string;
   timestamp: number;
   index: number;
+  uuid: string;
 }
 
 // 初始化 Markdown 渲染器
@@ -26,15 +34,22 @@ export function MessageItem({
   content,
   timestamp,
   index,
+  uuid,
 }: MessageItemProps) {
   const isUser = role === "user";
   const isAssistant = role === "assistant";
   const speak = useSpeakApi((state) => state.speak);
   const currentSpeakApi = useSpeakApi((state) => state.currentSpeakApi);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const ttsPlaybackState = useStates((state) => state.ttsPlaybackState);
+  const setTtsPlaybackState = useStates((state) => state.setTtsPlaybackState);
+  const ttsActiveMessageId = useStates((state) => state.ttsActiveMessageId);
+  const setTtsActiveMessageId = useStates(
+    (state) => state.setTtsActiveMessageId
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGloballyPlaying, setIsGloballyPlaying] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const isActiveMessage = ttsActiveMessageId === uuid;
 
   // 过滤掉动作标签 [MMOTION:xxx]
   let displayContent = content.replace(/\[MMOTION:[^\]]+\]\s*/g, "").trim();
@@ -67,9 +82,7 @@ export function MessageItem({
       setIsGloballyPlaying(isAudioPlaying());
     };
 
-    // 定期检查全局播放状态
     const interval = setInterval(checkGlobalPlayingState, 100);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -112,12 +125,45 @@ export function MessageItem({
   }, [isAssistant, renderedContent]);
 
   const handleSpeakClick = async () => {
-    if (isPlaying || isGenerating) return;
+    if (isGenerating) return;
+
+    setTtsActiveMessageId(uuid);
 
     await generateAndPlayTTS(content, timestamp, {
       onGeneratingChange: setIsGenerating,
-      onPlayingChange: setIsPlaying,
+      onPlayingChange: (playing) => {
+        // 同步更新全局状态
+        const newState = playing ? "playing" : "idle";
+        setTtsPlaybackState(newState);
+        if (!playing) {
+          setTtsActiveMessageId((current) =>
+            current === uuid ? null : current
+          );
+        }
+      },
     });
+  };
+
+  const handlePause = () => {
+    pauseCurrentAudio();
+    setTtsPlaybackState("paused");
+  };
+
+  const handleResume = async () => {
+    setTtsPlaybackState("playing");
+    try {
+      await resumeCurrentAudio();
+    } catch (err) {
+      console.error("❌ 继续播放失败:", err);
+      setTtsPlaybackState("idle");
+      setTtsActiveMessageId((current) => (current === uuid ? null : current));
+    }
+  };
+
+  const handleStop = () => {
+    stopCurrentAudio();
+    setTtsPlaybackState("idle");
+    setTtsActiveMessageId((current) => (current === uuid ? null : current));
   };
 
   return (
@@ -173,60 +219,79 @@ export function MessageItem({
             </span>
           </div>
 
-          {/* 语音播放按钮 - 只在AI消息中显示，样式优化 */}
+          {/* 语音播放控制按钮组 - 只在AI消息中显示 */}
           {isAssistant && (
-            <button
-              onClick={handleSpeakClick}
-              disabled={isPlaying || isGenerating}
-              className={`
-                 flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm
-                 ${
-                   isPlaying || isGenerating
-                     ? "bg-blue-500/20 dark:bg-blue-400/20 text-blue-600 dark:text-blue-400 cursor-not-allowed border border-blue-400/30"
-                     : isGloballyPlaying && !isPlaying
-                     ? "bg-orange-500/15 dark:bg-orange-400/15 text-orange-600 dark:text-orange-400 hover:bg-red-500/20 dark:hover:bg-red-400/20 hover:text-red-600 dark:hover:text-red-400 cursor-pointer hover:scale-105 border border-orange-400/30 hover:border-red-400/30"
-                     : !speak || currentSpeakApi === "关闭"
-                     ? "bg-gray-200/60 dark:bg-gray-600/40 hover:bg-yellow-500/15 dark:hover:bg-yellow-400/15 text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:scale-105 cursor-pointer border border-gray-300/40 dark:border-gray-600/40"
-                     : "bg-gray-200/50 dark:bg-gray-600/30 hover:bg-blue-500/15 dark:hover:bg-blue-400/15 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:scale-105 cursor-pointer border border-gray-300/30 dark:border-gray-600/30 hover:border-blue-400/30"
-                 }
-                 disabled:opacity-50
-               `}
-              title={
-                isGenerating
-                  ? "正在生成语音..."
-                  : isPlaying
-                  ? "正在播放..."
-                  : isGloballyPlaying && !isPlaying
-                  ? "其他音频正在播放，点击可切换到此条"
-                  : !speak || currentSpeakApi === "关闭"
-                  ? "点击启用语音播放"
-                  : "手动播放语音"
-              }
-              aria-label={
-                isGenerating
-                  ? "正在生成语音"
-                  : isPlaying
-                  ? "正在播放语音"
-                  : isGloballyPlaying && !isPlaying
-                  ? "切换到此条音频"
-                  : !speak || currentSpeakApi === "关闭"
-                  ? "启用语音播放"
-                  : "手动播放语音"
-              }
-              aria-busy={isPlaying || isGenerating}
-            >
-              {isGenerating ? (
-                <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" />
-              ) : isPlaying ? (
-                <VolumeX className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              ) : isGloballyPlaying && !isPlaying ? (
-                <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 opacity-70" />
-              ) : !speak || currentSpeakApi === "关闭" ? (
-                <VolumeOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              ) : (
-                <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <div className="flex items-center gap-1">
+              {/* 播放按钮 - 当没有播放或暂停时显示 */}
+              {(!isActiveMessage || ttsPlaybackState === "idle") && (
+                <button
+                  onClick={handleSpeakClick}
+                  disabled={isGenerating}
+                  className={`
+                     flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm
+                     ${
+                       isGenerating
+                         ? "bg-blue-500/20 dark:bg-blue-400/20 text-blue-600 dark:text-blue-400 cursor-not-allowed border border-blue-400/30"
+                         : isGloballyPlaying
+                         ? "bg-orange-500/15 dark:bg-orange-400/15 text-orange-600 dark:text-orange-400 hover:bg-red-500/20 dark:hover:bg-red-400/20 hover:text-red-600 dark:hover:text-red-400 cursor-pointer hover:scale-105 border border-orange-400/30 hover:border-red-400/30"
+                         : !speak || currentSpeakApi === "关闭"
+                         ? "bg-gray-200/60 dark:bg-gray-600/40 hover:bg-yellow-500/15 dark:hover:bg-yellow-400/15 text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:scale-105 cursor-pointer border border-gray-300/40 dark:border-gray-600/40"
+                         : "bg-gray-200/50 dark:bg-gray-600/30 hover:bg-blue-500/15 dark:hover:bg-blue-400/15 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:scale-105 cursor-pointer border border-gray-300/30 dark:border-gray-600/30 hover:border-blue-400/30"
+                     }
+                     disabled:opacity-50
+                   `}
+                  title={isGenerating ? "正在生成语音..." : "播放语音"}
+                >
+                  {isGenerating ? (
+                    <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" />
+                  ) : !speak || currentSpeakApi === "关闭" ? (
+                    <VolumeOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  ) : (
+                    <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  )}
+                </button>
               )}
-            </button>
+
+              {/* 播放中：显示暂停和停止按钮 */}
+              {isActiveMessage && ttsPlaybackState === "playing" && (
+                <>
+                  <button
+                    onClick={handlePause}
+                    className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm bg-blue-500/20 dark:bg-blue-400/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/30 dark:hover:bg-blue-400/30 cursor-pointer hover:scale-105 border border-blue-400/30 animate-pulse"
+                    title="暂停播放"
+                  >
+                    <Pause className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleStop}
+                    className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm bg-red-500/20 dark:bg-red-400/20 text-red-600 dark:text-red-400 hover:bg-red-500/30 dark:hover:bg-red-400/30 cursor-pointer hover:scale-105 border border-red-400/30"
+                    title="停止播放"
+                  >
+                    <Square className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
+                </>
+              )}
+
+              {/* 暂停中：显示继续和停止按钮 */}
+              {isActiveMessage && ttsPlaybackState === "paused" && (
+                <>
+                  <button
+                    onClick={handleResume}
+                    className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm bg-green-500/20 dark:bg-green-400/20 text-green-600 dark:text-green-400 hover:bg-green-500/30 dark:hover:bg-green-400/30 cursor-pointer hover:scale-105 border border-green-400/30"
+                    title="继续播放"
+                  >
+                    <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleStop}
+                    className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm bg-red-500/20 dark:bg-red-400/20 text-red-600 dark:text-red-400 hover:bg-red-500/30 dark:hover:bg-red-400/30 cursor-pointer hover:scale-105 border border-red-400/30"
+                    title="停止播放"
+                  >
+                    <Square className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>

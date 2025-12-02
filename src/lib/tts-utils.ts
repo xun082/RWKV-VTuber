@@ -112,7 +112,14 @@ function cleanMarkdownForTTS(text: string): string {
 class AudioPlaybackManager {
   private currentAudio: HTMLAudioElement | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
+  private audioContext: AudioContext | null = null;
+  private currentAudioBuffer: AudioBuffer | null = null;
+  private pausedAt: number = 0; // 暂停时的播放位置（秒）
+  private startedAt: number = 0; // 开始播放的时间戳
   private isPlaying: boolean = false;
+  private isPaused: boolean = false;
+  private useHtmlAudio: boolean = false; // 标记使用哪种播放方式
+  private currentArrayBuffer: ArrayBuffer | null = null; // 保存当前音频数据
 
   // 停止当前播放的音频
   stopCurrent(): void {
@@ -121,7 +128,6 @@ class AudioPlaybackManager {
         this.currentAudio.pause();
         this.currentAudio.currentTime = 0;
         URL.revokeObjectURL(this.currentAudio.src);
-        console.log("🛑 停止之前的 HTML Audio 播放");
       } catch (error) {
         // 音频已经结束或已停止，忽略错误
       }
@@ -131,7 +137,6 @@ class AudioPlaybackManager {
     if (this.currentSource && this.isPlaying) {
       try {
         this.currentSource.stop();
-        console.log("🛑 停止之前的 AudioContext 播放");
       } catch (error) {
         // 音频已经结束或已停止，忽略错误
       }
@@ -139,6 +144,82 @@ class AudioPlaybackManager {
     }
 
     this.isPlaying = false;
+    this.isPaused = false;
+    this.pausedAt = 0;
+    this.startedAt = 0;
+    this.currentArrayBuffer = null;
+    this.currentAudioBuffer = null;
+  }
+
+  // 暂停当前播放
+  pause(): void {
+    if (!this.isPlaying) {
+      return;
+    }
+
+    if (this.useHtmlAudio && this.currentAudio) {
+      // HTML Audio 原生支持暂停
+      this.currentAudio.pause();
+      this.pausedAt = this.currentAudio.currentTime;
+    } else if (this.currentSource && this.audioContext) {
+      // AudioContext 需要停止并记录位置
+      const elapsed = this.audioContext.currentTime - this.startedAt;
+      this.pausedAt += elapsed;
+      try {
+        this.currentSource.stop();
+      } catch (error) {
+        // 忽略停止错误
+      }
+      this.currentSource = null;
+    }
+
+    this.isPlaying = false;
+    this.isPaused = true;
+  }
+
+  // 继续播放
+  async resume(): Promise<void> {
+    if (!this.isPaused) {
+      return;
+    }
+
+    if (this.useHtmlAudio && this.currentAudio) {
+      // HTML Audio 原生支持继续播放
+      try {
+        await this.currentAudio.play();
+        this.isPlaying = true;
+        this.isPaused = false;
+      } catch (error) {
+        console.error("❌ 继续播放失败:", error);
+      }
+    } else if (this.currentAudioBuffer && this.audioContext) {
+      // AudioContext 需要从暂停位置重新创建 source
+      try {
+        const source = this.audioContext.createBufferSource();
+        source.buffer = this.currentAudioBuffer;
+        source.connect(this.audioContext.destination);
+        
+        this.currentSource = source;
+        this.startedAt = this.audioContext.currentTime;
+        
+        // 从暂停位置开始播放
+        source.start(0, this.pausedAt);
+        this.isPlaying = true;
+        this.isPaused = false;
+        
+        // 监听播放结束
+        source.onended = () => {
+          if (this.isPlaying) { // 只有正常结束才清理
+            this.isPlaying = false;
+            this.isPaused = false;
+            this.pausedAt = 0;
+            this.currentSource = null;
+          }
+        };
+      } catch (error) {
+        console.error("❌ 继续播放失败:", error);
+      }
+    }
   }
 
   // 播放新的音频
@@ -146,19 +227,18 @@ class AudioPlaybackManager {
     // 先停止当前播放的音频
     this.stopCurrent();
 
-    // Electron 和浏览器统一策略：优先 AudioContext，失败则用 HTML Audio
+    // 保存音频数据以支持继续播放
+    this.currentArrayBuffer = audioBuffer;
+
+    // 优先使用 HTML Audio，因为它原生支持暂停/继续
     try {
-      return await this.playAudioWithContext(audioBuffer);
+      return await this.playAudioWithHtmlElement(audioBuffer);
     } catch (error) {
-      console.warn(
-        "AudioContext 播放失败，尝试使用 HTML Audio (Blob URL):",
-        error
-      );
-      return this.playAudioWithHtmlElement(audioBuffer);
+      return this.playAudioWithContext(audioBuffer);
     }
   }
 
-  // 使用 HTML Audio Element 播放（兼容性更好）
+  // 使用 HTML Audio Element 播放（兼容性更好，支持暂停/继续）
   private playAudioWithHtmlElement(audioBuffer: ArrayBuffer): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       try {
@@ -187,24 +267,26 @@ class AudioPlaybackManager {
           try {
             const blob = new Blob([audioBuffer], { type: format });
             audioUrl = URL.createObjectURL(blob);
-            audio = new Audio(); // 修复: 使用 new Audio() 而不是 new HTMLAudioElement()
+            audio = new Audio();
 
             this.currentAudio = audio;
             this.isPlaying = true;
+            this.useHtmlAudio = true;
+            this.isPaused = false;
+            this.pausedAt = 0;
 
             audio.onended = () => {
               if (audioUrl) URL.revokeObjectURL(audioUrl);
               this.isPlaying = false;
+              this.isPaused = false;
               this.currentAudio = null;
-              console.log(`✅ HTML Audio 播放完成 (格式: ${format})`);
               resolve();
             };
 
-            audio.onerror = (e) => {
+            audio.onerror = () => {
               if (audioUrl) URL.revokeObjectURL(audioUrl);
               this.isPlaying = false;
               this.currentAudio = null;
-              console.warn(`❌ 格式 ${format} 播放失败:`, e);
 
               // 尝试下一个格式
               setTimeout(tryNextFormat, 10);
@@ -212,21 +294,15 @@ class AudioPlaybackManager {
 
             // 设置音频源并尝试播放
             audio.src = audioUrl;
-            audio.play().catch((playError) => {
+            audio.play().catch(() => {
               if (audioUrl) URL.revokeObjectURL(audioUrl);
               this.isPlaying = false;
               this.currentAudio = null;
-              console.warn(`❌ 格式 ${format} 播放失败:`, playError.message);
 
               // 尝试下一个格式
               setTimeout(tryNextFormat, 10);
             });
-
-            console.log(
-              `🎵 尝试使用 HTML Audio Element 播放音频 (格式: ${format})`
-            );
           } catch (error) {
-            console.warn(`❌ 格式 ${format} 创建失败:`, error);
             // 尝试下一个格式
             setTimeout(tryNextFormat, 10);
           }
@@ -242,42 +318,37 @@ class AudioPlaybackManager {
     });
   }
 
-  // 使用 AudioContext 播放（更高级但兼容性问题）
+  // 使用 AudioContext 播放（更高级但兼容性问题，暂停需要重新创建source）
   private async playAudioWithContext(audioBuffer: ArrayBuffer): Promise<void> {
-    const audioContext = new (window.AudioContext ||
+    this.audioContext = new (window.AudioContext ||
       (window as any).webkitAudioContext)();
 
     try {
-      // 打印音频数据前16字节用于调试
-      const debugView = new Uint8Array(
-        audioBuffer.slice(0, Math.min(16, audioBuffer.byteLength))
-      );
-      console.log(
-        "🔍 音频数据前16字节:",
-        Array.from(debugView)
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join(" ")
-      );
-      console.log("🔍 音频数据总大小:", audioBuffer.byteLength, "bytes");
-
-      const decodedBuffer = await audioContext.decodeAudioData(audioBuffer);
-      const source = audioContext.createBufferSource();
+      const decodedBuffer = await this.audioContext.decodeAudioData(audioBuffer);
+      this.currentAudioBuffer = decodedBuffer;
+      
+      const source = this.audioContext.createBufferSource();
       source.buffer = decodedBuffer;
-      source.connect(audioContext.destination);
+      source.connect(this.audioContext.destination);
 
       this.currentSource = source;
       this.isPlaying = true;
+      this.useHtmlAudio = false;
+      this.isPaused = false;
+      this.pausedAt = 0;
+      this.startedAt = this.audioContext.currentTime;
 
       // 设置结束回调
       return new Promise<void>((resolve) => {
         source.onended = () => {
-          this.isPlaying = false;
-          this.currentSource = null;
-          console.log("✅ AudioContext 播放完成");
-          resolve();
+          if (this.isPlaying) { // 只有正常结束才清理
+            this.isPlaying = false;
+            this.isPaused = false;
+            this.currentSource = null;
+            resolve();
+          }
         };
         source.start();
-        console.log("🎵 使用 AudioContext 播放音频");
       });
     } catch (error) {
       this.isPlaying = false;
@@ -293,6 +364,31 @@ class AudioPlaybackManager {
   // 检查是否正在播放
   getIsPlaying(): boolean {
     return this.isPlaying;
+  }
+
+  // 检查是否已暂停
+  getIsPaused(): boolean {
+    return this.isPaused;
+  }
+
+  // 获取当前播放位置（秒）
+  getCurrentTime(): number {
+    if (this.useHtmlAudio && this.currentAudio) {
+      return this.currentAudio.currentTime;
+    } else if (this.audioContext && this.isPlaying) {
+      return this.pausedAt + (this.audioContext.currentTime - this.startedAt);
+    }
+    return this.pausedAt;
+  }
+
+  // 获取音频总时长（秒）
+  getDuration(): number {
+    if (this.useHtmlAudio && this.currentAudio) {
+      return this.currentAudio.duration || 0;
+    } else if (this.currentAudioBuffer) {
+      return this.currentAudioBuffer.duration;
+    }
+    return 0;
   }
 }
 
@@ -318,7 +414,6 @@ export async function generateAndPlayTTS(
 
   // 检查TTS服务是否可用
   if (!speak || currentSpeakApi === "关闭") {
-    console.warn("TTS 服务未启用，请在设置中启用 Sherpa-ONNX TTS");
     return;
   }
 
@@ -335,18 +430,14 @@ export async function generateAndPlayTTS(
     onPlayingChange?.(true);
 
     // 1. 先检查数据库缓存
-    console.log("🔍 检查音频缓存...");
     const cachedAudio = await db.getAudioCache(timestamp);
 
     if (cachedAudio && cachedAudio.audio) {
-      console.log("✅ 找到缓存音频，直接播放");
-      await playAudioFromBuffer(cachedAudio.audio);
-      console.log("✅ 缓存音频播放完成");
+      await playAudioFromBuffer(cachedAudio.audio, onPlayingChange);
       return;
     }
 
     // 2. 没有缓存，生成新的音频
-    console.log("🔊 缓存中无音频，开始生成...");
     onGeneratingChange?.(true);
 
     const result = await speak(cleanContent);
@@ -375,9 +466,7 @@ export async function generateAndPlayTTS(
         audio: audioBuffer,
       });
 
-      console.log("✅ 音频已生成并缓存，开始播放");
-      await playAudioFromBuffer(audioBuffer);
-      console.log("✅ 新生成音频播放完成");
+      await playAudioFromBuffer(audioBuffer, onPlayingChange);
     }
   } catch (error) {
     console.error("❌ 语音播放失败:", error);
@@ -389,11 +478,19 @@ export async function generateAndPlayTTS(
 
 /**
  * 播放音频缓冲区
+ * @param audioBuffer - 音频数据
+ * @param onPlayingChange - 播放状态变化回调
  */
 export async function playAudioFromBuffer(
-  audioBuffer: ArrayBuffer
+  audioBuffer: ArrayBuffer,
+  onPlayingChange?: (playing: boolean) => void
 ): Promise<void> {
-  return audioManager.playAudio(audioBuffer);
+  onPlayingChange?.(true);
+  try {
+    await audioManager.playAudio(audioBuffer);
+  } finally {
+    onPlayingChange?.(false);
+  }
 }
 
 /**
@@ -404,10 +501,45 @@ export function stopCurrentAudio(): void {
 }
 
 /**
+ * 暂停当前播放的音频
+ */
+export function pauseCurrentAudio(): void {
+  audioManager.pause();
+}
+
+/**
+ * 继续播放暂停的音频
+ */
+export function resumeCurrentAudio(): Promise<void> {
+  return audioManager.resume();
+}
+
+/**
  * 检查是否有音频正在播放
  */
 export function isAudioPlaying(): boolean {
   return audioManager.getIsPlaying();
+}
+
+/**
+ * 检查是否有音频已暂停
+ */
+export function isAudioPaused(): boolean {
+  return audioManager.getIsPaused();
+}
+
+/**
+ * 获取当前播放位置（秒）
+ */
+export function getAudioCurrentTime(): number {
+  return audioManager.getCurrentTime();
+}
+
+/**
+ * 获取音频总时长（秒）
+ */
+export function getAudioDuration(): number {
+  return audioManager.getDuration();
 }
 
 /**

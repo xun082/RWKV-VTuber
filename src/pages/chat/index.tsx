@@ -35,7 +35,16 @@ export default function ChatPage() {
     setMessages,
   } = useChatSession();
 
-  const { onChat, updateMemory, clearChat, usedToken } = useChatOperations({
+  const {
+    onChat,
+    updateMemory,
+    clearChat,
+    usedToken,
+    ttsPlaybackState,
+    handleTtsPause,
+    handleTtsResume,
+    handleTtsStop,
+  } = useChatOperations({
     currentSessionId,
     messages,
     addMessage,
@@ -109,6 +118,7 @@ export default function ChatPage() {
                   content={msg.content}
                   timestamp={msg.timestamp}
                   index={index}
+                  uuid={msg.uuid}
                 />
               ))}
             </div>
@@ -180,6 +190,10 @@ export default function ChatPage() {
               onClearChat: clearChat,
               autoTTS: autoTTS,
               onToggleAutoTTS: () => setAutoTTS(!autoTTS),
+              ttsPlaybackState: ttsPlaybackState,
+              onTtsPause: handleTtsPause,
+              onTtsResume: handleTtsResume,
+              onTtsStop: handleTtsStop,
             }}
           />
         </div>

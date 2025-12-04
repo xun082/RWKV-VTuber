@@ -14,6 +14,10 @@ type GlobalState = {
 	setTtsActiveMessageId: (
 		id: string | null | ((prev: string | null) => string | null),
 	) => void
+	ttsLoadingMessageId: string | null
+	setTtsLoadingMessageId: (
+		id: string | null | ((prev: string | null) => string | null),
+	) => void
 }
 
 export const useStates = create<GlobalState>()((setState) => ({
@@ -30,5 +34,13 @@ export const useStates = create<GlobalState>()((setState) => ({
 				typeof ttsActiveMessageId === 'function'
 					? ttsActiveMessageId(state.ttsActiveMessageId)
 					: ttsActiveMessageId,
+		})),
+	ttsLoadingMessageId: null,
+	setTtsLoadingMessageId: (ttsLoadingMessageId) =>
+		setState((state) => ({
+			ttsLoadingMessageId:
+				typeof ttsLoadingMessageId === 'function'
+					? ttsLoadingMessageId(state.ttsLoadingMessageId)
+					: ttsLoadingMessageId,
 		})),
 }))

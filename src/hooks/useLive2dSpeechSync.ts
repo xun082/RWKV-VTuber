@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useLive2dApi } from "../stores/useLive2dApi.ts";
 
 // ============ 类型定义 ============
@@ -95,7 +95,15 @@ const easeOutCubic = (progress: number): number =>
  * Live2D 嘴型同步Hook - 基于文字内容模拟嘴型动作
  */
 export const useLive2dSpeechSync = () => {
-  const { live2d } = useLive2dApi();
+  const live2dRef = useRef(useLive2dApi.getState().live2d);
+
+  useEffect(() => {
+    live2dRef.current = useLive2dApi.getState().live2d;
+    const unsub = useLive2dApi.subscribe((state) => {
+      live2dRef.current = state.live2d;
+    });
+    return unsub;
+  }, []);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const isPlayingRef = useRef(false);
 
@@ -138,23 +146,21 @@ export const useLive2dSpeechSync = () => {
   }, []);
 
   // 设置Live2D嘴型参数
-  const setMouthShape = useCallback(
-    (params: MouthParams) => {
-      if (!live2d?.setParam) return;
+  const setMouthShape = useCallback((params: MouthParams) => {
+    const live2d = live2dRef.current;
+    if (!live2d?.setParam) return;
 
-      try {
-        live2d.setParam("ParamMouthOpenY", params.mouth);
-        live2d.setParam("ParamA", params.a);
-        live2d.setParam("ParamI", params.i);
-        live2d.setParam("ParamU", params.u);
-        live2d.setParam("ParamE", params.e);
-        live2d.setParam("ParamO", params.o);
-      } catch (error) {
-        console.warn("Failed to set mouth parameters:", error);
-      }
-    },
-    [live2d]
-  );
+    try {
+      live2d.setParam("ParamMouthOpenY", params.mouth);
+      live2d.setParam("ParamA", params.a);
+      live2d.setParam("ParamI", params.i);
+      live2d.setParam("ParamU", params.u);
+      live2d.setParam("ParamE", params.e);
+      live2d.setParam("ParamO", params.o);
+    } catch (error) {
+      console.warn("Failed to set mouth parameters:", error);
+    }
+  }, []);
 
   // 停止当前嘴型动画
   const stopSpeech = useCallback(() => {
@@ -243,6 +249,7 @@ export const useLive2dSpeechSync = () => {
   // 文字嘴型同步 - 支持平滑过渡和自适应速度
   const speakText = useCallback(
     async (text: string, options?: SpeechOptions) => {
+      const live2d = live2dRef.current;
       if (!live2d || !text.trim()) return;
 
       const {
@@ -322,7 +329,6 @@ export const useLive2dSpeechSync = () => {
       animationFrameRef.current = requestAnimationFrame(animate);
     },
     [
-      live2d,
       analyzeVowel,
       setMouthShape,
       stopSpeech,
@@ -336,6 +342,7 @@ export const useLive2dSpeechSync = () => {
   // 快速嘴型同步 - 基于文本内容的智能变化
   const quickSpeech = useCallback(
     (text: string, options?: QuickSpeechOptions) => {
+      const live2d = live2dRef.current;
       if (!live2d || !text.trim()) return;
 
       const { intensity = 0.8 } = options || {};
@@ -392,13 +399,7 @@ export const useLive2dSpeechSync = () => {
       // 清理函数
       return () => clearInterval(interval);
     },
-    [
-      live2d,
-      setMouthShape,
-      analyzeVowel,
-      animateTransition,
-      addNaturalVariation,
-    ]
+    [setMouthShape, analyzeVowel, animateTransition, addNaturalVariation]
   );
 
   return {

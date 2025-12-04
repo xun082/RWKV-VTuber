@@ -433,7 +433,7 @@ export async function generateAndPlayTTS(
     const cachedAudio = await db.getAudioCache(timestamp);
 
     if (cachedAudio && cachedAudio.audio) {
-      await playAudioFromBuffer(cachedAudio.audio, onPlayingChange);
+      await playAudioFromBuffer(cachedAudio.audio);
       return;
     }
 
@@ -466,7 +466,7 @@ export async function generateAndPlayTTS(
         audio: audioBuffer,
       });
 
-      await playAudioFromBuffer(audioBuffer, onPlayingChange);
+      await playAudioFromBuffer(audioBuffer);
     }
   } catch (error) {
     console.error("❌ 语音播放失败:", error);
@@ -479,18 +479,128 @@ export async function generateAndPlayTTS(
 /**
  * 播放音频缓冲区
  * @param audioBuffer - 音频数据
- * @param onPlayingChange - 播放状态变化回调
  */
 export async function playAudioFromBuffer(
-  audioBuffer: ArrayBuffer,
-  onPlayingChange?: (playing: boolean) => void
+  audioBuffer: ArrayBuffer
 ): Promise<void> {
-  onPlayingChange?.(true);
-  try {
-    await audioManager.playAudio(audioBuffer);
-  } finally {
-    onPlayingChange?.(false);
+  await audioManager.playAudio(audioBuffer);
+}
+
+type AutoTtsTask = {
+  text: string;
+  timestamp: number;
+  callbacks: {
+    onGeneratingStart?: () => void;
+    onGeneratingEnd?: () => void;
+    onPlayingStart?: () => void;
+    onPlayingEnd?: () => void;
+  };
+};
+
+type TaskWithBuffer = AutoTtsTask & {
+  audioBuffer?: ArrayBuffer | null;
+  generationPromise?: Promise<ArrayBuffer | null>;
+};
+
+class AutoTtsQueue {
+  private queue: TaskWithBuffer[] = [];
+  private isPlayingQueue = false;
+
+  enqueue(task: AutoTtsTask) {
+    const taskWithBuffer: TaskWithBuffer = { ...task };
+    this.queue.push(taskWithBuffer);
+    
+    // 立即开始生成（不等待播放）
+    task.callbacks.onGeneratingStart?.();
+    taskWithBuffer.generationPromise = generateTTSOnly(task.text, task.timestamp)
+      .then((buffer) => {
+        taskWithBuffer.audioBuffer = buffer;
+        task.callbacks.onGeneratingEnd?.();
+        return buffer;
+      })
+      .catch((error) => {
+        console.error("❌ TTS生成失败:", error);
+        taskWithBuffer.audioBuffer = null;
+        task.callbacks.onGeneratingEnd?.();
+        return null;
+      });
+
+    // 启动播放队列处理
+    this.processPlayQueue();
   }
+
+  private async processPlayQueue() {
+    if (this.isPlayingQueue || this.queue.length === 0) {
+      return;
+    }
+
+    this.isPlayingQueue = true;
+
+    while (this.queue.length > 0) {
+      const task = this.queue[0]; // 查看队首任务，但先不移除
+      if (!task) break;
+
+      try {
+        // 等待生成完成
+        if (task.generationPromise) {
+          await task.generationPromise;
+        }
+
+        // 现在可以安全移除任务了
+        this.queue.shift();
+
+        // 播放阶段
+        if (task.audioBuffer) {
+          task.callbacks.onPlayingStart?.();
+          try {
+            await playAudioFromBuffer(task.audioBuffer);
+          } finally {
+            task.callbacks.onPlayingEnd?.();
+          }
+        } else {
+          // 生成失败，也要调用回调清理状态
+          task.callbacks.onPlayingEnd?.();
+        }
+      } catch (error) {
+        console.error("❌ 自动TTS播放失败:", error);
+        this.queue.shift(); // 出错也要移除任务
+        task.callbacks.onPlayingEnd?.();
+      }
+    }
+
+    this.isPlayingQueue = false;
+  }
+
+  clear() {
+    this.queue = [];
+  }
+
+  getQueueLength(): number {
+    return this.queue.length;
+  }
+}
+
+const autoTtsQueue = new AutoTtsQueue();
+
+export function enqueueAutoTtsTask(
+  text: string,
+  timestamp: number,
+  callbacks: {
+    onGeneratingStart?: () => void;
+    onGeneratingEnd?: () => void;
+    onPlayingStart?: () => void;
+    onPlayingEnd?: () => void;
+  } = {}
+): void {
+  autoTtsQueue.enqueue({ text, timestamp, callbacks });
+}
+
+export function clearAutoTtsQueue(): void {
+  autoTtsQueue.clear();
+}
+
+export function getAutoTtsQueueLength(): number {
+  return autoTtsQueue.getQueueLength();
 }
 
 /**

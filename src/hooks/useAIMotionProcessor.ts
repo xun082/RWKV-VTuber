@@ -4,13 +4,21 @@ import { useLive2dApi } from '../stores/useLive2dApi.ts'
 import { useLive2dSpeechSync } from './useLive2dSpeechSync.ts'
 
 export const useAIMotionProcessor = () => {
-	const { live2d } = useLive2dApi()
+	const live2dRef = useRef(useLive2dApi.getState().live2d)
+	useEffect(() => {
+		live2dRef.current = useLive2dApi.getState().live2d
+		const unsub = useLive2dApi.subscribe((state) => {
+			live2dRef.current = state.live2d
+		})
+		return unsub
+	}, [])
 	const setMotionProcessor = useChatApi((state) => state.setMotionProcessor)
 	const { speakText, quickSpeech, stopSpeech } = useLive2dSpeechSync()
 
 	// Live2D motion functions
 	const playRandomMotion = useCallback(
 		async (group: string) => {
+			const live2d = live2dRef.current
 			if (!live2d) return false
 			try {
 				return await live2d.playMotion(group)
@@ -19,11 +27,12 @@ export const useAIMotionProcessor = () => {
 				return false
 			}
 		},
-		[live2d],
+		[],
 	)
 
 	const playSpecificMotion = useCallback(
 		async (group: string, index: number) => {
+			const live2d = live2dRef.current
 			if (!live2d) return false
 			try {
 				return await live2d.playMotion(group, index)
@@ -32,12 +41,13 @@ export const useAIMotionProcessor = () => {
 				return false
 			}
 		},
-		[live2d],
+		[],
 	)
 
 	// 表情控制函数
 	const setExpression = useCallback(
 		async (expressionId: string, intensity = 1.0) => {
+			const live2d = live2dRef.current
 			if (!live2d) return false
 			try {
 				// 通过参数控制表情
@@ -67,11 +77,12 @@ export const useAIMotionProcessor = () => {
 				return false
 			}
 		},
-		[live2d],
+		[],
 	)
 
 	// 重置表情到中性状态
 	const resetExpression = useCallback(() => {
+		const live2d = live2dRef.current
 		if (!live2d?.setParam) return
 		try {
 			live2d.setParam('ParamMouthForm', 0)
@@ -82,7 +93,7 @@ export const useAIMotionProcessor = () => {
 		} catch (error) {
 			console.warn('Failed to reset expression:', error)
 		}
-	}, [live2d])
+	}, [])
 	const lastMotionRef = useRef<string>('Idle')
 	const motionCounterRef = useRef<number>(0)
 

@@ -46,10 +46,15 @@ export function MessageItem({
   const setTtsActiveMessageId = useStates(
     (state) => state.setTtsActiveMessageId
   );
+  const ttsLoadingMessageId = useStates((state) => state.ttsLoadingMessageId);
+  const setTtsLoadingMessageId = useStates(
+    (state) => state.setTtsLoadingMessageId
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGloballyPlaying, setIsGloballyPlaying] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const isActiveMessage = ttsActiveMessageId === uuid;
+  const isLoading = isGenerating || ttsLoadingMessageId === uuid;
 
   // 过滤掉动作标签 [MMOTION:xxx]
   let displayContent = content.replace(/\[MMOTION:[^\]]+\]\s*/g, "").trim();
@@ -127,21 +132,29 @@ export function MessageItem({
   const handleSpeakClick = async () => {
     if (isGenerating) return;
 
-    setTtsActiveMessageId(uuid);
+    setTtsLoadingMessageId(uuid);
 
-    await generateAndPlayTTS(content, timestamp, {
-      onGeneratingChange: setIsGenerating,
-      onPlayingChange: (playing) => {
-        // 同步更新全局状态
-        const newState = playing ? "playing" : "idle";
-        setTtsPlaybackState(newState);
-        if (!playing) {
-          setTtsActiveMessageId((current) =>
-            current === uuid ? null : current
-          );
-        }
-      },
-    });
+    try {
+      await generateAndPlayTTS(content, timestamp, {
+        onGeneratingChange: setIsGenerating,
+        onPlayingChange: (playing) => {
+          const newState = playing ? "playing" : "idle";
+          setTtsPlaybackState(newState);
+          if (playing) {
+            setTtsActiveMessageId(uuid);
+            setTtsLoadingMessageId((current) =>
+              current === uuid ? null : current
+            );
+          } else {
+            setTtsActiveMessageId((current) =>
+              current === uuid ? null : current
+            );
+          }
+        },
+      });
+    } finally {
+      setTtsLoadingMessageId((current) => (current === uuid ? null : current));
+    }
   };
 
   const handlePause = () => {
@@ -222,34 +235,39 @@ export function MessageItem({
           {/* 语音播放控制按钮组 - 只在AI消息中显示 */}
           {isAssistant && (
             <div className="flex items-center gap-1">
-              {/* 播放按钮 - 当没有播放或暂停时显示 */}
-              {(!isActiveMessage || ttsPlaybackState === "idle") && (
+              {/* 加载按钮 */}
+              {isLoading ? (
                 <button
-                  onClick={handleSpeakClick}
-                  disabled={isGenerating}
-                  className={`
+                  type="button"
+                  disabled
+                  className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-300/40 dark:border-gray-600/40 bg-gray-200/60 dark:bg-gray-600/40 text-gray-500 dark:text-gray-400 cursor-wait"
+                  title="语音生成中..."
+                >
+                  <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" />
+                </button>
+              ) : (
+                (!isActiveMessage || ttsPlaybackState === "idle") && (
+                  <button
+                    onClick={handleSpeakClick}
+                    className={`
                      flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm
                      ${
-                       isGenerating
-                         ? "bg-blue-500/20 dark:bg-blue-400/20 text-blue-600 dark:text-blue-400 cursor-not-allowed border border-blue-400/30"
-                         : isGloballyPlaying
+                       isGloballyPlaying
                          ? "bg-orange-500/15 dark:bg-orange-400/15 text-orange-600 dark:text-orange-400 hover:bg-red-500/20 dark:hover:bg-red-400/20 hover:text-red-600 dark:hover:text-red-400 cursor-pointer hover:scale-105 border border-orange-400/30 hover:border-red-400/30"
                          : !speak || currentSpeakApi === "关闭"
                          ? "bg-gray-200/60 dark:bg-gray-600/40 hover:bg-yellow-500/15 dark:hover:bg-yellow-400/15 text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:scale-105 cursor-pointer border border-gray-300/40 dark:border-gray-600/40"
                          : "bg-gray-200/50 dark:bg-gray-600/30 hover:bg-blue-500/15 dark:hover:bg-blue-400/15 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:scale-105 cursor-pointer border border-gray-300/30 dark:border-gray-600/30 hover:border-blue-400/30"
                      }
-                     disabled:opacity-50
                    `}
-                  title={isGenerating ? "正在生成语音..." : "播放语音"}
-                >
-                  {isGenerating ? (
-                    <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" />
-                  ) : !speak || currentSpeakApi === "关闭" ? (
-                    <VolumeOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  ) : (
-                    <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  )}
-                </button>
+                    title="播放语音"
+                  >
+                    {!speak || currentSpeakApi === "关闭" ? (
+                      <VolumeOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    ) : (
+                      <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    )}
+                  </button>
+                )
               )}
 
               {/* 播放中：显示暂停和停止按钮 */}

@@ -45,7 +45,6 @@ export async function loadCustomPaths(): Promise<void> {
     if (fsSync.existsSync(configFile)) {
       const data = await fs.readFile(configFile, "utf-8");
       customPathsConfig = JSON.parse(data);
-      console.log("[Paths] 已加载自定义路径配置:", customPathsConfig);
     }
   } catch (error) {
     console.warn("[Paths] 加载路径配置失败:", error);
@@ -63,7 +62,6 @@ export async function saveCustomPaths(config: {
   const configFile = getPathsConfigFile();
   customPathsConfig = { ...customPathsConfig, ...config };
   await fs.writeFile(configFile, JSON.stringify(customPathsConfig, null, 2), "utf-8");
-  console.log("[Paths] 已保存自定义路径配置:", customPathsConfig);
 }
 
 /**
@@ -114,7 +112,6 @@ export function resolveModelPath(
   // 如果是绝对路径，直接规范化并返回
   if (path.isAbsolute(normalizedPath)) {
     const absolutePath = path.resolve(normalizedPath);
-    console.log(`[Paths] 使用绝对路径: ${absolutePath}`);
     return absolutePath;
   }
 
@@ -131,7 +128,6 @@ export function resolveModelPath(
     // 使用 path.resolve 确保路径完全规范化（Windows 上会使用反斜杠）
     const resolvedPath = path.resolve(tryPath);
     if (fsSync.existsSync(resolvedPath)) {
-      console.log(`[Paths] ✓ 找到模型文件: ${resolvedPath}`);
       return resolvedPath;
     }
   }

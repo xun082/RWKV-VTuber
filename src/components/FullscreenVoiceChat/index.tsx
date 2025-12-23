@@ -53,11 +53,6 @@ export function FullscreenVoiceChat() {
 
   // 监控会话状态变化
   useEffect(() => {
-    console.log("🔄 FullscreenVoiceChat 会话状态:", {
-      isInitialized,
-      currentSessionId,
-      messagesCount: messages.length,
-    });
   }, [isInitialized, currentSessionId, messages.length]);
 
   // 开始录音
@@ -74,10 +69,8 @@ export function FullscreenVoiceChat() {
       setCurrentRecognitionText("");
 
       setIsRecording(true);
-      console.log("开始语音识别...");
 
       const recognition = listen((text: string) => {
-        console.log("实时识别结果:", text);
         setCurrentRecognitionText(text);
       });
 
@@ -91,12 +84,10 @@ export function FullscreenVoiceChat() {
 
       // 检查是否已被取消
       if (isCancelledRef.current) {
-        console.log("🚫 语音识别已被取消，不处理结果");
         return;
       }
 
       if (result && result.trim()) {
-        console.log("最终识别结果:", result);
         await handleUserMessage(result);
       } else {
         toast.warning("未识别到语音内容，请重试");
@@ -130,7 +121,6 @@ export function FullscreenVoiceChat() {
     async (text: string) => {
       try {
         setIsSpeaking(true);
-        console.log(`[全屏模式] 开始语音合成 (使用 ${currentSpeakApi}):`, text);
 
         // 检查 TTS 服务是否可用
         if (!speak || currentSpeakApi === "关闭") {
@@ -151,7 +141,6 @@ export function FullscreenVoiceChat() {
 
         if (result && result.audio && result.audio.length > 0) {
           await playAudioData(result.audio);
-          console.log("[全屏模式] 语音播放完成");
         }
 
         setIsSpeaking(false);
@@ -172,14 +161,9 @@ export function FullscreenVoiceChat() {
       const lastMessage = messages[messages.length - 1];
 
       if (lastMessage && lastMessage.role === "assistant") {
-        console.log("检测到AI回复完成:", {
-          length: lastMessage.content.length,
-          content: lastMessage.content.substring(0, 50) + "...",
-        });
 
         // 检查是否已被取消
         if (isCancelledRef.current) {
-          console.log("🚫 AI回复处理已被取消");
           setWaitingForAI(false);
           setIsProcessing(false);
           return;
@@ -192,13 +176,11 @@ export function FullscreenVoiceChat() {
 
         // AI回复现在是即时完成的，直接检查内容长度
         if (lastMessage.content && lastMessage.content.trim().length > 3) {
-          console.log("AI回复已完成，准备语音同步显示:", lastMessage.content);
           setWaitingForAI(false);
           setIsProcessing(false);
 
           // 再次检查是否已被取消
           if (isCancelledRef.current) {
-            console.log("🚫 语音合成已被取消");
             return;
           }
 
@@ -210,7 +192,6 @@ export function FullscreenVoiceChat() {
             // 开始语音合成
             speakMessage(lastMessage.content);
           } else {
-            console.log("跳过超时或错误消息的语音合成");
           }
         } else {
           console.warn("AI回复内容太短:", lastMessage.content);
@@ -227,7 +208,6 @@ export function FullscreenVoiceChat() {
       try {
         // 检查是否已被取消
         if (isCancelledRef.current) {
-          console.log("🚫 消息处理已被取消");
           return;
         }
 
@@ -237,9 +217,6 @@ export function FullscreenVoiceChat() {
           return;
         }
 
-        console.log("🎤 用户说话:", message);
-        console.log("📊 当前消息数量:", messages.length);
-        console.log("🔗 会话ID:", currentSessionId);
 
         setIsProcessing(true);
         setWaitingForAI(true);
@@ -252,7 +229,6 @@ export function FullscreenVoiceChat() {
 
         // 检查是否在AI处理过程中被取消
         if (isCancelledRef.current) {
-          console.log("🚫 AI处理过程中被取消");
           setWaitingForAI(false);
           setIsProcessing(false);
           return;
@@ -347,7 +323,6 @@ export function FullscreenVoiceChat() {
     // 退出全屏模式
     setIsFullScreen(false);
 
-    console.log("🚫 强制退出全屏语音模式，取消所有处理");
   }, [setIsFullScreen]);
 
   // 按键事件处理

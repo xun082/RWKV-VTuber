@@ -43,8 +43,14 @@ export default function ConfigServicePage() {
   const setSherpaTtsConfig = useSherpaTtsConfig((state) => state.setConfig);
   const setSherpaConfig = useSherpaConfig((state) => state.setConfig);
   const { currentSpeakApi, setSpeakApi, speakApiList } = useSpeakApi();
-  const { chatApiType, setChatApiType, rwkvEndpoint, setRwkvEndpoint } =
-    useChatApi();
+  const {
+    chatApiType,
+    setChatApiType,
+    rwkvEndpoint,
+    setRwkvEndpoint,
+    rwkvPassword,
+    setRwkvPassword,
+  } = useChatApi();
 
   // TTS 模型下载状态
   const [matchaDownloaded, setMatchaDownloaded] = useState(false);
@@ -73,8 +79,10 @@ export default function ConfigServicePage() {
   const [savingApiKey, setSavingApiKey] = useState(false);
 
   // 本地 RWKV 配置
-  const [rwkvUrl, setRwkvUrl] = useState(rwkvEndpoint);
+  const [rwkvUrl, setRwkvUrl] = useState(rwkvEndpoint || "");
   const [savingRwkvUrl, setSavingRwkvUrl] = useState(false);
+  const [rwkvPwd, setRwkvPwd] = useState(rwkvPassword || "");
+  const [savingRwkvPwd, setSavingRwkvPwd] = useState(false);
 
   // 错误日志统计
   const [errorStats, setErrorStats] = useState<{
@@ -346,6 +354,20 @@ export default function ConfigServicePage() {
     }
   };
 
+  // 保存本地 RWKV 密码
+  const saveRwkvPassword = async () => {
+    try {
+      setSavingRwkvPwd(true);
+      await setRwkvPassword((rwkvPwd || "").trim());
+      toast.success("RWKV 密码保存成功！");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`保存失败: ${errorMessage}`);
+    } finally {
+      setSavingRwkvPwd(false);
+    }
+  };
+
   // 保存 MiniMax API Key
   const saveMiniMaxApiKey = async () => {
     const electronAPI = (window as any).electronAPI;
@@ -417,8 +439,9 @@ export default function ConfigServicePage() {
           setMiniMaxApiKey(miniMaxConfigResult.apiKey);
         }
 
-        // 初始化 RWKV URL
-        setRwkvUrl(rwkvEndpoint);
+        // 初始化 RWKV URL 和密码
+        setRwkvUrl(rwkvEndpoint || "");
+        setRwkvPwd(rwkvPassword || "");
       } catch (error) {
         console.error("检查模型失败:", error);
       }
@@ -434,10 +457,14 @@ export default function ConfigServicePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 空依赖数组：只在组件挂载时执行一次
 
-  // 同步 rwkvEndpoint 的变化
+  // 同步 rwkvEndpoint 和 rwkvPassword 的变化
   useEffect(() => {
-    setRwkvUrl(rwkvEndpoint);
+    setRwkvUrl(rwkvEndpoint || "");
   }, [rwkvEndpoint]);
+
+  useEffect(() => {
+    setRwkvPwd(rwkvPassword || "");
+  }, [rwkvPassword]);
 
   // 下载 TTS 模型
   const downloadModel = async (modelType: "matcha" | "vocoder") => {
@@ -662,30 +689,59 @@ export default function ConfigServicePage() {
 
                   {/* 本地 RWKV 配置 - 仅在选择 RWKV (本地) 时显示 */}
                   {chatApiType === "rwkv-local" && (
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                        服务地址配置
-                      </label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="url"
-                          placeholder="http://192.168.0.12:8000/v4/chat/completions"
-                          value={rwkvUrl}
-                          onChange={(e) => setRwkvUrl(e.target.value)}
-                          className="flex-1"
-                        />
-                        <Button
-                          onClick={saveRwkvUrl}
-                          disabled={savingRwkvUrl || !rwkvUrl.trim()}
-                          size="sm"
-                        >
-                          {savingRwkvUrl ? "保存中..." : "保存"}
-                        </Button>
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                      {/* 服务地址配置 */}
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                          服务地址配置
+                        </label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="url"
+                            placeholder="http://192.168.0.12:8000/v1/chat/completions"
+                            value={rwkvUrl}
+                            onChange={(e) => setRwkvUrl(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button
+                            onClick={saveRwkvUrl}
+                            disabled={savingRwkvUrl || !rwkvUrl.trim()}
+                            size="sm"
+                          >
+                            {savingRwkvUrl ? "保存中..." : "保存"}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          请输入本地 RWKV 服务的完整 URL，例如：
+                          http://192.168.0.12:8000/v1/chat/completions
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        请输入本地 RWKV 服务的完整 URL，例如：
-                        http://192.168.0.12:8000/v4/chat/completions
-                      </p>
+
+                      {/* 密码配置 */}
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                          服务密码配置
+                        </label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="password"
+                            placeholder="请输入 RWKV 服务密码"
+                            value={rwkvPwd}
+                            onChange={(e) => setRwkvPwd(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button
+                            onClick={saveRwkvPassword}
+                            disabled={savingRwkvPwd}
+                            size="sm"
+                          >
+                            {savingRwkvPwd ? "保存中..." : "保存"}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          请输入 RWKV 服务的访问密码（如果服务器设置了密码保护）
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>

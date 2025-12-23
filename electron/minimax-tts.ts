@@ -37,11 +37,6 @@ function detectLanguage(text: string): "en" | "zh" {
 
   const englishRatio = englishCount / totalChars;
 
-  console.log(
-    `[MiniMax-TTS] 语言检测 - 中文: ${chineseCount}, 英文: ${englishCount}, 英文占比: ${(
-      englishRatio * 100
-    ).toFixed(1)}%`
-  );
 
   return englishRatio > 0.5 ? "en" : "zh";
 }
@@ -105,7 +100,6 @@ export async function generateSpeechMiniMax(
     if (!voiceId) {
       const language = detectLanguage(args.text);
       voiceId = getVoiceIdByLanguage(language);
-      console.log(`[MiniMax-TTS] 自动选择音色: ${voiceId} (语言: ${language})`);
     }
 
     const requestBody = {

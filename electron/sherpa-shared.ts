@@ -18,7 +18,6 @@ export async function getSharedSherpaONNX(): Promise<any> {
     return loadPromise;
   }
 
-  console.log("[Sherpa-ONNX] 加载模块...");
   loadPromise = (async () => {
     try {
       const loaded = await import("sherpa-onnx" as any);
@@ -36,7 +35,6 @@ export async function getSharedSherpaONNX(): Promise<any> {
         throw new Error("sherpa-onnx 模块缺少 createOfflineTts 方法");
       }
 
-      console.log("[Sherpa-ONNX] ✓ 模块加载成功");
       return sherpa_onnx_instance;
     } catch (error: any) {
       loadPromise = null;

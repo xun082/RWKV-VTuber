@@ -125,11 +125,6 @@ export const useAIMotionProcessor = () => {
 								const [, group, indexStr] = match
 								const index = indexStr ? Number.parseInt(indexStr) : undefined
 
-								console.log(
-									`[Live2D Motion] AI Command ${i + 1}/${
-										motionMatches.length
-									}: ${match[0]} -> Group: ${group}, Index: ${index}`,
-								)
 
 								if (index !== undefined) {
 									playSpecificMotion(group, index)
@@ -294,20 +289,8 @@ export const useAIMotionProcessor = () => {
 					const maxIndex = selectedMotion === 'Tap' ? 3 : 3 // Both Tap and Idle have 3 variations
 					const index = motionCounterRef.current % maxIndex
 					playSpecificMotion(selectedMotion, index)
-					console.log(
-						`[Live2D Motion] Sentiment: "${cleanContent.substring(
-							0,
-							30,
-						)}..." -> ${selectedMotion}[${index}] + Expression: ${expressionType}`,
-					)
 				} else {
 					playRandomMotion(selectedMotion)
-					console.log(
-						`[Live2D Motion] Sentiment: "${cleanContent.substring(
-							0,
-							30,
-						)}..." -> ${selectedMotion}[random] + Expression: ${expressionType}`,
-					)
 				}
 
 				// 设置表情

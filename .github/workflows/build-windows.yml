@@ -2,10 +2,10 @@ name: Build Windows
 
 on:
   push:
-    branches: ['main']
-    tags: ['v*.*.*']
+    branches: ["main"]
+    tags: ["v*.*.*"]
   pull_request:
-    branches: ['main']
+    branches: ["main"]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 
@@ -26,12 +26,12 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
+          node-version: "22"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Configure Git
         run: |
@@ -50,15 +50,13 @@ jobs:
           strict-peer-dependencies=false
           shamefully-hoist=true
           "@ | Out-File -FilePath .npmrc -Encoding utf8
-          Write-Host "✅ CI npmrc configuration:"
-          Get-Content .npmrc
+          Write-Host "✅ CI npmrc configured"
 
       - name: Get pnpm store directory
         id: pnpm-cache
         shell: pwsh
         run: |
           $storePath = pnpm store path --silent
-          Write-Host "PNPM Store Path: $storePath"
           "STORE_PATH=$storePath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Setup pnpm cache
@@ -68,13 +66,6 @@ jobs:
           key: windows-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             windows-pnpm-
-
-      - name: Cache Whisper model
-        id: cache-whisper
-        uses: actions/cache@v4
-        with:
-          path: electron/models/ggml-small.bin
-          key: whisper-model-small-v1
 
       - name: Install dependencies
         shell: pwsh
@@ -87,47 +78,15 @@ jobs:
           }
           Write-Host "✅ Dependencies installed successfully"
 
-      - name: Download Whisper model
-        if: steps.cache-whisper.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "electron/models" | Out-Null
-          Write-Host "📥 Downloading Whisper model (ggml-small.bin) - 465MB..."
-          $ProgressPreference = 'SilentlyContinue'
-          try {
-            Invoke-WebRequest -Uri "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin" -OutFile "electron/models/ggml-small.bin" -TimeoutSec 600
-            Write-Host "✅ Model downloaded successfully"
-          } catch {
-            Write-Host "❌ Model download failed: $_"
-            exit 1
-          }
-
-      - name: Verify Whisper model
-        shell: pwsh
-        run: |
-          if (Test-Path "electron/models/ggml-small.bin") {
-            $fileSize = (Get-Item "electron/models/ggml-small.bin").Length / 1MB
-            Write-Host "✅ Whisper model verified: $([math]::Round($fileSize, 2)) MB"
-            if ($fileSize -lt 400) {
-              Write-Host "❌ Model file is too small, might be corrupted"
-              exit 1
-            }
-          } else {
-            Write-Host "❌ Whisper model not found!"
-            exit 1
-          }
-
       - name: Get package version
         id: version
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('./package.json','utf8'));
-            const version = pkg.version;
-            console.log(`Package version: ${version}`);
-            core.setOutput('version', version);
-            return version;
+        shell: pwsh
+        run: |
+          $pkg = Get-Content -Path "package.json" -Raw | ConvertFrom-Json
+          $version = $pkg.version
+          Write-Host "Package version: $version"
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Compile TypeScript
         shell: pwsh
@@ -140,42 +99,6 @@ jobs:
           }
           Write-Host "✅ TypeScript compiled successfully"
 
-      - name: Copy native files and models
-        shell: pwsh
-        run: |
-          Write-Host "📦 Copying native files and models..."
-          
-          # 创建目标目录
-          New-Item -ItemType Directory -Force -Path "dist-electron/native/whisper" | Out-Null
-          New-Item -ItemType Directory -Force -Path "dist-electron/models" | Out-Null
-          
-          # 复制 native whisper 文件（Windows 使用 .node 文件）
-          if (Test-Path "electron/native/whisper") {
-            Copy-Item -Path "electron/native/whisper/*" -Destination "dist-electron/native/whisper/" -Recurse -Force -ErrorAction Stop
-            Write-Host "✅ Copied native whisper files"
-            Get-ChildItem "dist-electron/native/whisper/" | ForEach-Object { Write-Host "  - $($_.Name)" }
-          } else {
-            Write-Host "⚠️ Warning: electron/native/whisper not found"
-          }
-          
-          # 复制 Whisper model
-          if (Test-Path "electron/models/ggml-small.bin") {
-            Copy-Item -Path "electron/models/ggml-small.bin" -Destination "dist-electron/models/" -Force -ErrorAction Stop
-            Write-Host "✅ Copied Whisper model"
-            $modelSize = (Get-Item "dist-electron/models/ggml-small.bin").Length / 1MB
-            Write-Host "  - ggml-small.bin: $([math]::Round($modelSize, 2)) MB"
-          } else {
-            Write-Host "❌ Whisper model not found!"
-            exit 1
-          }
-          
-          # 注意：Sherpa-ONNX 模型不打包，由用户自行下载配置
-          Write-Host "ℹ️  Sherpa-ONNX 模型需用户自行下载配置"
-          
-          # 验证文件结构
-          Write-Host "`n📁 dist-electron structure:"
-          Get-ChildItem -Path "dist-electron" -Recurse | Select-Object FullName, Length | Format-Table -AutoSize
-
       - name: Build Vite frontend
         shell: pwsh
         run: |
@@ -186,8 +109,6 @@ jobs:
             exit 1
           }
           Write-Host "✅ Vite build completed"
-          Write-Host "`n📁 dist/ contents:"
-          Get-ChildItem -Path "dist" -Recurse | Select-Object FullName | Format-Table -AutoSize
 
       - name: Build Electron App (Windows)
         shell: pwsh
@@ -196,15 +117,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           Write-Host "⚙️ Building Electron app for Windows..."
-          Write-Host "Version: ${{ steps.version.outputs.version }}"
-          
-          # 显示环境信息
-          Write-Host "`n📋 Build environment:"
-          Write-Host "  - Node: $(node --version)"
-          Write-Host "  - npm: $(npm --version)"
-          Write-Host "  - pnpm: $(pnpm --version)"
-          Write-Host "  - electron-builder: $(npx electron-builder --version)"
-          
+          Write-Host "Version: $env:VERSION"
+
           # 执行构建 - 只在 tag 推送时发布
           if ("${{ github.ref }}" -like "refs/tags/*") {
             Write-Host "📦 Building and publishing to GitHub Release..."
@@ -213,29 +127,18 @@ jobs:
             Write-Host "📦 Building without publishing..."
             pnpm electron-builder --win --x64 --publish never
           }
-          
+
           if ($LASTEXITCODE -ne 0) {
             Write-Host "❌ Electron build failed"
             exit 1
           }
-          
-          Write-Host "✅ Electron build completed"
-          Write-Host "`n📦 Build artifacts:"
-          Get-ChildItem -Path "dist" -Filter "*.exe" -Recurse | ForEach-Object {
-            $size = $_.Length / 1MB
-            Write-Host "  - $($_.Name): $([math]::Round($size, 2)) MB"
-          }
 
-      - name: List all build outputs
-        shell: pwsh
-        run: |
-          Write-Host "📋 All files in dist/ directory:"
-          Get-ChildItem -Path "dist" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object FullName, @{N='Size(MB)';E={[math]::Round($_.Length/1MB, 2)}} | Format-Table -AutoSize
+          Write-Host "✅ Electron build completed"
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-x64-${{ steps.version.outputs.version }}
+          name: windows-x64-build
           path: |
             dist/*.exe
             dist/*.exe.blockmap
@@ -257,4 +160,3 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

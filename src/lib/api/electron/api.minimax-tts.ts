@@ -20,12 +20,6 @@ export const speak_minimax_tts = async (
       throw new Error("Electron API 不可用");
     }
 
-    console.log("[MiniMax-TTS] 开始合成语音...");
-    console.log(
-      `[MiniMax-TTS] 文本: ${text.substring(0, 50)}${
-        text.length > 50 ? "..." : ""
-      }`
-    );
 
     const result = await electronAPI.invoke("minimax_tts_generate", {
       text: text,
@@ -37,9 +31,6 @@ export const speak_minimax_tts = async (
       throw new Error("语音合成失败：未返回音频数据");
     }
 
-    console.log(
-      `[MiniMax-TTS] 合成成功，音频大小: ${result.audio.length} bytes (WAV)`
-    );
 
     return { audio: new Uint8Array(result.audio) };
   } catch (e) {

@@ -24,6 +24,9 @@ app.commandLine.appendSwitch("--enable-speech-recognition");
 app.commandLine.appendSwitch("--enable-experimental-web-platform-features");
 app.commandLine.appendSwitch("--autoplay-policy", "no-user-gesture-required");
 
+// 禁用不需要的 Chrome 功能以减少控制台警告
+app.commandLine.appendSwitch("--disable-features", "Autofill");
+
 if (isDev) {
   app.commandLine.appendSwitch("--disable-web-security");
   app.commandLine.appendSwitch("--ignore-certificate-errors");
@@ -35,7 +38,6 @@ let mainWindow: BrowserWindow | null = null;
 // 应用准备就绪
 app.whenReady().then(async () => {
   // 加载自定义路径配置
-  console.log("[Electron] 加载自定义路径配置...");
   await loadCustomPaths();
 
   // 配置会话
@@ -74,27 +76,16 @@ app.whenReady().then(async () => {
   );
 
   // 初始化 Sherpa-ONNX TTS（独立初始化）
-  console.log("[Electron] 初始化 Sherpa-ONNX TTS...");
   const ttsLoaded = await initSherpaTTS();
 
-  if (ttsLoaded) {
-    console.log("[Electron] ✅ TTS 模块初始化成功");
-  } else {
+  if (!ttsLoaded) {
     console.error("[Electron] ❌ TTS 模块初始化失败");
   }
 
   // 初始化 ASR（实时流式识别）
   // 注意：不在启动时初始化，因为需要等待用户配置加载
   // ASR 会在用户第一次使用或保存配置时初始化
-  console.log("[Electron] ASR 模块已就绪，等待用户配置");
-  const asrLoaded = await initSherpaONNX();
-  if (asrLoaded) {
-    console.log(
-      "[Electron] ✅ Sherpa-ONNX 模块加载成功（ASR 将在首次使用时初始化）"
-    );
-  } else {
-    console.log("[Electron] ⚠️  Sherpa-ONNX 模块加载失败");
-  }
+  await initSherpaONNX();
 
   // 注册 IPC 处理器
   registerIPCHandlers();
@@ -103,7 +94,6 @@ app.whenReady().then(async () => {
   mainWindow = createMainWindow(path.join(__dirname, "preload.js"), isDev);
 
   // 初始化自动更新
-  console.log("[Electron] 初始化自动更新模块...");
   initAutoUpdater(mainWindow, isDev);
 
   // macOS 激活时重建窗口
@@ -123,5 +113,5 @@ app.on("window-all-closed", () => {
 
 // 应用退出
 app.on("before-quit", () => {
-  console.log("[Electron] 应用退出");
+  // 应用退出清理
 });

@@ -24,7 +24,6 @@ export function initAutoUpdater(window: BrowserWindow, isDev: boolean): void {
 
   // 开发环境不检查更新
   if (isDev) {
-    console.log("[AutoUpdater] 开发环境，跳过自动更新检查");
     return;
   }
 
@@ -58,29 +57,22 @@ export function initAutoUpdater(window: BrowserWindow, isDev: boolean): void {
 function setupUpdateListeners(): void {
   // 检查更新时
   autoUpdater.on("checking-for-update", () => {
-    console.log("[AutoUpdater] 正在检查更新...");
     sendStatusToWindow("checking-for-update");
   });
 
   // 发现新版本
   autoUpdater.on("update-available", (info) => {
-    console.log("[AutoUpdater] 发现新版本:", info.version);
     sendStatusToWindow("update-available", info);
     // 由自定义 UI 组件处理，不使用系统对话框
   });
 
   // 没有新版本
   autoUpdater.on("update-not-available", (info) => {
-    console.log("[AutoUpdater] 已是最新版本:", info.version);
     sendStatusToWindow("update-not-available", info);
   });
 
   // 下载进度
   autoUpdater.on("download-progress", (progressInfo) => {
-    const percent = progressInfo.percent.toFixed(2);
-    console.log(
-      `[AutoUpdater] 下载进度: ${percent}% (${progressInfo.transferred}/${progressInfo.total})`
-    );
     sendStatusToWindow("download-progress", {
       percent: progressInfo.percent,
       bytesPerSecond: progressInfo.bytesPerSecond,
@@ -91,7 +83,6 @@ function setupUpdateListeners(): void {
 
   // 下载完成
   autoUpdater.on("update-downloaded", (info) => {
-    console.log("[AutoUpdater] 更新下载完成:", info.version);
     sendStatusToWindow("update-downloaded", info);
     // 由自定义 UI 组件处理，不使用系统对话框
   });

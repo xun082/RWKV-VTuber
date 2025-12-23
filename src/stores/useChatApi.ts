@@ -30,6 +30,8 @@ type API = {
   // 本地 RWKV 配置
   rwkvEndpoint: string;
   setRwkvEndpoint: (endpoint: string) => Promise<void>;
+  rwkvPassword: string;
+  setRwkvPassword: (password: string) => Promise<void>;
 
   // 聊天API
   chat: (messages: ChatMessage[]) => Promise<AsyncIterable<string>>;
@@ -61,7 +63,8 @@ const defaultChatApiType =
   ((await get("chat_api_type")) as ChatApiType) || "siliconflow";
 const defaultRwkvEndpoint =
   ((await get("rwkv_endpoint")) as string) ||
-  "http://127.0.0.1:8000/v4/chat/completions";
+  "http://192.168.0.12:8000/v1/chat/completions";
+const defaultRwkvPassword = ((await get("rwkv_password")) as string) || "";
 
 export const useChatApi = create<API>()((setState, getState) => {
   let motionProcessor: ((content: string) => void) | null = null;
@@ -85,6 +88,7 @@ export const useChatApi = create<API>()((setState, getState) => {
     modelName: defaultModelName,
     usedToken: defaultUsedToken,
     rwkvEndpoint: defaultRwkvEndpoint,
+    rwkvPassword: defaultRwkvPassword,
 
     setChatApiType: async (type) => {
       setState({ chatApiType: type });
@@ -111,9 +115,14 @@ export const useChatApi = create<API>()((setState, getState) => {
       await set("rwkv_endpoint", endpoint);
     },
 
+    setRwkvPassword: async (password) => {
+      setState({ rwkvPassword: password });
+      await set("rwkv_password", password);
+    },
+
     // 聊天API（支持硅基流动和本地 RWKV）
     chat: async (messages: ChatMessage[]) => {
-      const { chatApiType, rwkvEndpoint } = getState();
+      const { chatApiType, rwkvEndpoint, rwkvPassword } = getState();
 
       // 根据服务类型选择不同的 API
       if (chatApiType === "rwkv-local") {
@@ -170,10 +179,13 @@ export const useChatApi = create<API>()((setState, getState) => {
         // 清理用户问题
         const cleanedQuestion = cleanSpaces(userQuestion || "请回答");
 
-        // 构建最终的用户消息：材料 + 问题 + 严格指令
+        // 构建最终的用户消息：系统提示词 + 问题
         const finalUserContent = materialContent
-          ? `材料:\n${materialContent}\n\n问题:\n${cleanedQuestion}\n\n重要要求:\n1. 请严格按照材料内容回答,不要额外发挥或添加材料中没有的信息\n2. 如果材料中有匹配的答案,直接使用材料中的原话,不要改写或总结\n3. 如果材料中没有相关信息,请明确说"抱歉,我不知道这个问题"或"材料中没有相关信息"\n4. 不要进行推理、猜测或补充材料中没有的内容\n5. 回答要简洁直接,不要使用思考过程或解释`
-          : cleanedQuestion;
+          ? `${materialContent}\n\nUser: ${cleanedQuestion}\n\nAssistant:<think></think>`
+          : `User: ${cleanedQuestion}\n\nAssistant:<think></think>`;
+
+        // 构建内容数组（只需要 1 个）
+        const contents = [finalUserContent];
 
         // 本地 RWKV 服务
         const response = await fetch(rwkvEndpoint, {
@@ -182,18 +194,14 @@ export const useChatApi = create<API>()((setState, getState) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            messages: [
-              {
-                role: "user",
-                content: finalUserContent,
-              },
-            ],
-            max_tokens: 1024,
-            stop_tokens: [0, 261, 24281],
-            temperature: 0.7,
-            noise: 1.0,
+            contents: contents,
+            max_tokens: 2048,
+            temperature: 0.8,
+            top_k: 1,
+            top_p: 0.5,
             stream: true,
             enable_think: false,
+            password: rwkvPassword,
           }),
         });
 
@@ -334,24 +342,26 @@ export const useChatApi = create<API>()((setState, getState) => {
     },
 
     testConnection: async () => {
-      const { chatApiType, apiKey, modelName, rwkvEndpoint } = getState();
+      const { chatApiType, apiKey, modelName, rwkvEndpoint, rwkvPassword } =
+        getState();
 
       try {
         if (chatApiType === "rwkv-local") {
-          // 测试本地 RWKV 服务
+          // 测试本地 RWKV 服务（使用并发模型格式）
           const response = await fetch(rwkvEndpoint, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              messages: [{ role: "user", content: "hi" }],
+              contents: ["User: hi\n\nAssistant:<think></think>"],
               max_tokens: 10,
-              stop_tokens: [0, 261, 24281],
-              temperature: 1.0,
-              noise: 1.5,
+              temperature: 0.8,
+              top_k: 1,
+              top_p: 0.5,
               stream: false,
               enable_think: false,
+              password: rwkvPassword,
             }),
           });
 

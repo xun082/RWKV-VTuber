@@ -30,28 +30,23 @@ export function useAutoUpdater() {
   useEffect(() => {
     // 检查是否在 Electron 环境
     if (!window.electron) {
-      console.log("[AutoUpdater] 非 Electron 环境，跳过自动更新");
       return;
     }
 
     // 监听更新消息
     const unsubscribe = window.electron.onUpdaterMessage((message: any) => {
-      console.log("[AutoUpdater] 收到更新消息:", message);
 
       switch (message.status) {
         case "checking-for-update":
-          console.log("[AutoUpdater] 正在检查更新...");
           break;
 
         case "update-available":
           setUpdateAvailable(true);
           setUpdateInfo(message.data);
           // 不显示 toast，避免遮挡更新卡片
-          console.log(`[AutoUpdater] 发现新版本 ${message.data.version}`);
           break;
 
         case "update-not-available":
-          console.log("[AutoUpdater] 已是最新版本");
           // 只在手动检查时显示提示
           if (isManualCheckRef.current) {
             toast.success("已是最新版本", {

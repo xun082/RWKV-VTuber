@@ -151,7 +151,6 @@ class DigitalLifeDB extends Dexie {
 			await this.chatSessions.update(sessionId, {
 				lastClearTime: Date.now()
 			})
-			console.log('✅ 会话已标记为已清除，消息已保留在数据库中')
 		} catch (error) {
 			console.error('标记会话清除失败:', error)
 			throw error

@@ -11,11 +11,6 @@ export function cn(...inputs: ClassValue[]) {
 const isElectron =
   typeof window !== "undefined" && !!(window as any).electronAPI;
 
-console.log("🔍 环境检测:", {
-  isElectron,
-  hasElectronAPI: !!(window as any)?.electronAPI,
-  userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "N/A",
-});
 
 // Re-exports from other modules
 export { speakApiList } from "./api/shared/api.speak.ts";
@@ -30,11 +25,9 @@ import { listenApiList as browserListenApiList } from "./api/shared/api.listen.t
 
 export const listenApiList = isElectron
   ? (() => {
-      console.log("🖥️ Electron 环境：使用 Whisper 语音识别");
       return electronListenApiList;
     })()
   : (() => {
-      console.log("🌐 Web 环境：使用浏览器语音识别");
       return browserListenApiList;
     })();
 

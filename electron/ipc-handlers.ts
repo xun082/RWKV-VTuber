@@ -52,7 +52,6 @@ export function registerIPCHandlers(): void {
       } catch (error: any) {
         // 如果识别器未初始化，尝试用默认路径初始化一次
         if (error.message.includes("未初始化")) {
-          console.log("[IPC] 识别器未初始化，尝试使用默认路径初始化...");
           const asrModelsDir = getASRModelsDir();
           const modelBasePath = path.join(
             asrModelsDir,
@@ -66,7 +65,6 @@ export function registerIPCHandlers(): void {
           );
 
           if (initialized) {
-            console.log("[IPC] 使用默认路径初始化成功，重试识别...");
             const transcript = await transcribe(args.audioData);
             return { transcript };
           }
@@ -353,13 +351,16 @@ export function registerIPCHandlers(): void {
   });
 
   // 打开外部链接
-  ipcMain.handle("open_external_link", async (_event, args: { url: string }) => {
-    try {
-      const { shell } = await import("electron");
-      await shell.openExternal(args.url);
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
+  ipcMain.handle(
+    "open_external_link",
+    async (_event, args: { url: string }) => {
+      try {
+        const { shell } = await import("electron");
+        await shell.openExternal(args.url);
+        return { success: true };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
     }
-  });
+  );
 }

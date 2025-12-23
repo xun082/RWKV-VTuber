@@ -88,12 +88,5 @@ export function createMainWindow(
     return { action: "deny" };
   });
 
-  // 监听控制台消息（错误日志）
-  mainWindow.webContents.on("console-message", (event, level, message) => {
-    if (level === 2) {
-      console.error(`[Renderer] ${message}`);
-    }
-  });
-
   return mainWindow;
 }

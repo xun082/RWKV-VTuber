@@ -83,9 +83,6 @@ async function downloadFile(
     // 对每个镜像源重试指定次数
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        console.log(
-          `[Model] 下载尝试 - ${mirrorName} (第 ${attempt}/${retries} 次)`
-        );
 
         await downloadFileAttempt(
           mirroredUrl,
@@ -95,7 +92,6 @@ async function downloadFile(
           true // 启用断点续传
         );
 
-        console.log(`[Model] ✅ 下载成功 (使用 ${mirrorName})`);
         lastSuccessfulMirror = currentMirrorIndex; // 记录成功的镜像
         return; // 成功就返回
       } catch (error: any) {
@@ -107,14 +103,12 @@ async function downloadFile(
         // 如果不是最后一次重试，等待后继续
         if (attempt < retries) {
           const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 3000);
-          console.log(`[Model] ${waitTime}ms 后重试 ${mirrorName}...`);
           await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
       }
     }
 
     // 当前镜像所有重试都失败，尝试下一个镜像
-    console.log(`[Model] ${mirrorName} 所有尝试均失败，切换到下一个镜像源...`);
   }
 
   // 所有镜像都失败了
@@ -146,11 +140,6 @@ async function downloadFileAttempt(
     const isResume = startByte > 0;
 
     if (isResume) {
-      console.log(
-        `[Model] 发现部分下载文件，从 ${(startByte / 1024 / 1024).toFixed(
-          2
-        )} MB 处继续下载`
-      );
     }
 
     const options = {
@@ -178,7 +167,6 @@ async function downloadFileAttempt(
       // 206 表示断点续传成功，200 表示全新下载
       // 416 表示请求的范围无效（文件可能已损坏），需要删除重新下载
       if (response.statusCode === 416) {
-        console.log("[Model] 检测到 416 错误，删除损坏的文件并重新下载...");
         try {
           if (fsSync.existsSync(destPath)) {
             fsSync.unlinkSync(destPath);
@@ -254,13 +242,6 @@ async function downloadFileAttempt(
           }
 
           // 控制台日志
-          console.log(
-            `[Model] 下载进度: ${progressPercent.toFixed(
-              1
-            )}% (${downloadedMB.toFixed(2)} MB / ${totalMB.toFixed(
-              2
-            )} MB) - 速度: ${currentSpeed.toFixed(2)} KB/s`
-          );
 
           lastDownloadedSize = downloadedSize;
           lastProgressTime = now;
@@ -276,9 +257,6 @@ async function downloadFileAttempt(
       fileStream.on("finish", () => {
         clearInterval(timeoutCheck);
         fileStream.close();
-        console.log(
-          `[Model] 下载完成: ${(downloadedSize / 1024 / 1024).toFixed(2)} MB`
-        );
         resolve();
       });
 
@@ -364,30 +342,25 @@ export async function downloadTTSModel(
       "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/matcha-icefall-zh-baker.tar.bz2";
     const archivePath = path.join(modelsDir, "matcha-icefall-zh-baker.tar.bz2");
 
-    console.log("[Model] 下载 Matcha 模型...");
 
     await downloadFile(url, archivePath, (progress) => {
       onProgress?.({ modelType, progress: Math.round(progress) });
     });
 
-    console.log("[Model] 解压 Matcha 模型...");
     await extractTarBz2(archivePath, modelsDir);
     await fs.unlink(archivePath);
 
-    console.log("[Model] Matcha 模型安装完成");
     return path.join(modelsDir, "matcha-icefall-zh-baker");
   } else {
     const url =
       "https://github.com/k2-fsa/sherpa-onnx/releases/download/vocoder-models/vocos-22khz-univ.onnx";
     const destPath = path.join(modelsDir, "vocos-22khz-univ.onnx");
 
-    console.log("[Model] 下载 Vocoder 模型...");
 
     await downloadFile(url, destPath, (progress) => {
       onProgress?.({ modelType, progress: Math.round(progress) });
     });
 
-    console.log("[Model] Vocoder 模型安装完成");
     return destPath;
   }
 }
@@ -436,7 +409,6 @@ export async function downloadASRModel(
     "sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2"
   );
 
-  console.log("[Model] 下载 ASR 流式模型...");
 
   await downloadFile(url, archivePath, (progress) => {
     onProgress?.({
@@ -445,7 +417,6 @@ export async function downloadASRModel(
     });
   });
 
-  console.log("[Model] 解压 ASR 流式模型...");
   await extractTarBz2(archivePath, modelsDir);
   await fs.unlink(archivePath);
 
@@ -455,7 +426,6 @@ export async function downloadASRModel(
     "sherpa-onnx-streaming-paraformer-bilingual-zh-en"
   );
 
-  console.log("[Model] 清理完整精度大模型（保留 INT8 量化版本）...");
   const fullPrecisionFiles = [
     path.join(modelBasePath, "encoder.onnx"),
     path.join(modelBasePath, "decoder.onnx"),
@@ -465,14 +435,12 @@ export async function downloadASRModel(
     try {
       if (fsSync.existsSync(file)) {
         await fs.unlink(file);
-        console.log(`[Model] 已删除: ${path.basename(file)}`);
       }
     } catch (error) {
       console.warn(`[Model] 删除文件失败: ${file}`, error);
     }
   }
 
-  console.log("[Model] ASR 流式模型安装完成（INT8 量化版本）");
   return modelBasePath;
 }
 
@@ -538,13 +506,11 @@ export async function deleteTTSModel(
   modelType: "matcha" | "vocoder",
   modelsDir: string
 ): Promise<void> {
-  console.log(`[Model] 开始删除 ${modelType} 模型...`);
 
   if (modelType === "matcha") {
     const matchaDir = path.join(modelsDir, "matcha-icefall-zh-baker");
     if (fsSync.existsSync(matchaDir)) {
       await removeDirectory(matchaDir);
-      console.log(`[Model] ✅ Matcha 模型删除成功`);
     } else {
       throw new Error("Matcha 模型目录不存在");
     }
@@ -552,7 +518,6 @@ export async function deleteTTSModel(
     const vocoderPath = path.join(modelsDir, "vocos-22khz-univ.onnx");
     if (fsSync.existsSync(vocoderPath)) {
       await fs.unlink(vocoderPath);
-      console.log(`[Model] ✅ Vocoder 模型删除成功`);
     } else {
       throw new Error("Vocoder 模型文件不存在");
     }
@@ -563,7 +528,6 @@ export async function deleteTTSModel(
  * 删除 ASR 模型
  */
 export async function deleteASRModel(modelsDir: string): Promise<void> {
-  console.log("[Model] 开始删除 ASR 模型...");
 
   const asrDir = path.join(
     modelsDir,
@@ -572,7 +536,6 @@ export async function deleteASRModel(modelsDir: string): Promise<void> {
 
   if (fsSync.existsSync(asrDir)) {
     await removeDirectory(asrDir);
-    console.log("[Model] ✅ ASR 模型删除成功");
   } else {
     throw new Error("ASR 模型目录不存在");
   }

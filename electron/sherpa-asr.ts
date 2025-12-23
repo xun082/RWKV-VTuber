@@ -33,7 +33,6 @@ class SpeechSession {
         text: t,
         timestamp: new Date().toISOString(),
       });
-      console.log(`[Sherpa-ASR] 识别: ${t}`);
     }
     this.currentText = "";
     return true;
@@ -51,12 +50,10 @@ let currentSession = new SpeechSession();
  */
 export async function initSherpaONNX(): Promise<boolean> {
   if (sherpa_onnx) {
-    console.log("[Sherpa-ASR] 模块已加载");
     return true;
   }
 
   try {
-    console.log("[Sherpa-ASR] 开始初始化 ASR 模块...");
     
     // 使用共享的 sherpa-onnx 实例
     sherpa_onnx = await getSharedSherpaONNX();
@@ -66,9 +63,6 @@ export async function initSherpaONNX(): Promise<boolean> {
       return false;
     }
 
-    console.log("[Sherpa-ASR] 共享模块获取成功，检查方法...");
-    console.log("[Sherpa-ASR] sherpa_onnx 类型:", typeof sherpa_onnx);
-    console.log("[Sherpa-ASR] createOnlineRecognizer 类型:", typeof sherpa_onnx.createOnlineRecognizer);
 
     // 检查必要的方法
     if (typeof sherpa_onnx.createOnlineRecognizer !== "function") {
@@ -80,7 +74,6 @@ export async function initSherpaONNX(): Promise<boolean> {
       return false;
     }
 
-    console.log("[Sherpa-ASR] ✅ ASR 模块加载成功");
     return true;
   } catch (error: any) {
     const errorMsg = error?.message || error?.toString() || String(error);
@@ -103,20 +96,12 @@ export function initRecognizer(
     return false;
   }
 
-  console.log("[Sherpa-ASR] 开始初始化识别器...");
-  console.log("[Sherpa-ASR] Encoder 路径:", encoderPath);
-  console.log("[Sherpa-ASR] Decoder 路径:", decoderPath);
-  console.log("[Sherpa-ASR] Tokens 路径:", tokensPath);
 
   // 解析路径
   const encoder = resolveModelPath(encoderPath);
   const decoder = resolveModelPath(decoderPath);
   const tokens = resolveModelPath(tokensPath);
 
-  console.log("[Sherpa-ASR] 解析后的路径:");
-  console.log("  Encoder:", encoder);
-  console.log("  Decoder:", decoder);
-  console.log("  Tokens:", tokens);
 
   // 检查文件是否存在
   if (!fsSync.existsSync(encoder)) {
@@ -132,7 +117,6 @@ export function initRecognizer(
     return false;
   }
 
-  console.log("[Sherpa-ASR] ✅ 所有模型文件存在");
 
   try {
     // 配置在线识别器（完全匹配参考代码 asr.js，不添加任何额外字段）
@@ -163,9 +147,6 @@ export function initRecognizer(
       return false;
     }
 
-    console.log("[Sherpa-ASR] 调用 createOnlineRecognizer...");
-    console.log("[Sherpa-ASR] 配置:");
-    console.log(JSON.stringify(recognizerConfig, null, 2));
     
     recognizer = sherpa_onnx.createOnlineRecognizer(recognizerConfig);
 
@@ -174,7 +155,6 @@ export function initRecognizer(
       return false;
     }
 
-    console.log("[Sherpa-ASR] ✅ 实时流式识别器初始化成功");
     isInitialized = true;
     return true;
   } catch (error: any) {
@@ -258,7 +238,6 @@ export async function transcribe(audioData: number[]): Promise<string> {
       audioData[2] === 0x46 &&
       audioData[3] === 0x46
     ) {
-      console.log("[Sherpa-ASR] 检测到 WAV 文件头，跳过前 44 字节");
       pcmData = audioData.slice(44);
     }
   }
@@ -272,12 +251,6 @@ export async function transcribe(audioData: number[]): Promise<string> {
     samples[i] = signed / 32768.0;
   }
 
-  console.log("[Sherpa-ASR] 音频数据:", {
-    原始长度: audioData.length,
-    PCM长度: pcmData.length,
-    采样点数: samples.length,
-    时长秒: (samples.length / 16000).toFixed(2),
-  });
 
   // 创建流并处理
   const stream = recognizer.createStream();
@@ -304,7 +277,6 @@ export async function transcribe(audioData: number[]): Promise<string> {
 
       // 检查是否到达端点
       if (recognizer.isEndpoint(stream)) {
-        console.log("[Sherpa-ASR] 检测到端点");
         flushTailSilence(stream, recognizer, 240);
         const finalResult = recognizer.getResult(stream);
         if (finalResult.text) {
@@ -324,13 +296,6 @@ export async function transcribe(audioData: number[]): Promise<string> {
     const elapsed = Date.now() - startTime;
     const duration = samples.length / 16000;
 
-    console.log(
-      `[Sherpa-ASR] 识别完成 (${(elapsed / 1000).toFixed(2)}s, RTF: ${(
-        elapsed /
-        1000 /
-        duration
-      ).toFixed(3)})`
-    );
 
     return allText.trim();
   } finally {
@@ -446,7 +411,6 @@ export function reloadConfig(
 
   // 重置会话
   currentSession = new SpeechSession();
-  console.log("[Sherpa-ASR] 配置重新加载成功");
 }
 
 /**

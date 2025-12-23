@@ -69,17 +69,9 @@ export async function initSherpaTTS(): Promise<boolean> {
     }
 
     // 显示版本信息和平台
-    console.log("[Sherpa-TTS] ✓ 初始化成功");
-    console.log("[Sherpa-TTS] 平台:", process.platform, process.arch);
 
     // Windows 特别提示
     if (process.platform === "win32") {
-      console.log("[Sherpa-TTS] ⚠️ Windows 平台注意事项:");
-      console.log("  - 确保安装了 Visual C++ Redistributable");
-      console.log("  - 使用纯英文路径存储模型文件");
-      console.log(
-        "  - 如遇到错误码问题，请尝试: npm install sherpa-onnx@latest"
-      );
     }
 
     return true;
@@ -109,7 +101,6 @@ function getTtsInstance(offlineTtsConfig: any): any {
   }
 
   // 调用 native 方法创建实例
-  console.log("[Sherpa-TTS] 调用 sherpa_onnx.createOfflineTts...");
   let result;
 
   try {
@@ -119,7 +110,6 @@ function getTtsInstance(offlineTtsConfig: any): any {
     throw e;
   }
 
-  console.log("[Sherpa-TTS] createOfflineTts 返回:", typeof result, result);
 
   // 验证返回值
   if (!result) {
@@ -130,7 +120,6 @@ function getTtsInstance(offlineTtsConfig: any): any {
   // 注意：在 Windows 上，如果返回的是内存地址（数字），这里访问属性可能会有问题
   // 但为了保持“有什么报错就输出什么”，我们尝试直接使用
 
-  console.log("[Sherpa-TTS] ✓ 实例创建完成");
   ttsInstance = result;
   currentConfig = configKey;
 
@@ -228,7 +217,6 @@ export async function generateSpeech(
   // 获取实例
   const tts = getTtsInstance(offlineTtsConfig);
 
-  console.log("[Sherpa-TTS] 开始生成语音...");
 
   // 直接调用生成，不捕获错误
   const audio = tts.generate({
@@ -241,7 +229,6 @@ export async function generateSpeech(
     throw new Error("语音生成失败：未返回音频数据");
   }
 
-  console.log("[Sherpa-TTS] ✓ 语音生成成功，样本数:", audio.samples.length);
 
   // 转换为 WAV 格式
   const pcm16 = new Int16Array(audio.samples.length);

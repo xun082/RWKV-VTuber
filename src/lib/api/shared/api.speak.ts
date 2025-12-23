@@ -61,7 +61,6 @@ if (isElectron) {
     name: "Sherpa-ONNX TTS (离线)",
     api: () => ({
       api: async (text: string) => {
-        console.log("🎙️ Using Electron Sherpa-ONNX TTS");
         const sherpa = await loadElectronSherpaTts();
         if (!sherpa) {
           throw new Error("Sherpa-ONNX TTS module not available");
@@ -69,7 +68,6 @@ if (isElectron) {
         return sherpa.speak_sherpa_tts(text);
       },
       test: async () => {
-        console.log("🎙️ Testing Electron Sherpa-ONNX TTS");
         const sherpa = await loadElectronSherpaTts();
         if (!sherpa) {
           throw new Error("Sherpa-ONNX TTS module not available");
@@ -84,7 +82,6 @@ if (isElectron) {
     name: "MiniMax TTS",
     api: () => ({
       api: async (text: string) => {
-        console.log("🎙️ Using MiniMax TTS (Online)");
         const minimax = await loadElectronMiniMaxTts();
         if (!minimax) {
           throw new Error("MiniMax TTS module not available");
@@ -92,7 +89,6 @@ if (isElectron) {
         return minimax.speak_minimax_tts(text);
       },
       test: async () => {
-        console.log("🎙️ Testing MiniMax TTS");
         const minimax = await loadElectronMiniMaxTts();
         if (!minimax) {
           throw new Error("MiniMax TTS module not available");

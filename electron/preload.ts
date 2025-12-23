@@ -5,7 +5,6 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("electronAPI", {
   // IPC 调用
   invoke: async (cmd: string, args?: any) => {
-    console.log(`[Electron] IPC invoke: ${cmd}`, args);
     return ipcRenderer.invoke(cmd, args);
   },
 
@@ -39,4 +38,3 @@ contextBridge.exposeInMainWorld("electronAPI", {
   isElectron: true,
 });
 
-console.log("[Electron] Preload script loaded");

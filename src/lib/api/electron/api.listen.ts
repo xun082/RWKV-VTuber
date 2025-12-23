@@ -104,17 +104,9 @@ const listen_sherpa: ListenApi = (callback) => {
         offset += buf.length;
       }
 
-      console.log(
-        `[ASR] 原始音频: ${combinedBuffer.length} 采样点, 采样率: ${actualSampleRate}Hz`
-      );
 
       // 重采样到 16kHz（如果需要）
       const resampled = resampleTo16kHz(combinedBuffer, actualSampleRate);
-      console.log(
-        `[ASR] 重采样后: ${resampled.length} 采样点, 时长: ${(
-          resampled.length / 16000
-        ).toFixed(2)}s`
-      );
 
       // 转换为 16kHz 单声道 WAV
       const wavBlob = createWavBlob(resampled, 16000);
@@ -174,7 +166,6 @@ const listen_sherpa: ListenApi = (callback) => {
         }
 
         actualSampleRate = audioContext.sampleRate;
-        console.log(`[ASR] AudioContext 采样率: ${actualSampleRate}Hz`);
 
         mediaStreamSource = audioContext.createMediaStreamSource(stream);
 
@@ -197,7 +188,6 @@ const listen_sherpa: ListenApi = (callback) => {
 
         audioBuffers = [];
         isRecording = true;
-        console.log("[ASR] 开始录音...");
       } catch (error) {
         console.error("[ASR] 录音启动失败:", error);
         reject(error);

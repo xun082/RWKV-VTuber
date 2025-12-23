@@ -40,19 +40,8 @@ export const useChatSession = create<ChatSessionState>()(
       setMessages: (messages) => set({ messages }),
 
       addMessage: (message) => {
-        console.log(
-          "📝 添加消息到全局状态:",
-          message.role,
-          message.content.substring(0, 50)
-        );
         set((state) => {
           const newMessages = [...state.messages, message];
-          console.log(
-            "📊 消息数量变化:",
-            state.messages.length,
-            "→",
-            newMessages.length
-          );
           return { messages: newMessages };
         });
       },
@@ -93,14 +82,12 @@ export const useChatSession = create<ChatSessionState>()(
         const { currentSessionId } = get();
         
         // 清空界面显示
-        console.log("🗑️ 清空界面显示的聊天记录");
         set({ messages: [] });
         
         // 标记会话已清除（不删除数据库消息，保留用于导出）
         if (currentSessionId && isDatabaseReady()) {
           try {
             await db.markSessionAsCleared(currentSessionId);
-            console.log("✅ 会话已标记为已清除，所有消息仍保留在数据库中供导出");
           } catch (dbError) {
             console.error("标记会话清除失败:", dbError);
             const errorMessage = handleDatabaseError(dbError);
@@ -110,13 +97,11 @@ export const useChatSession = create<ChatSessionState>()(
       },
 
       setCurrentSessionId: (sessionId) => {
-        console.log("🔗 设置会话ID:", sessionId);
         set({ currentSessionId: sessionId });
       },
 
       initializeSession: async () => {
         try {
-          console.log("开始初始化数据库和会话...");
           await initializeDatabase();
 
           if (!isDatabaseReady()) {
@@ -125,7 +110,6 @@ export const useChatSession = create<ChatSessionState>()(
 
           let session = await db.getActiveSession();
           if (!session) {
-            console.log("未找到活跃会话，创建新会话...");
             const sessionId = await db.createSession("默认对话");
             session = {
               id: sessionId,
@@ -137,7 +121,6 @@ export const useChatSession = create<ChatSessionState>()(
           }
 
           if (session?.id) {
-            console.log(`会话初始化成功，ID: ${session.id}`);
 
             // 只加载未被清除的消息（已清除的消息仍保留在数据库中供导出）
             const dbMessages = await db.getSessionMessages(session.id, false);
@@ -155,7 +138,6 @@ export const useChatSession = create<ChatSessionState>()(
               isInitialized: true,
             });
 
-            console.log(`加载了 ${simpleMessages.length} 条历史消息（已清除的消息不显示）`);
           } else {
             throw new Error("会话对象无效");
           }
@@ -166,7 +148,6 @@ export const useChatSession = create<ChatSessionState>()(
 
           // 尝试重新初始化
           setTimeout(() => {
-            console.log("尝试重新初始化...");
             get().initializeSession();
           }, 2000);
         }

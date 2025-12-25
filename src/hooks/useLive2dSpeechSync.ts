@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useLive2dApi } from "../stores/useLive2dApi.ts";
+import { useStates } from "../stores/useStates.ts";
 
 // ============ 类型定义 ============
 type MouthParams = {
@@ -96,6 +97,7 @@ const easeOutCubic = (progress: number): number =>
  */
 export const useLive2dSpeechSync = () => {
   const live2dRef = useRef(useLive2dApi.getState().live2d);
+  const ttsPlaybackState = useStates((state) => state.ttsPlaybackState);
 
   useEffect(() => {
     live2dRef.current = useLive2dApi.getState().live2d;
@@ -104,8 +106,32 @@ export const useLive2dSpeechSync = () => {
     });
     return unsub;
   }, []);
+  
   const animationFrameRef = useRef<number | undefined>(undefined);
   const isPlayingRef = useRef(false);
+  
+  // 监听 TTS 播放状态，暂停/停止时也停止嘴型动画
+  useEffect(() => {
+    if (ttsPlaybackState === 'paused' || ttsPlaybackState === 'idle') {
+      if (isPlayingRef.current) {
+        isPlayingRef.current = false;
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+          animationFrameRef.current = undefined;
+        }
+        // 平滑过渡到静默状态
+        const live2d = live2dRef.current;
+        if (live2d) {
+          live2d.setParam("mouth", 0);
+          live2d.setParam("a", 0);
+          live2d.setParam("i", 0);
+          live2d.setParam("u", 0);
+          live2d.setParam("e", 0);
+          live2d.setParam("o", 0);
+        }
+      }
+    }
+  }, [ttsPlaybackState]);
 
   // 分析字符对应的元音类型
   const analyzeVowel = useCallback((char: string): VowelType => {

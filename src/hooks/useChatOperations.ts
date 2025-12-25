@@ -9,6 +9,7 @@ import {
   pauseCurrentAudio,
   resumeCurrentAudio,
   stopCurrentAudio,
+  clearAutoTtsQueue,
 } from "../lib/tts-utils.ts";
 import { uuid } from "../lib/utils.ts";
 import { useChatApi } from "../stores/useChatApi.ts";
@@ -174,11 +175,10 @@ export function useChatOperations({
         messageCount: conversationPattern.messageCount || 0,
       });
 
-      // 加载知识库并构建系统提示
       loadKnowledgeBase();
-      const baseSystemPrompt = buildSystemPrompt(optimizedContext.memories);
       const knowledgeSystemPrompt = getSystemPrompt();
-      const systemPrompt = `${knowledgeSystemPrompt}\n\n${baseSystemPrompt}`;
+      const baseSystemPrompt = buildSystemPrompt();
+      const systemPrompt = `${baseSystemPrompt} ${knowledgeSystemPrompt}`;
 
       // 构建消息数组：使用优化后的上下文，确保当前消息在最后
       messagesToSend =
@@ -189,6 +189,7 @@ export function useChatOperations({
             ? optimizedContext.messages
             : [...optimizedContext.messages, userMessage]
           : [userMessage];
+      console.log(systemPrompt);
 
       const chatMessages = [
         { role: "system" as const, content: systemPrompt },
@@ -255,6 +256,16 @@ export function useChatOperations({
         setTips(finalContent);
 
         if (autoTTS && finalContent && finalContent !== "...") {
+          // 如果当前有暂停的音频，在开始新的自动TTS前清理掉
+          // 这样可以确保新消息的语音能正常自动播放
+          if (ttsPlaybackState === "paused") {
+            stopCurrentAudio();
+            clearAutoTtsQueue();
+            setTtsPlaybackState("idle");
+            setTtsActiveMessageId(null);
+            setTtsLoadingMessageId(null);
+          }
+
           enqueueAutoTtsTask(finalContent, time, {
             onGeneratingStart: () => {
               setTtsLoadingMessageId(assistantMessage.uuid);
@@ -428,8 +439,10 @@ export function useChatOperations({
 
   const handleTtsStop = () => {
     stopCurrentAudio();
+    clearAutoTtsQueue(); // 清空队列，确保不会有旧任务继续播放
     setTtsPlaybackState("idle");
     setTtsActiveMessageId(null);
+    setTtsLoadingMessageId(null); // 同时清除加载状态
   };
 
   return {

@@ -68,7 +68,6 @@ interface ChatActionsProps {
   disabled: boolean;
   messagesLength: number;
   usedToken?: number;
-  onUpdateMemory: () => void;
   onClearChat: () => void;
   autoTTS: boolean;
   onToggleAutoTTS: () => void;
@@ -250,45 +249,6 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                 
                 {chatActions && hasMessages && (
                   <>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <button
-                          type="button"
-                          disabled={isActionsDisabled}
-                          className="cursor-pointer group/btn flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-xs font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 text-gray-700 dark:text-gray-300 bg-transparent hover:bg-linear-to-r hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-950/30 dark:hover:to-pink-950/30 border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600/50 hover:text-purple-700 dark:hover:text-purple-300 hover:shadow-sm"
-                        >
-                          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 transition-transform group-hover/btn:rotate-12 pointer-events-none" />
-                          <span className="hidden sm:inline pointer-events-none">
-                            更新记忆
-                          </span>
-                          <span className="sm:hidden pointer-events-none">
-                            记忆
-                          </span>
-                        </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-2xl border border-gray-200/50 dark:border-gray-700/50 bg-white dark:bg-gray-900 shadow-2xl cursor-default">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-xl font-bold bg-linear-to-r from-purple-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">
-                            确认更新记忆
-                          </AlertDialogTitle>
-                          <AlertDialogDescription className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-                            您确定要立即更新记忆吗？这将把当前对话保存到记忆中并清空当前对话。
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter className="gap-2 sm:gap-3">
-                          <AlertDialogCancel className="rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
-                            取消
-                          </AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={chatActions.onUpdateMemory}
-                            className="rounded-xl bg-linear-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30 transition-all cursor-pointer"
-                          >
-                            确定
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button

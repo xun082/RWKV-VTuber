@@ -424,13 +424,19 @@ export const useChatApi = create<API>()((setState, getState) => {
 
     getSystemPrompt: () => {
       const { knowledgeBase } = getState();
-      const knowledgePrompt = getState().getKnowledgeBasePrompt();
-      const basePrompt = `你是展会问答机器人。1)匹配到知识库答案直接输出，不额外发挥 2)无匹配说"抱歉，我不知道这个问题，你可以询问我其他在场的同事呢" 3)可用[MOTION:动作名]如[MOTION:happy]`;
 
-      if (knowledgeBase && knowledgeBase.length > 0) {
-        return `${knowledgePrompt}\n${basePrompt}`;
+      if (!knowledgeBase || knowledgeBase.length === 0) {
+        return `知识库空。说:"抱歉,知识库未配置。"`;
       }
-      return `${basePrompt}\n知识库为空`;
+
+      const knowledgeContent = knowledgeBase
+        .map(
+          (item, index) =>
+            `Q${index + 1}:${item.question} A${index + 1}:${item.answer}`
+        )
+        .join(" ");
+
+      return `知识库:${knowledgeContent} 规则:语义匹配,找到输出原答案,不加"数据来源""需要了解"等标注,没找到说"不在知识范围"`;
     },
   };
 });

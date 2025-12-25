@@ -505,6 +505,7 @@ type TaskWithBuffer = AutoTtsTask & {
 class AutoTtsQueue {
   private queue: TaskWithBuffer[] = [];
   private isPlayingQueue = false;
+  private shouldStop = false; // 用于通知播放循环应该停止
 
   enqueue(task: AutoTtsTask) {
     const taskWithBuffer: TaskWithBuffer = { ...task };
@@ -535,8 +536,9 @@ class AutoTtsQueue {
     }
 
     this.isPlayingQueue = true;
+    this.shouldStop = false; // 重置停止标志
 
-    while (this.queue.length > 0) {
+    while (this.queue.length > 0 && !this.shouldStop) {
       const task = this.queue[0]; // 查看队首任务，但先不移除
       if (!task) break;
 
@@ -544,6 +546,11 @@ class AutoTtsQueue {
         // 等待生成完成
         if (task.generationPromise) {
           await task.generationPromise;
+        }
+
+        // 再次检查 shouldStop，避免在等待期间被停止
+        if (this.shouldStop) {
+          break;
         }
 
         // 现在可以安全移除任务了
@@ -569,10 +576,14 @@ class AutoTtsQueue {
     }
 
     this.isPlayingQueue = false;
+    // 播放循环结束后重置停止标志，为下一次播放做准备
+    this.shouldStop = false;
   }
 
   clear() {
-    this.queue = [];
+    this.shouldStop = true; // 通知播放循环停止
+    this.queue = []; // 清空队列
+    // 播放循环会在检测到 shouldStop 后自动退出并重置状态
   }
 
   getQueueLength(): number {

@@ -8,6 +8,7 @@ import { useListenApi } from "../../stores/useListenApi";
 import { useSpeakApi } from "../../stores/useSpeakApi";
 import { useLive2dApi } from "../../stores/useLive2dApi";
 import { useLive2dTextProcessor } from "../../hooks/useLive2dTextProcessor";
+import { stopCurrentAudio, clearAutoTtsQueue } from "../../lib/tts-utils";
 
 export function FullscreenVoiceChat() {
   const { setIsFullScreen } = useLive2dApi();
@@ -312,6 +313,10 @@ export function FullscreenVoiceChat() {
     if (messageStabilityTimerRef.current) {
       clearTimeout(messageStabilityTimerRef.current);
     }
+
+    // 停止所有音频播放和队列
+    stopCurrentAudio();
+    clearAutoTtsQueue();
 
     // 重置所有状态
     setIsRecording(false);

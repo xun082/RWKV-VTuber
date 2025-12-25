@@ -22,7 +22,17 @@ export default function ChatPage() {
   // 状态管理
   const [recognition, setRecognition] = useState<any | null>(null);
   const [inputValue, setInputValue] = useState<string>("");
-  const [autoTTS, setAutoTTS] = useState<boolean>(true); // 自动TTS开关
+  
+  // 从localStorage读取自动TTS状态
+  const [autoTTS, setAutoTTS] = useState<boolean>(() => {
+    const saved = localStorage.getItem('autoTTS');
+    return saved !== null ? saved === 'true' : true;
+  });
+  
+  // 保存自动TTS状态到localStorage
+  useEffect(() => {
+    localStorage.setItem('autoTTS', String(autoTTS));
+  }, [autoTTS]);
 
   // 使用自定义Hooks
   const {
@@ -37,7 +47,6 @@ export default function ChatPage() {
 
   const {
     onChat,
-    updateMemory,
     clearChat,
     usedToken,
     ttsPlaybackState,
@@ -186,7 +195,6 @@ export default function ChatPage() {
               disabled: disabled !== false,
               messagesLength: messages.length,
               usedToken: usedToken,
-              onUpdateMemory: updateMemory,
               onClearChat: clearChat,
               autoTTS: autoTTS,
               onToggleAutoTTS: () => setAutoTTS(!autoTTS),

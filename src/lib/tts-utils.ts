@@ -223,23 +223,25 @@ class AudioPlaybackManager {
   }
 
   // 播放新的音频
-  async playAudio(audioBuffer: ArrayBuffer): Promise<void> {
+  async playAudio(audioBuffer: ArrayBuffer, startOffsetSeconds = 0): Promise<void> {
     // 先停止当前播放的音频
     this.stopCurrent();
+
+    const offset = Math.max(startOffsetSeconds, 0);
 
     // 保存音频数据以支持继续播放
     this.currentArrayBuffer = audioBuffer;
 
     // 优先使用 HTML Audio，因为它原生支持暂停/继续
     try {
-      return await this.playAudioWithHtmlElement(audioBuffer);
+      return await this.playAudioWithHtmlElement(audioBuffer, offset);
     } catch (error) {
-      return this.playAudioWithContext(audioBuffer);
+      return this.playAudioWithContext(audioBuffer, offset);
     }
   }
 
   // 使用 HTML Audio Element 播放（兼容性更好，支持暂停/继续）
-  private playAudioWithHtmlElement(audioBuffer: ArrayBuffer): Promise<void> {
+  private playAudioWithHtmlElement(audioBuffer: ArrayBuffer, offset = 0): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       try {
         // 尝试多种音频格式，提高兼容性
@@ -294,14 +296,30 @@ class AudioPlaybackManager {
 
             // 设置音频源并尝试播放
             audio.src = audioUrl;
-            audio.play().catch(() => {
-              if (audioUrl) URL.revokeObjectURL(audioUrl);
-              this.isPlaying = false;
-              this.currentAudio = null;
+            const startPlay = () => {
+              // 设置起始播放位置（需要在能获取到duration后）
+              if (!isNaN(audio.duration) && offset > 0) {
+                audio.currentTime = Math.min(offset, audio.duration || offset);
+                this.pausedAt = audio.currentTime;
+              } else {
+                this.pausedAt = offset;
+              }
+              audio.play().catch(() => {
+                if (audioUrl) URL.revokeObjectURL(audioUrl);
+                this.isPlaying = false;
+                this.currentAudio = null;
 
-              // 尝试下一个格式
-              setTimeout(tryNextFormat, 10);
-            });
+                // 尝试下一个格式
+                setTimeout(tryNextFormat, 10);
+              });
+            };
+
+            // 有些浏览器需要等待元数据加载完成才能设置 currentTime
+            if (audio.readyState >= 1) {
+              startPlay();
+            } else {
+              audio.onloadedmetadata = () => startPlay();
+            }
           } catch (error) {
             // 尝试下一个格式
             setTimeout(tryNextFormat, 10);
@@ -319,7 +337,7 @@ class AudioPlaybackManager {
   }
 
   // 使用 AudioContext 播放（更高级但兼容性问题，暂停需要重新创建source）
-  private async playAudioWithContext(audioBuffer: ArrayBuffer): Promise<void> {
+  private async playAudioWithContext(audioBuffer: ArrayBuffer, offset = 0): Promise<void> {
     this.audioContext = new (window.AudioContext ||
       (window as any).webkitAudioContext)();
 
@@ -335,7 +353,7 @@ class AudioPlaybackManager {
       this.isPlaying = true;
       this.useHtmlAudio = false;
       this.isPaused = false;
-      this.pausedAt = 0;
+      this.pausedAt = Math.max(offset, 0);
       this.startedAt = this.audioContext.currentTime;
 
       // 设置结束回调
@@ -348,7 +366,8 @@ class AudioPlaybackManager {
             resolve();
           }
         };
-        source.start();
+        // 从偏移处开始播放
+        source.start(0, this.pausedAt);
       });
     } catch (error) {
       this.isPlaying = false;
@@ -405,9 +424,10 @@ export async function generateAndPlayTTS(
   options: {
     onGeneratingChange?: (generating: boolean) => void;
     onPlayingChange?: (playing: boolean) => void;
+    startOffsetSeconds?: number;
   } = {}
 ) {
-  const { onGeneratingChange, onPlayingChange } = options;
+  const { onGeneratingChange, onPlayingChange, startOffsetSeconds = 0 } = options;
 
   const speak = useSpeakApi.getState().speak;
   const currentSpeakApi = useSpeakApi.getState().currentSpeakApi;
@@ -433,7 +453,7 @@ export async function generateAndPlayTTS(
     const cachedAudio = await db.getAudioCache(timestamp);
 
     if (cachedAudio && cachedAudio.audio) {
-      await playAudioFromBuffer(cachedAudio.audio);
+      await playAudioFromBuffer(cachedAudio.audio, startOffsetSeconds);
       return;
     }
 
@@ -466,7 +486,7 @@ export async function generateAndPlayTTS(
         audio: audioBuffer,
       });
 
-      await playAudioFromBuffer(audioBuffer);
+      await playAudioFromBuffer(audioBuffer, startOffsetSeconds);
     }
   } catch (error) {
     console.error("❌ 语音播放失败:", error);
@@ -481,9 +501,10 @@ export async function generateAndPlayTTS(
  * @param audioBuffer - 音频数据
  */
 export async function playAudioFromBuffer(
-  audioBuffer: ArrayBuffer
+  audioBuffer: ArrayBuffer,
+  startOffsetSeconds = 0
 ): Promise<void> {
-  await audioManager.playAudio(audioBuffer);
+  await audioManager.playAudio(audioBuffer, startOffsetSeconds);
 }
 
 type AutoTtsTask = {

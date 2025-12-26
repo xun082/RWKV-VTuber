@@ -34,7 +34,10 @@ type API = {
   setRwkvPassword: (password: string) => Promise<void>;
 
   // 聊天API
-  chat: (messages: ChatMessage[]) => Promise<AsyncIterable<string>>;
+  chat: (
+    messages: ChatMessage[],
+    signal?: AbortSignal
+  ) => Promise<AsyncIterable<string>>;
   testConnection: () => Promise<boolean>;
 
   // Live2D motion integration
@@ -121,7 +124,7 @@ export const useChatApi = create<API>()((setState, getState) => {
     },
 
     // 聊天API（支持硅基流动和本地 RWKV）
-    chat: async (messages: ChatMessage[]) => {
+    chat: async (messages: ChatMessage[], signal?: AbortSignal) => {
       const { chatApiType, rwkvEndpoint, rwkvPassword } = getState();
 
       // 根据服务类型选择不同的 API
@@ -203,6 +206,7 @@ export const useChatApi = create<API>()((setState, getState) => {
             enable_think: false,
             password: rwkvPassword,
           }),
+          signal,
         });
 
         if (!response.ok) {
@@ -294,6 +298,7 @@ export const useChatApi = create<API>()((setState, getState) => {
           messages,
           stream: true,
         }),
+        signal,
       });
 
       if (!response.ok) {

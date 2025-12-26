@@ -53,6 +53,7 @@ export default function ChatPage() {
     handleTtsPause,
     handleTtsResume,
     handleTtsStop,
+    stopGenerating,
   } = useChatOperations({
     currentSessionId,
     messages,
@@ -202,6 +203,7 @@ export default function ChatPage() {
               onTtsPause: handleTtsPause,
               onTtsResume: handleTtsResume,
               onTtsStop: handleTtsStop,
+              onStopGenerating: stopGenerating,
             }}
           />
         </div>

@@ -4,6 +4,8 @@ import MarkdownIt from "markdown-it";
 import {
   generateAndPlayTTS,
   isAudioPlaying,
+  isAudioPaused,
+  getAudioCurrentTime,
   pauseCurrentAudio,
   resumeCurrentAudio,
   stopCurrentAudio,
@@ -46,6 +48,16 @@ export function MessageItem({
   const setTtsActiveMessageId = useStates(
     (state) => state.setTtsActiveMessageId
   );
+  const ttsPausedMessageIds = useStates((state) => state.ttsPausedMessageIds);
+  const ttsProgress = useStates((state) => state.ttsProgress);
+  const addTtsPausedMessageId = useStates(
+    (state) => state.addTtsPausedMessageId
+  );
+  const removeTtsPausedMessageId = useStates(
+    (state) => state.removeTtsPausedMessageId
+  );
+  const setTtsProgress = useStates((state) => state.setTtsProgress);
+  const clearTtsProgress = useStates((state) => state.clearTtsProgress);
   const ttsLoadingMessageId = useStates((state) => state.ttsLoadingMessageId);
   const setTtsLoadingMessageId = useStates(
     (state) => state.setTtsLoadingMessageId
@@ -53,7 +65,10 @@ export function MessageItem({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGloballyPlaying, setIsGloballyPlaying] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const playingRef = useRef(false); // 追踪当前消息是否正在播放
+  const pausingRef = useRef(false); // 追踪是否正在执行暂停操作
   const isActiveMessage = ttsActiveMessageId === uuid;
+  const isPausedMessage = ttsPausedMessageIds.includes(uuid);
   const isLoading = isGenerating || ttsLoadingMessageId === uuid;
 
   // 过滤掉动作标签 [MMOTION:xxx]
@@ -131,52 +146,264 @@ export function MessageItem({
 
   const handleSpeakClick = async () => {
     if (isGenerating) return;
-
+    
+    // 标记当前消息正在播放
+    playingRef.current = true;
+    
+    // 保存旧的活跃消息 ID
+    const oldActiveMessageId = ttsActiveMessageId;
+    
+    // 先设置新状态，再停止旧音频
+    setTtsPlaybackState("playing");
+    setTtsActiveMessageId(uuid);
+    removeTtsPausedMessageId(uuid);
     setTtsLoadingMessageId(uuid);
+    
+    // 然后处理旧消息
+    if (oldActiveMessageId && oldActiveMessageId !== uuid) {
+      // 记录被打断消息的进度
+      const progress = getAudioCurrentTime();
+      if (!isNaN(progress) && progress > 0) {
+        setTtsProgress(oldActiveMessageId, progress);
+      }
+      // 添加到暂停列表
+      if (ttsPlaybackState === "playing" || ttsPlaybackState === "paused") {
+        addTtsPausedMessageId(oldActiveMessageId);
+      }
+      stopCurrentAudio();
+    }
+
+    const startOffsetSeconds = ttsProgress[uuid] ?? 0;
 
     try {
       await generateAndPlayTTS(content, timestamp, {
         onGeneratingChange: setIsGenerating,
         onPlayingChange: (playing) => {
-          const newState = playing ? "playing" : "idle";
-          setTtsPlaybackState(newState);
           if (playing) {
-            setTtsActiveMessageId(uuid);
+            playingRef.current = true;
+            pausingRef.current = false;
             setTtsLoadingMessageId((current) =>
               current === uuid ? null : current
             );
           } else {
-            setTtsActiveMessageId((current) =>
-              current === uuid ? null : current
-            );
+            // 播放结束：先检查是否是暂停操作触发的
+            if (pausingRef.current) {
+              return;
+            }
+            
+            if (!playingRef.current) {
+              return;
+            }
+            
+            playingRef.current = false;
+            
+            // 从 store 获取最新状态（避免闭包问题）
+            const currentState = useStates.getState();
+            const currentActiveId = currentState.ttsActiveMessageId;
+            const currentPausedIds = currentState.ttsPausedMessageIds;
+            
+            // 优先检查是否在暂停列表中
+            if (currentPausedIds.includes(uuid)) {
+              return;
+            }
+            
+            // 如果当前全局状态是 paused，且活跃消息是当前消息，说明是主动暂停操作
+            const currentPlaybackState = currentState.ttsPlaybackState;
+            if (currentPlaybackState === "paused" && currentActiveId === uuid) {
+              return;
+            }
+            
+            // 如果不是活跃消息，忽略
+            if (currentActiveId !== uuid) {
+              return;
+            }
+            
+            // 如果底层仍在播放，忽略这个回调
+            if (isAudioPlaying()) {
+              return;
+            }
+            
+            // 正常播放结束：清空状态
+            setTtsPlaybackState("idle");
+            setTtsActiveMessageId(null);
+            clearTtsProgress(uuid);
           }
         },
+        startOffsetSeconds,
       });
+    } catch (error) {
+      console.error("播放失败:", error);
+      playingRef.current = false;
+      throw error;
     } finally {
       setTtsLoadingMessageId((current) => (current === uuid ? null : current));
     }
   };
 
   const handlePause = () => {
-    pauseCurrentAudio();
+    // 立即设置暂停标记，防止回调中清空状态
+    pausingRef.current = true;
+    playingRef.current = false;
+    
+    // 记录当前进度
+    const progress = getAudioCurrentTime();
+    if (!isNaN(progress) && progress > 0) {
+      setTtsProgress(uuid, progress);
+    }
+    
+    // 先设置暂停状态
     setTtsPlaybackState("paused");
+    setTtsActiveMessageId(uuid);
+    addTtsPausedMessageId(uuid);
+    
+    // 最后暂停音频
+    pauseCurrentAudio();
+    
+    // 100ms 后重置暂停标记
+    setTimeout(() => {
+      pausingRef.current = false;
+    }, 100);
   };
 
   const handleResume = async () => {
+    // 标记当前消息正在播放
+    playingRef.current = true;
+    pausingRef.current = false;
+    
+    // 保存旧的活跃消息 ID
+    const oldActiveMessageId = ttsActiveMessageId;
+    
+    // 先设置新状态，再停止旧音频
     setTtsPlaybackState("playing");
-    try {
-      await resumeCurrentAudio();
-    } catch (err) {
-      console.error("❌ 继续播放失败:", err);
-      setTtsPlaybackState("idle");
-      setTtsActiveMessageId((current) => (current === uuid ? null : current));
+    setTtsActiveMessageId(uuid);
+    removeTtsPausedMessageId(uuid);
+    
+    // 然后处理旧消息
+    if (oldActiveMessageId && oldActiveMessageId !== uuid) {
+      // 记录被打断消息的进度
+      const progress = getAudioCurrentTime();
+      if (!isNaN(progress) && progress > 0) {
+        setTtsProgress(oldActiveMessageId, progress);
+      }
+      // 添加到暂停列表
+      if (ttsPlaybackState === "playing") {
+        addTtsPausedMessageId(oldActiveMessageId);
+      }
+      stopCurrentAudio();
+    }
+    
+    // 获取保存的播放进度
+    const startOffsetSeconds = ttsProgress[uuid] ?? 0;
+    
+    // 先尝试恢复播放
+    const canResume = isAudioPaused();
+    let playSuccess = false;
+    
+    if (canResume) {
+      try {
+        await resumeCurrentAudio();
+        playSuccess = true;
+        
+        // 轮询检测播放是否完成
+        const checkInterval = setInterval(() => {
+          if (!isAudioPlaying() && playingRef.current) {
+            clearInterval(checkInterval);
+            playingRef.current = false;
+            pausingRef.current = false;
+            
+            // 检查是否在暂停列表中
+            const currentState = useStates.getState();
+            if (!currentState.ttsPausedMessageIds.includes(uuid)) {
+              setTtsPlaybackState("idle");
+              setTtsActiveMessageId(null);
+              clearTtsProgress(uuid);
+            }
+          }
+        }, 100);
+        
+        // 30秒后自动清理（防止内存泄漏）
+        setTimeout(() => {
+          clearInterval(checkInterval);
+        }, 30000);
+      } catch (err) {
+        playingRef.current = false;
+      }
+    }
+    
+    // 如果恢复失败或无法恢复，重新生成播放
+    if (!playSuccess) {
+      setTtsLoadingMessageId(uuid);
+      try {
+        await generateAndPlayTTS(content, timestamp, {
+          onGeneratingChange: setIsGenerating,
+          onPlayingChange: (playing) => {
+            if (playing) {
+              playingRef.current = true;
+              setTtsLoadingMessageId((current) =>
+                current === uuid ? null : current
+              );
+            } else {
+              // 播放结束：先检查是否是暂停操作触发的
+              if (pausingRef.current) {
+                return;
+              }
+              
+              if (!playingRef.current) {
+                return;
+              }
+              
+              playingRef.current = false;
+              pausingRef.current = false;
+              
+              // 从 store 获取最新状态（避免闭包问题）
+              const currentState = useStates.getState();
+              const currentActiveId = currentState.ttsActiveMessageId;
+              const currentPausedIds = currentState.ttsPausedMessageIds;
+              
+              // 优先检查是否在暂停列表中
+              if (currentPausedIds.includes(uuid)) {
+                return;
+              }
+              
+              // 如果当前全局状态是 paused，且活跃消息是当前消息，说明是主动暂停操作
+              const currentPlaybackState = currentState.ttsPlaybackState;
+              if (currentPlaybackState === "paused" && currentActiveId === uuid) {
+                return;
+              }
+              
+              if (currentActiveId !== uuid) {
+                return;
+              }
+              
+              if (isAudioPlaying()) {
+                return;
+              }
+              
+              setTtsPlaybackState("idle");
+              setTtsActiveMessageId(null);
+              clearTtsProgress(uuid);
+            }
+          },
+          startOffsetSeconds,
+        });
+      } catch (error) {
+        console.error("重新播放失败:", error);
+        playingRef.current = false;
+        throw error;
+      } finally {
+        setTtsLoadingMessageId((current) => (current === uuid ? null : current));
+      }
     }
   };
 
   const handleStop = () => {
+    playingRef.current = false;
+    pausingRef.current = false;
     stopCurrentAudio();
     setTtsPlaybackState("idle");
-    setTtsActiveMessageId((current) => (current === uuid ? null : current));
+    setTtsActiveMessageId(null);
+    removeTtsPausedMessageId(uuid);
+    clearTtsProgress(uuid);
   };
 
   return (
@@ -233,8 +460,13 @@ export function MessageItem({
           </div>
 
           {/* 语音播放控制按钮组 - 只在AI消息中显示 */}
-          {isAssistant && (
-            <div className="flex items-center gap-1">
+          {isAssistant && (() => {
+            const shouldShowPauseButtons = isPausedMessage || 
+                                           (isActiveMessage && ttsPlaybackState === "paused") ||
+                                           (ttsPlaybackState === "paused" && isActiveMessage);
+            const shouldShowPlayingButtons = isActiveMessage && ttsPlaybackState === "playing";
+            
+            return <div className="flex items-center gap-1">
               {/* 加载按钮 */}
               {isLoading ? (
                 <button
@@ -245,53 +477,8 @@ export function MessageItem({
                 >
                   <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" />
                 </button>
-              ) : (
-                (!isActiveMessage || ttsPlaybackState === "idle") && (
-                  <button
-                    onClick={handleSpeakClick}
-                    className={`
-                     flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm
-                     ${
-                       isGloballyPlaying
-                         ? "bg-orange-500/15 dark:bg-orange-400/15 text-orange-600 dark:text-orange-400 hover:bg-red-500/20 dark:hover:bg-red-400/20 hover:text-red-600 dark:hover:text-red-400 cursor-pointer hover:scale-105 border border-orange-400/30 hover:border-red-400/30"
-                         : !speak || currentSpeakApi === "关闭"
-                         ? "bg-gray-200/60 dark:bg-gray-600/40 hover:bg-yellow-500/15 dark:hover:bg-yellow-400/15 text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:scale-105 cursor-pointer border border-gray-300/40 dark:border-gray-600/40"
-                         : "bg-gray-200/50 dark:bg-gray-600/30 hover:bg-blue-500/15 dark:hover:bg-blue-400/15 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:scale-105 cursor-pointer border border-gray-300/30 dark:border-gray-600/30 hover:border-blue-400/30"
-                     }
-                   `}
-                    title="播放语音"
-                  >
-                    {!speak || currentSpeakApi === "关闭" ? (
-                      <VolumeOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    ) : (
-                      <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    )}
-                  </button>
-                )
-              )}
-
-              {/* 播放中：显示暂停和停止按钮 */}
-              {isActiveMessage && ttsPlaybackState === "playing" && (
-                <>
-                  <button
-                    onClick={handlePause}
-                    className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm bg-blue-500/20 dark:bg-blue-400/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/30 dark:hover:bg-blue-400/30 cursor-pointer hover:scale-105 border border-blue-400/30 animate-pulse"
-                    title="暂停播放"
-                  >
-                    <Pause className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  </button>
-                  <button
-                    onClick={handleStop}
-                    className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm bg-red-500/20 dark:bg-red-400/20 text-red-600 dark:text-red-400 hover:bg-red-500/30 dark:hover:bg-red-400/30 cursor-pointer hover:scale-105 border border-red-400/30"
-                    title="停止播放"
-                  >
-                    <Square className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  </button>
-                </>
-              )}
-
-              {/* 暂停中：显示继续和停止按钮 */}
-              {isActiveMessage && ttsPlaybackState === "paused" && (
+              ) : shouldShowPauseButtons ? (
+                // 暂停中：显示继续和停止按钮
                 <>
                   <button
                     onClick={handleResume}
@@ -308,9 +495,49 @@ export function MessageItem({
                     <Square className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   </button>
                 </>
+              ) : shouldShowPlayingButtons ? (
+                // 播放中：显示暂停和停止按钮
+                <>
+                  <button
+                    onClick={handlePause}
+                    className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm bg-blue-500/20 dark:bg-blue-400/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/30 dark:hover:bg-blue-400/30 cursor-pointer hover:scale-105 border border-blue-400/30 animate-pulse"
+                    title="暂停播放"
+                  >
+                    <Pause className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleStop}
+                    className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm bg-red-500/20 dark:bg-red-400/20 text-red-600 dark:text-red-400 hover:bg-red-500/30 dark:hover:bg-red-400/30 cursor-pointer hover:scale-105 border border-red-400/30"
+                    title="停止播放"
+                  >
+                    <Square className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
+                </>
+              ) : (
+                // 空闲状态：显示播放按钮
+                <button
+                  onClick={handleSpeakClick}
+                  className={`
+                   flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200 backdrop-blur-sm
+                   ${
+                     isGloballyPlaying
+                       ? "bg-orange-500/15 dark:bg-orange-400/15 text-orange-600 dark:text-orange-400 hover:bg-red-500/20 dark:hover:bg-red-400/20 hover:text-red-600 dark:hover:text-red-400 cursor-pointer hover:scale-105 border border-orange-400/30 hover:border-red-400/30"
+                       : !speak || currentSpeakApi === "关闭"
+                       ? "bg-gray-200/60 dark:bg-gray-600/40 hover:bg-yellow-500/15 dark:hover:bg-yellow-400/15 text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:scale-105 cursor-pointer border border-gray-300/40 dark:border-gray-600/40"
+                       : "bg-gray-200/50 dark:bg-gray-600/30 hover:bg-blue-500/15 dark:hover:bg-blue-400/15 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:scale-105 cursor-pointer border border-gray-300/30 dark:border-gray-600/30 hover:border-blue-400/30"
+                   }
+                 `}
+                  title="播放语音"
+                >
+                  {!speak || currentSpeakApi === "关闭" ? (
+                    <VolumeOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  ) : (
+                    <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  )}
+                </button>
               )}
-            </div>
-          )}
+            </div>;
+          })()}
         </div>
       </div>
     </div>

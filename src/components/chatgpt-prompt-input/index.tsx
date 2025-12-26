@@ -75,6 +75,7 @@ interface ChatActionsProps {
   onTtsPause?: () => void;
   onTtsResume?: () => void;
   onTtsStop?: () => void;
+  onStopGenerating?: () => void;
 }
 
 interface PromptBoxProps
@@ -402,29 +403,29 @@ export const PromptBox = React.forwardRef<HTMLDivElement, PromptBoxProps>(
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      onClick={handleSubmit}
-                      disabled={disabled || loading || !hasValue}
+                      onClick={loading && chatActions?.onStopGenerating ? chatActions.onStopGenerating : handleSubmit}
+                      disabled={(disabled && !loading) || (!loading && !hasValue)}
                       className={cn(
-                        "group/send flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500/50 disabled:cursor-not-allowed border",
-                        disabled || loading || !hasValue
+                        "group/send flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-1 disabled:cursor-not-allowed border",
+                        loading
+                          ? "bg-linear-to-br from-red-500 via-red-600 to-rose-600 hover:from-red-600 hover:via-red-700 hover:to-rose-700 text-white shadow-lg shadow-red-600/30 hover:shadow-xl hover:shadow-red-700/40 border-red-400 dark:border-red-500 hover:scale-105 active:scale-95 focus-visible:ring-red-500/50"
+                          : (disabled || !hasValue)
                           ? "bg-linear-to-br from-gray-300 to-gray-400 dark:from-gray-700 dark:to-gray-800 text-gray-500 dark:text-gray-500 border-gray-300 dark:border-gray-700 opacity-50"
-                          : "bg-linear-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-700/40 border-blue-400 dark:border-blue-500 hover:scale-105 active:scale-95"
+                          : "bg-linear-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-700/40 border-blue-400 dark:border-blue-500 hover:scale-105 active:scale-95 focus-visible:ring-blue-500/50"
                       )}
                     >
                       {loading ? (
-                        <div className="relative">
-                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        </div>
+                        <Square className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-current" />
                       ) : (
                         <ArrowUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform group-hover/send:-translate-y-0.5 group-active/send:translate-y-0" />
                       )}
                       <span className="sr-only">
-                        {loading ? "发送中..." : "发送消息"}
+                        {loading ? "停止生成" : "发送消息"}
                       </span>
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top" showArrow={true}>
-                    <p>{loading ? "发送中..." : "发送 (Enter)"}</p>
+                    <p>{loading ? "停止生成" : "发送 (Enter)"}</p>
                   </TooltipContent>
                 </Tooltip>
               </div>

@@ -19,11 +19,8 @@ import {
   ArrowUp,
   BarChart3,
   Mic,
-  Pause,
-  Play,
   RotateCcw,
   Square,
-  Trash2,
   Volume2,
   VolumeX,
 } from "lucide-react";

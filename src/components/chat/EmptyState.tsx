@@ -2,7 +2,7 @@ export function EmptyState() {
 	return (
 		<div className='flex flex-col items-center justify-center text-center animate-in fade-in-0 duration-500'>
 			<div className='relative mb-6'>
-				<div className='w-20 h-20 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-600 rounded-full flex items-center justify-center shadow-xl shadow-blue-500/25 animate-bounce'>
+				<div className='w-20 h-20 bg-linear-to-br from-blue-500 via-purple-600 to-pink-600 rounded-full flex items-center justify-center shadow-xl shadow-blue-500/25 animate-bounce'>
 					<svg
 						className='w-10 h-10 text-white'
 						fill='none'
@@ -17,10 +17,10 @@ export function EmptyState() {
 						/>
 					</svg>
 				</div>
-				<div className='absolute -inset-2 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-600 rounded-full animate-ping opacity-20'></div>
-				<div className='absolute -inset-4 bg-gradient-to-br from-blue-500 via-purple-600 to-pink-600 rounded-full animate-pulse opacity-10'></div>
+				<div className='absolute -inset-2 bg-linear-to-br from-blue-500 via-purple-600 to-pink-600 rounded-full animate-ping opacity-20'></div>
+				<div className='absolute -inset-4 bg-linear-to-br from-blue-500 via-purple-600 to-pink-600 rounded-full animate-pulse opacity-10'></div>
 			</div>
-			<span className='text-xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'>
+			<span className='text-xl font-semibold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'>
 				开始新的对话
 			</span>
 			<span className='text-gray-500 dark:text-gray-400 text-sm mt-2 max-w-xs'>

@@ -87,7 +87,8 @@ export function useChatOperations({
   useLive2dTextProcessor();
 
   // AbortController 用于中断 AI 生成
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [abortController, setAbortController] =
+    useState<AbortController | null>(null);
 
   // 智能记忆和上下文管理
   const { generateSmartSummary } = useSmartMemory();
@@ -198,7 +199,11 @@ export function useChatOperations({
       loadKnowledgeBase();
       const knowledgeSystemPrompt = getSystemPrompt();
       const baseSystemPrompt = buildSystemPrompt();
-      const systemPrompt = `${baseSystemPrompt} ${knowledgeSystemPrompt}`;
+
+      // 优化的系统提示词: 基础规则 + 知识库（如果有的话）
+      const systemPrompt = knowledgeSystemPrompt
+        ? `${baseSystemPrompt}${knowledgeSystemPrompt}`
+        : baseSystemPrompt;
 
       // 构建消息数组：使用优化后的上下文，确保当前消息在最后
       messagesToSend =
@@ -209,7 +214,11 @@ export function useChatOperations({
             ? optimizedContext.messages
             : [...optimizedContext.messages, userMessage]
           : [userMessage];
-      console.log(systemPrompt);
+
+      // 调试输出（可选）
+      if (process.env.NODE_ENV === "development") {
+        console.log("[System Prompt]", systemPrompt.substring(0, 200) + "...");
+      }
 
       const chatMessages = [
         { role: "system" as const, content: systemPrompt },
@@ -279,54 +288,91 @@ export function useChatOperations({
           // 保存旧的活跃消息 ID
           const oldActiveMessageId = ttsActiveMessageId;
           const oldPlaybackState = ttsPlaybackState;
-          
+
           // 如果当前有音频在播放或暂停，需要处理旧消息
           if (oldPlaybackState === "playing" || oldPlaybackState === "paused") {
-            console.log(`[useChatOperations] ⏸️ 打断当前音频: ${oldActiveMessageId?.slice(0, 8)}, 当前状态: ${oldPlaybackState}`);
-            
+            console.log(
+              `[useChatOperations] ⏸️ 打断当前音频: ${oldActiveMessageId?.slice(
+                0,
+                8
+              )}, 当前状态: ${oldPlaybackState}`
+            );
+
             // 先设置新状态（空闲状态，准备播放新消息）
             setTtsPlaybackState("idle");
             setTtsActiveMessageId(null);
             setTtsLoadingMessageId(null);
-            
+
             // 然后处理旧消息
             if (oldActiveMessageId) {
               // 记录被打断消息的进度
               const progress = getAudioCurrentTime();
               if (!isNaN(progress) && progress > 0) {
                 setTtsProgress(oldActiveMessageId, progress);
-                console.log(`[useChatOperations] 📊 保存进度: ${progress.toFixed(2)}秒`);
+                console.log(
+                  `[useChatOperations] 📊 保存进度: ${progress.toFixed(2)}秒`
+                );
               }
               // 添加到暂停列表
-              console.log(`[useChatOperations] ✅ 添加 ${oldActiveMessageId.slice(0, 8)} 到暂停列表`);
+              console.log(
+                `[useChatOperations] ✅ 添加 ${oldActiveMessageId.slice(
+                  0,
+                  8
+                )} 到暂停列表`
+              );
               addTtsPausedMessageId(oldActiveMessageId);
             }
-            
+
             // 最后停止音频和清空队列
             stopCurrentAudio();
             clearAutoTtsQueue();
           }
 
-          console.log(`[useChatOperations] 🎵 自动播放新消息: ${assistantMessage.uuid.slice(0, 8)}`);
+          console.log(
+            `[useChatOperations] 🎵 自动播放新消息: ${assistantMessage.uuid.slice(
+              0,
+              8
+            )}`
+          );
           enqueueAutoTtsTask(finalContent, time, {
             onGeneratingStart: () => {
-              console.log(`[useChatOperations] 🔄 生成开始: ${assistantMessage.uuid.slice(0, 8)}`);
+              console.log(
+                `[useChatOperations] 🔄 生成开始: ${assistantMessage.uuid.slice(
+                  0,
+                  8
+                )}`
+              );
               setTtsLoadingMessageId(assistantMessage.uuid);
             },
             onGeneratingEnd: () => {
-              console.log(`[useChatOperations] ✅ 生成完成: ${assistantMessage.uuid.slice(0, 8)}`);
+              console.log(
+                `[useChatOperations] ✅ 生成完成: ${assistantMessage.uuid.slice(
+                  0,
+                  8
+                )}`
+              );
               setTtsLoadingMessageId((current) =>
                 current === assistantMessage.uuid ? null : current
               );
             },
             onPlayingStart: () => {
-              console.log(`[useChatOperations] 🔊 自动播放开始: ${assistantMessage.uuid.slice(0, 8)}`);
+              console.log(
+                `[useChatOperations] 🔊 自动播放开始: ${assistantMessage.uuid.slice(
+                  0,
+                  8
+                )}`
+              );
               setTtsPlaybackState("playing");
               setTtsActiveMessageId(assistantMessage.uuid);
               removeTtsPausedMessageId(assistantMessage.uuid);
             },
             onPlayingEnd: () => {
-              console.log(`[useChatOperations] ⏹️ 自动播放完成: ${assistantMessage.uuid.slice(0, 8)}`);
+              console.log(
+                `[useChatOperations] ⏹️ 自动播放完成: ${assistantMessage.uuid.slice(
+                  0,
+                  8
+                )}`
+              );
               setTtsPlaybackState("idle");
               setTtsActiveMessageId(null);
               removeTtsPausedMessageId(assistantMessage.uuid);
@@ -461,17 +507,17 @@ export function useChatOperations({
   const clearChat = async () => {
     try {
       flushSync(() => setDisabled(LoadingStates.clearing));
-      
+
       // 停止当前播放并清空队列
       stopCurrentAudio();
       clearAutoTtsQueue();
-      
+
       // 清空所有TTS相关状态
       setTtsPlaybackState("idle");
       setTtsActiveMessageId(null);
       setTtsLoadingMessageId(null);
       clearAllPausedMessages(); // 清空所有暂停消息
-      
+
       await Promise.all([clearMessages(), setUsedToken(-1)]);
       onClearInput?.();
       toast.success("对话已清除");

@@ -48,8 +48,6 @@ export default function ConfigServicePage() {
     setChatApiType,
     rwkvEndpoint,
     setRwkvEndpoint,
-    rwkvPassword,
-    setRwkvPassword,
   } = useChatApi();
 
   // TTS 模型下载状态
@@ -78,11 +76,9 @@ export default function ConfigServicePage() {
   const [miniMaxApiKey, setMiniMaxApiKey] = useState("");
   const [savingApiKey, setSavingApiKey] = useState(false);
 
-  // 本地 RWKV 配置
+  // 本地模型配置
   const [rwkvUrl, setRwkvUrl] = useState(rwkvEndpoint || "");
   const [savingRwkvUrl, setSavingRwkvUrl] = useState(false);
-  const [rwkvPwd, setRwkvPwd] = useState(rwkvPassword || "");
-  const [savingRwkvPwd, setSavingRwkvPwd] = useState(false);
 
   // 错误日志统计
   const [errorStats, setErrorStats] = useState<{
@@ -322,11 +318,11 @@ export default function ConfigServicePage() {
 
   // 切换聊天服务
   const handleChatApiChange = async (apiType: ChatApiType) => {
-    try {
+      try {
       await setChatApiType(apiType);
       toast.success(
         `已切换到 ${
-          apiType === "siliconflow" ? "硅基流动 (线上)" : "RWKV (本地)"
+          apiType === "siliconflow" ? "硅基流动 (线上)" : "本地模型"
         }`
       );
     } catch (error) {
@@ -335,7 +331,7 @@ export default function ConfigServicePage() {
     }
   };
 
-  // 保存本地 RWKV URL
+  // 保存本地模型 URL
   const saveRwkvUrl = async () => {
     if (!rwkvUrl.trim()) {
       toast.error("请输入有效的 URL");
@@ -345,7 +341,7 @@ export default function ConfigServicePage() {
     try {
       setSavingRwkvUrl(true);
       await setRwkvEndpoint(rwkvUrl.trim());
-      toast.success("RWKV 服务地址保存成功！");
+      toast.success("本地模型服务地址保存成功！");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "未知错误";
       toast.error(`保存失败: ${errorMessage}`);
@@ -354,19 +350,6 @@ export default function ConfigServicePage() {
     }
   };
 
-  // 保存本地 RWKV 密码
-  const saveRwkvPassword = async () => {
-    try {
-      setSavingRwkvPwd(true);
-      await setRwkvPassword((rwkvPwd || "").trim());
-      toast.success("RWKV 密码保存成功！");
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "未知错误";
-      toast.error(`保存失败: ${errorMessage}`);
-    } finally {
-      setSavingRwkvPwd(false);
-    }
-  };
 
   // 保存 MiniMax API Key
   const saveMiniMaxApiKey = async () => {
@@ -439,9 +422,8 @@ export default function ConfigServicePage() {
           setMiniMaxApiKey(miniMaxConfigResult.apiKey);
         }
 
-        // 初始化 RWKV URL 和密码
+        // 初始化本地模型 URL
         setRwkvUrl(rwkvEndpoint || "");
-        setRwkvPwd(rwkvPassword || "");
       } catch (error) {
         console.error("检查模型失败:", error);
       }
@@ -457,14 +439,10 @@ export default function ConfigServicePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 空依赖数组：只在组件挂载时执行一次
 
-  // 同步 rwkvEndpoint 和 rwkvPassword 的变化
+  // 同步 rwkvEndpoint 的变化
   useEffect(() => {
     setRwkvUrl(rwkvEndpoint || "");
   }, [rwkvEndpoint]);
-
-  useEffect(() => {
-    setRwkvPwd(rwkvPassword || "");
-  }, [rwkvPassword]);
 
   // 下载 TTS 模型
   const downloadModel = async (modelType: "matcha" | "vocoder") => {
@@ -677,19 +655,19 @@ export default function ConfigServicePage() {
                         <SelectItem value="siliconflow">
                           硅基流动 (线上)
                         </SelectItem>
-                        <SelectItem value="rwkv-local">RWKV (本地)</SelectItem>
+                        <SelectItem value="rwkv-local">本地模型 (OpenAI 兼容)</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       {chatApiType === "siliconflow"
                         ? "在线服务 · 高质量多语言 · 需要 API Key"
-                        : "本地服务 · 无需联网 · 需要配置服务地址"}
+                        : "本地服务 · OpenAI 兼容接口 · 需要配置服务地址"}
                     </p>
                   </div>
 
-                  {/* 本地 RWKV 配置 - 仅在选择 RWKV (本地) 时显示 */}
+                  {/* 本地模型配置 - 仅在选择本地模型时显示 */}
                   {chatApiType === "rwkv-local" && (
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                       {/* 服务地址配置 */}
                       <div>
                         <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
@@ -712,34 +690,8 @@ export default function ConfigServicePage() {
                           </Button>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          请输入本地 RWKV 服务的完整 URL，例如：
+                          请输入本地模型服务的完整 URL（OpenAI 兼容接口），例如：
                           http://192.168.0.12:8000/v1/chat/completions
-                        </p>
-                      </div>
-
-                      {/* 密码配置 */}
-                      <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                          服务密码配置
-                        </label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="password"
-                            placeholder="请输入 RWKV 服务密码"
-                            value={rwkvPwd}
-                            onChange={(e) => setRwkvPwd(e.target.value)}
-                            className="flex-1"
-                          />
-                          <Button
-                            onClick={saveRwkvPassword}
-                            disabled={savingRwkvPwd}
-                            size="sm"
-                          >
-                            {savingRwkvPwd ? "保存中..." : "保存"}
-                          </Button>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          请输入 RWKV 服务的访问密码（如果服务器设置了密码保护）
                         </p>
                       </div>
                     </div>

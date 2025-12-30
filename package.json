@@ -1,7 +1,7 @@
 {
   "name": "rwkv-vtuber",
   "private": true,
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "RWKV-VTuber is an AI-powered virtual tuber application with Live2D integration",
   "author": "leafyee.xyz",
   "type": "module",
@@ -157,7 +157,6 @@
     "next-themes": "^0.4.6",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-resizable-panels": "^3.0.5",
     "react-router-dom": "^7.11.0",
     "sherpa-onnx": "^1.12.15",
     "sonner": "^2.0.7",

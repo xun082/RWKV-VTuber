@@ -72,7 +72,6 @@ export function useChatOperations({
     (state) => state.setTtsLoadingMessageId
   );
   const setTtsProgress = useStates((state) => state.setTtsProgress);
-  const clearAllTtsProgress = useStates((state) => state.clearAllTtsProgress);
   const chat = useChatApi((state) => state.chat);
   const usedToken = useChatApi((state) => state.usedToken);
   const setUsedToken = useChatApi((state) => state.setUsedToken);

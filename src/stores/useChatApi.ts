@@ -319,10 +319,8 @@ export const useChatApi = create<API>()((setState, getState) => {
 
       // 格式优化: 使用更紧凑的格式
       const qaContent = knowledgeBase
-        .map(
-          (item, index) => `${index + 1}. ${item.question}\n→ ${item.answer}`
-        )
-        .join("\n\n");
+        .map((item) => `${item.question}\n${item.answer}`)
+        .join("\n");
 
       return `知识库:\n${qaContent}`;
     },
@@ -336,12 +334,10 @@ export const useChatApi = create<API>()((setState, getState) => {
 
       // 使用更紧凑的单行格式，节省 token
       const knowledgeContent = knowledgeBase
-        .map(
-          (item, index) => `${index + 1}.Q:${item.question}|A:${item.answer}`
-        )
+        .map((item) => `Q：${item.question}\nA：${item.answer}\n`)
         .join("\n");
 
-      return `\n知识库:\n${knowledgeContent}`;
+      return `知识库:\n${knowledgeContent}`;
     },
   };
 });

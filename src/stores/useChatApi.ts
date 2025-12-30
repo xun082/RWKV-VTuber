@@ -129,8 +129,6 @@ export const useChatApi = create<API>()((setState, getState) => {
           body: JSON.stringify({
             messages,
             stream: true,
-            temperature: 0.1,
-            enable_think: false,
           }),
           signal,
         });

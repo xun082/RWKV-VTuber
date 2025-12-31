@@ -63,6 +63,5 @@ export function useLive2dContainerWidth() {
     };
   }, [updateLive2dContainerWidth]);
 
-
   return { updateLive2dContainerWidth };
 }

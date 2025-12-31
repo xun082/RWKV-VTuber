@@ -17,10 +17,12 @@ export function createMainWindow(
 ): BrowserWindow {
   const mainWindow = new BrowserWindow({
     show: false, // 先不显示，等准备好后再显示
-    width: 1400, // 中等窗口宽度
-    height: 900, // 中等窗口高度
-    minWidth: 800,
-    minHeight: 600,
+    width: 1400, // 固定窗口宽度
+    height: 900, // 固定窗口高度
+    minWidth: 1400, // 最小宽度
+    minHeight: 900, // 最小高度
+    // 移除 maxWidth 和 maxHeight，允许全屏
+    resizable: true, // 允许调整大小（用于全屏功能）
     title: "RWKV-VTuber",
     center: true, // 窗口居中显示
     autoHideMenuBar: true, // 隐藏菜单栏
@@ -35,6 +37,22 @@ export function createMainWindow(
       enableWebSQL: false,
       webgl: true,
     },
+  });
+
+  // 保存固定窗口尺寸
+  const fixedWidth = 1400;
+  const fixedHeight = 900;
+
+  // 监听窗口大小调整，在非全屏状态下保持固定大小
+  mainWindow.on("will-resize", (event, newBounds) => {
+    // 如果窗口不是全屏状态，阻止调整大小
+    if (!mainWindow.isFullScreen()) {
+      // 如果尝试改变大小，恢复到固定尺寸
+      if (newBounds.width !== fixedWidth || newBounds.height !== fixedHeight) {
+        event.preventDefault();
+        mainWindow.setSize(fixedWidth, fixedHeight);
+      }
+    }
   });
 
   // 设置用户代理

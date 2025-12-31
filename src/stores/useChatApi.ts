@@ -64,7 +64,7 @@ const defaultChatApiType =
   ((await get("chat_api_type")) as ChatApiType) || "siliconflow";
 const defaultRwkvEndpoint =
   ((await get("rwkv_endpoint")) as string) ||
-  "http://192.168.0.12:8000/v1/chat/completions";
+  "http://192.168.0.18:8000/v1/chat/completions";
 
 export const useChatApi = create<API>()((setState, getState) => {
   let motionProcessor: ((content: string) => void) | null = null;
@@ -129,6 +129,7 @@ export const useChatApi = create<API>()((setState, getState) => {
           body: JSON.stringify({
             messages,
             stream: true,
+            model: "Qwen/Qwen3-8B",
           }),
           signal,
         });

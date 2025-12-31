@@ -689,10 +689,6 @@ export default function ConfigServicePage() {
                             {savingRwkvUrl ? "保存中..." : "保存"}
                           </Button>
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          请输入本地模型服务的完整 URL（OpenAI 兼容接口），例如：
-                          http://192.168.0.12:8000/v1/chat/completions
-                        </p>
                       </div>
                     </div>
                   )}

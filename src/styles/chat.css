@@ -1,328 +1,148 @@
-/* Chat interface custom styles */
+/* Chat interface styles - 优化版（大部分动画已迁移到 Framer Motion） */
 
-/* Custom scrollbar for chat messages */
+/* 自定义滚动条 - 使用 Tailwind 无法完全替代 */
 .custom-scrollbar {
-	scrollbar-width: thin;
-	scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-	width: 6px;
+  width: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-	background: transparent;
-	border-radius: 3px;
+  background: transparent;
+  border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-	background: rgba(156, 163, 175, 0.3);
-	border-radius: 3px;
-	transition: all 0.2s ease;
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 3px;
+  transition: all 0.2s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-	background: rgba(156, 163, 175, 0.5);
+  background: rgba(156, 163, 175, 0.5);
 }
 
-/* Dark mode scrollbar */
 .dark .custom-scrollbar {
-	scrollbar-color: rgba(75, 85, 99, 0.3) transparent;
+  scrollbar-color: rgba(75, 85, 99, 0.3) transparent;
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-	background: rgba(75, 85, 99, 0.3);
+  background: rgba(75, 85, 99, 0.3);
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-	background: rgba(75, 85, 99, 0.5);
+  background: rgba(75, 85, 99, 0.5);
 }
 
-/* Message animation */
-@keyframes slideInFromBottom {
-	from {
-		opacity: 0;
-		transform: translateY(20px);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-.message-enter {
-	animation: slideInFromBottom 0.3s ease-out;
-}
-
-/* Glassmorphism effects */
-.glass-effect {
-	background: rgba(255, 255, 255, 0.1);
-	backdrop-filter: blur(10px);
-	border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.dark .glass-effect {
-	background: rgba(0, 0, 0, 0.1);
-	border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Gradient text animation */
-@keyframes gradientShift {
-	0% {
-		background-position: 0% 50%;
-	}
-	50% {
-		background-position: 100% 50%;
-	}
-	100% {
-		background-position: 0% 50%;
-	}
-}
-
-.gradient-text {
-	background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
-	background-size: 400% 400%;
-	animation: gradientShift 3s ease infinite;
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
-	background-clip: text;
-}
-
-/* Button hover effects */
-.button-glow:hover {
-	box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-}
-
-/* Typing indicator */
-@keyframes typing {
-	0%,
-	60%,
-	100% {
-		transform: translateY(0);
-	}
-	30% {
-		transform: translateY(-10px);
-	}
-}
-
-.typing-indicator {
-	display: flex;
-	gap: 4px;
-}
-
-.typing-indicator div {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: currentColor;
-	animation: typing 1.4s infinite;
-}
-
-.typing-indicator div:nth-child(2) {
-	animation-delay: 0.2s;
-}
-
-.typing-indicator div:nth-child(3) {
-	animation-delay: 0.4s;
-}
-
-/* Floating elements */
-@keyframes float {
-	0%,
-	100% {
-		transform: translateY(0px);
-	}
-	50% {
-		transform: translateY(-10px);
-	}
-}
-
-.float-animation {
-	animation: float 3s ease-in-out infinite;
-}
-
-/* Pulse animation for loading states */
-@keyframes pulse-glow {
-	0%,
-	100% {
-		box-shadow: 0 0 5px rgba(59, 130, 246, 0.4);
-	}
-	50% {
-		box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
-	}
-}
-
-.pulse-glow {
-	animation: pulse-glow 2s ease-in-out infinite;
-}
-
-/* Enhanced typing indicator */
-.typing-indicator {
-	display: flex;
-	gap: 4px;
-	align-items: center;
-}
-
-.typing-indicator div {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	background: currentColor;
-	animation: typing-bounce 1.4s infinite ease-in-out;
-}
-
-.typing-indicator div:nth-child(1) {
-	animation-delay: -0.32s;
-}
-
-.typing-indicator div:nth-child(2) {
-	animation-delay: -0.16s;
-}
-
-.typing-indicator div:nth-child(3) {
-	animation-delay: 0s;
-}
-
-@keyframes typing-bounce {
-	0%,
-	80%,
-	100% {
-		transform: scale(0.8);
-		opacity: 0.5;
-	}
-	40% {
-		transform: scale(1.2);
-		opacity: 1;
-	}
-}
-
-/* Message entrance animation */
-@keyframes slideInUp {
-	from {
-		opacity: 0;
-		transform: translateY(30px) scale(0.95);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0) scale(1);
-	}
-}
-
-.message-enter {
-	animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Advanced gradient text */
+/* 渐变文字动画 - Framer Motion 不支持 background-clip */
 .gradient-text-animated {
-	background: linear-gradient(
-		45deg,
-		#667eea,
-		#764ba2,
-		#f093fb,
-		#f5576c,
-		#4facfe,
-		#00f2fe
-	);
-	background-size: 300% 300%;
-	animation: gradient-shift 4s ease infinite;
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
-	background-clip: text;
+  background: linear-gradient(
+    45deg,
+    #667eea,
+    #764ba2,
+    #f093fb,
+    #f5576c,
+    #4facfe,
+    #00f2fe
+  );
+  background-size: 300% 300%;
+  animation: gradient-shift 4s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 @keyframes gradient-shift {
-	0% {
-		background-position: 0% 50%;
-	}
-	50% {
-		background-position: 100% 50%;
-	}
-	100% {
-		background-position: 0% 50%;
-	}
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
-/* Markdown 样式优化 */
+/* Markdown 样式 - 标准 CSS */
 .prose {
-	font-size: inherit;
-	line-height: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .prose p {
-	margin: 0.5em 0;
+  margin: 0.5rem 0;
 }
 
 .prose p:first-child {
-	margin-top: 0;
+  margin-top: 0;
 }
 
 .prose p:last-child {
-	margin-bottom: 0;
+  margin-bottom: 0;
 }
 
-.prose strong {
-	font-weight: 700;
-	color: inherit;
-}
-
+.prose strong,
 .prose b {
-	font-weight: 700;
-	color: inherit;
+  font-weight: 700;
 }
 
 .prose em {
-	font-style: italic;
+  font-style: italic;
 }
 
 .prose ul,
 .prose ol {
-	margin: 0.75em 0;
-	padding-left: 1.5em;
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
 }
 
 .prose li {
-	margin: 0.25em 0;
+  margin: 0.25rem 0;
 }
 
 .prose code {
-	background-color: rgba(0, 0, 0, 0.05);
-	padding: 0.125em 0.375em;
-	border-radius: 0.25em;
-	font-size: 0.9em;
-	font-family: 'Courier New', Courier, monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+  font-family: ui-monospace, monospace;
 }
 
 .dark .prose code {
-	background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .prose pre {
-	background-color: rgba(0, 0, 0, 0.05);
-	padding: 0.75em;
-	border-radius: 0.5em;
-	overflow-x: auto;
-	margin: 0.75em 0;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
 }
 
 .dark .prose pre {
-	background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .prose pre code {
-	background-color: transparent;
-	padding: 0;
+  background-color: transparent;
+  padding: 0;
 }
 
 .prose blockquote {
-	border-left: 3px solid rgba(0, 0, 0, 0.2);
-	padding-left: 1em;
-	margin: 0.75em 0;
-	font-style: italic;
-	opacity: 0.9;
+  border-left: 2px solid rgba(0, 0, 0, 0.2);
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  font-style: italic;
+  opacity: 0.9;
 }
 
 .dark .prose blockquote {
-	border-left-color: rgba(255, 255, 255, 0.2);
+  border-left-color: rgba(255, 255, 255, 0.2);
 }
 
 .prose h1,
@@ -331,9 +151,9 @@
 .prose h4,
 .prose h5,
 .prose h6 {
-	font-weight: 600;
-	margin: 1em 0 0.5em;
-	line-height: 1.3;
+  font-weight: 600;
+  margin: 1rem 0;
+  line-height: 1.25;
 }
 
 .prose h1:first-child,
@@ -342,22 +162,22 @@
 .prose h4:first-child,
 .prose h5:first-child,
 .prose h6:first-child {
-	margin-top: 0;
+  margin-top: 0;
 }
 
 .prose a {
-	color: #3b82f6;
-	text-decoration: underline;
+  color: #3b82f6;
+  text-decoration: underline;
 }
 
 .prose a:hover {
-	color: #2563eb;
+  color: #2563eb;
 }
 
 .dark .prose a {
-	color: #60a5fa;
+  color: #60a5fa;
 }
 
 .dark .prose a:hover {
-	color: #93c5fd;
+  color: #93c5fd;
 }

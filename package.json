@@ -150,6 +150,7 @@
     "electron-updater": "^6.6.2",
     "emoji-regex": "^10.4.0",
     "exceljs": "^4.4.0",
+    "framer-motion": "^12.26.2",
     "idb-keyval": "^6.2.1",
     "l2d": "^1.0.0",
     "lucide-react": "^0.543.0",

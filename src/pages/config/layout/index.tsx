@@ -195,8 +195,19 @@ export default function ConfigLayoutPage() {
 
     try {
       const base64 = toBase64(await file.arrayBuffer());
-      await setBackground(`data:${file.type};base64,${base64}`);
-      toast.success("背景设置成功");
+      const newBackground = `data:${file.type};base64,${base64}`;
+      await setBackground(newBackground);
+      
+      // 强制更新图片元素，确保立即显示
+      const imgElement = document.getElementById("back");
+      if (imgElement instanceof HTMLImageElement) {
+        imgElement.src = newBackground;
+      }
+      
+      toast.success("背景设置成功！");
+      
+      // 清空文件输入，允许重新上传同一文件
+      event.target.value = '';
     } catch (e) {
       toast.error(`背景设置失败: ${e instanceof Error ? e.message : e}`);
     }
@@ -278,13 +289,13 @@ export default function ConfigLayoutPage() {
                       value={[live2dPositionY]}
                       onValueChange={(v) => setLive2dPositionY(v[0])}
                       onValueCommit={(v) => setLive2dPositionY(v[0])}
-                      min={-300}
-                      max={300}
+                      min={-150}
+                      max={150}
                       step={5}
                       color="blue"
                       showLabels
-                      leftLabel={"向上 300px"}
-                      rightLabel={"向下 300px"}
+                      leftLabel={"向上 150px"}
+                      rightLabel={"向下 150px"}
                       currentValue={`${live2dPositionY}px`}
                     />
                   </div>
@@ -306,13 +317,13 @@ export default function ConfigLayoutPage() {
                       value={[live2dPositionX]}
                       onValueChange={(v) => setLive2dPositionX(v[0])}
                       onValueCommit={(v) => setLive2dPositionX(v[0])}
-                      min={-600}
-                      max={600}
+                      min={-200}
+                      max={200}
                       step={10}
                       color="purple"
                       showLabels
-                      leftLabel={"向左 600px"}
-                      rightLabel={"向右 600px"}
+                      leftLabel={"向左 200px"}
+                      rightLabel={"向右 200px"}
                       currentValue={`${live2dPositionX}px`}
                     />
                   </div>
@@ -332,12 +343,12 @@ export default function ConfigLayoutPage() {
                     onValueChange={(v) => setLive2dScale(v[0])}
                     onValueCommit={(v) => setLive2dScale(v[0])}
                     min={0.5}
-                    max={3.0}
-                    step={0.1}
+                    max={1.5}
+                    step={0.05}
                     color="orange"
                     showLabels
                     leftLabel={"50%"}
-                    rightLabel={"300%"}
+                    rightLabel={"150%"}
                     currentValue={`${(live2dScale * 100).toFixed(0)}%`}
                   />
                 </div>
@@ -385,7 +396,17 @@ export default function ConfigLayoutPage() {
                     className="w-full h-11 border-2 hover:bg-gray-50 font-semibold transition-all duration-200"
                     onClick={async () => {
                       await setBackground();
-                      toast.success("已恢复默认背景");
+                      
+                      // 强制刷新背景图片，防止缓存
+                      setTimeout(() => {
+                        const imgElement = document.getElementById("back");
+                        if (imgElement instanceof HTMLImageElement) {
+                          const timestamp = new Date().getTime();
+                          imgElement.src = `/back.jpg?_t=${timestamp}`;
+                        }
+                      }, 100);
+                      
+                      toast.success("已恢复默认背景！");
                     }}
                   >
                     <RotateCcw className="w-4 h-4 mr-2" />

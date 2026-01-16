@@ -1,155 +1,17 @@
-/* Live2D 相关样式 */
-@keyframes up-down {
-	0% {
-		transform: translateY(0);
-	}
-	50% {
-		transform: translateY(-10px);
-	}
-	100% {
-		transform: translateY(0);
-	}
-}
+/* Live2D 相关样式 - 简化版（大部分已用 Tailwind CSS 替代） */
 
+/* 严格限制容器，防止内容溢出 */
 #live2d-container {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	z-index: 1;
-	transition: width 0.2s ease-in-out;
-	overflow: visible;
-	/* 确保模型不会被截取 - 优化为更紧凑的padding */
-	padding: 20px;
-	box-sizing: border-box;
-	/* 确保不会阻挡右侧面板的交互 */
-	pointer-events: none;
-	/* 保持内容居中且不变形 */
-	contain: layout;
+  contain: layout style paint;
+  overflow: hidden !important;
 }
 
+/* Canvas transform 原点设置和严格尺寸限制 */
 #live2d-container #live2d {
-	width: auto;
-	height: 100%;
-	max-height: calc(100% - 20px);
-	z-index: 2;
-	overflow: visible;
-	position: relative;
-	/* 设置变换原点为中心，避免缩放时被截取 */
-	transform-origin: center center;
-	/* 允许模型响应鼠标事件 */
-	pointer-events: auto;
-	/* 保持宽高比 */
-	aspect-ratio: attr(width) / attr(height);
-}
-
-#live2d-container #live2d-message {
-	opacity: 0;
-	transition: opacity 0.5s;
-	position: absolute;
-	top: 0;
-	width: 320px;
-	min-height: 120px;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	z-index: 3;
-	color: #1a1a2e;
-	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-	border: 2px solid rgba(255, 255, 255, 0.3);
-	border-radius: 16px;
-	animation: up-down 2.5s ease-in-out infinite;
-	padding: 16px 20px;
-	font-size: 1rem;
-	font-weight: 500;
-	overflow: hidden;
-	text-align: center;
-	pointer-events: auto;
-	box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
-	backdrop-filter: blur(10px);
-	color: white;
-	line-height: 1.6;
-}
-
-#back-container {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	z-index: 0;
-	transition: width 0.2s ease-in-out;
-	pointer-events: none;
-}
-
-#back-container #back {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	object-position: center;
-}
-
-/* 响应式调整 - 优化为更紧凑的布局 */
-@media (max-width: 1200px) {
-	#live2d-container {
-		padding: 15px;
-	}
-
-	#live2d-container #live2d-message {
-		width: 260px;
-		min-height: 100px;
-		font-size: 0.9rem;
-		padding: 14px 18px;
-	}
-}
-
-@media (max-width: 800px) {
-	#live2d-container {
-		padding: 10px;
-	}
-
-	#live2d-container #live2d-message {
-		width: 200px;
-		min-height: 80px;
-		font-size: 0.8rem;
-		padding: 12px 16px;
-	}
-}
-
-/* 针对高分辨率或大屏幕的优化 - 保持紧凑 */
-@media (min-width: 1920px) {
-	#live2d-container {
-		padding: 30px;
-	}
-}
-
-/* 针对超宽屏幕的优化 */
-@media (min-aspect-ratio: 16 / 9) {
-	#live2d-container #live2d {
-		/* 在超宽屏上限制模型最大高度 */
-		max-height: 90vh;
-	}
-}
-
-/* 确保桌面布局中的右侧面板不会被Live2D遮挡 */
-.desktop-layout .bg-white {
-	background-color: white !important;
-	position: relative;
-	z-index: 10;
-}
-
-/* 确保拖拽手柄在正确的层级 */
-.desktop-layout .cursor-col-resize {
-	z-index: 15;
-	position: relative;
+  transform-origin: center center;
+  transition: transform 0.2s ease-out;
+  max-width: 60% !important;
+  max-height: 60% !important;
+  width: auto !important;
+  height: auto !important;
 }

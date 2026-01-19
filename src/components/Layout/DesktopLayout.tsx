@@ -37,7 +37,7 @@ export function DesktopLayout() {
             id="live2d-message"
             className="absolute top-[120px] left-1/2 -translate-x-1/2 w-80 min-h-[120px] 
                        flex items-center justify-center z-50 pointer-events-auto
-                       bg-gradient-to-br from-indigo-500 to-purple-600
+                       bg-linear-to-br from-indigo-500 to-purple-600
                        border-2 border-white/30 rounded-2xl
                        px-5 py-4 text-white text-center font-medium
                        shadow-[0_8px_32px_rgba(102,126,234,0.4)] backdrop-blur-md
@@ -55,7 +55,7 @@ export function DesktopLayout() {
       </div>
 
       {/* 右侧：控制面板 */}
-      <div className="fixed right-0 top-0 w-[50vw] h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="fixed right-0 top-0 w-[50vw] h-screen overflow-hidden bg-linear-to-br from-gray-50 to-gray-100">
         <div className="flex flex-col h-full">
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <Outlet />

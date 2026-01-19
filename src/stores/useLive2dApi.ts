@@ -5,7 +5,7 @@ import { get, live2dList, set } from "../lib/utils.ts";
 
 // ==================== 常量定义 ====================
 // 直接使用路径而不是 import，确保能获取最新的文件
-const DEFAULT_BACKGROUND = "/back.jpg";
+const DEFAULT_BACKGROUND = "/back.png";
 const DEFAULT_LIVE2D_NAME = "Tororo";
 const DEFAULT_POSITION = 0;
 const DEFAULT_SCALE = 1.0;

@@ -197,13 +197,6 @@ export default function ConfigLayoutPage() {
       const base64 = toBase64(await file.arrayBuffer());
       const newBackground = `data:${file.type};base64,${base64}`;
       await setBackground(newBackground);
-      
-      // 强制更新图片元素，确保立即显示
-      const imgElement = document.getElementById("back");
-      if (imgElement instanceof HTMLImageElement) {
-        imgElement.src = newBackground;
-      }
-      
       toast.success("背景设置成功！");
       
       // 清空文件输入，允许重新上传同一文件
@@ -396,16 +389,6 @@ export default function ConfigLayoutPage() {
                     className="w-full h-11 border-2 hover:bg-gray-50 font-semibold transition-all duration-200"
                     onClick={async () => {
                       await setBackground();
-                      
-                      // 强制刷新背景图片，防止缓存
-                      setTimeout(() => {
-                        const imgElement = document.getElementById("back");
-                        if (imgElement instanceof HTMLImageElement) {
-                          const timestamp = new Date().getTime();
-                          imgElement.src = `/back.jpg?_t=${timestamp}`;
-                        }
-                      }, 100);
-                      
                       toast.success("已恢复默认背景！");
                     }}
                   >

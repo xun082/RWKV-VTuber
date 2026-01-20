@@ -34,42 +34,6 @@ if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", cleanupLive2d);
 }
 
-const rabbitBoy = async () => {
-  const l2d = getLive2d();
-  const model = await l2d.create({
-    path: "./live2d/rabbit-boy/兔兔【新.model3.json",
-    scale: 0.35,
-  });
-  return model;
-};
-
-const dogBoyA = async () => {
-  const l2d = getLive2d();
-  const model = await l2d.create({
-    path: "./live2d/dog-boy-a/鱼香天天卷版权所有XIAOPmaiddress.model3.json",
-    scale: 0.25,
-  });
-  return model;
-};
-
-const dogBoyB = async () => {
-  const l2d = getLive2d();
-  const model = await l2d.create({
-    path: "./live2d/dog-boy-b/鱼香天天卷版权所有守护灵小狗初始版.model3.json",
-    scale: 0.28,
-  });
-  return model;
-};
-
-const evilBoy = async () => {
-  const l2d = getLive2d();
-  const model = await l2d.create({
-    path: "./live2d/evil-boy/no4.新（基础）.model3.json",
-    scale: 0.22,
-  });
-  return model;
-};
-
 const darkBoy = async () => {
   const l2d = getLive2d();
   const model = await l2d.create({
@@ -119,10 +83,6 @@ const heroBoy = async () => {
 };
 
 export const live2dList: Live2dList = [
-  { name: "兔兔{name}", load: rabbitBoy },
-  { name: "狗狗{name} (日常版)", load: dogBoyB },
-  { name: "狗狗{name} (女仆版)", load: dogBoyA },
-  { name: "恶魔{name}", load: evilBoy },
   { name: "紫色{name}", load: darkBoy },
   { name: "勇者{name}", load: heroBoy },
   { name: "基尼奇", load: jiniqi },

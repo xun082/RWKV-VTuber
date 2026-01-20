@@ -655,13 +655,13 @@ export default function ConfigServicePage() {
                         <SelectItem value="siliconflow">
                           硅基流动 (线上)
                         </SelectItem>
-                        <SelectItem value="rwkv-local">本地模型 (OpenAI 兼容)</SelectItem>
+                        <SelectItem value="rwkv-local">本地模型</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       {chatApiType === "siliconflow"
                         ? "在线服务 · 高质量多语言 · 需要 API Key"
-                        : "本地服务 · OpenAI 兼容接口 · 需要配置服务地址"}
+                        : "本地服务 · 需要配置服务地址"}
                     </p>
                   </div>
 

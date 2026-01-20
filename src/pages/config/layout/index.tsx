@@ -165,12 +165,8 @@ export default function ConfigLayoutPage() {
     </Label>
   );
 
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  // 处理文件验证和上传的通用函数
+  const processFile = async (file: File) => {
     // 验证文件类型
     const validTypes = [
       "image/jpeg",
@@ -185,13 +181,13 @@ export default function ConfigLayoutPage() {
       toast.error(
         "不支持的文件格式，请选择 JPG、PNG、WebP、BMP、GIF 或 SVG 格式的图片"
       );
-      return;
+      return false;
     }
 
     // 验证文件大小 (10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast.error("文件大小不能超过 10MB");
-      return;
+      return false;
     }
 
     try {
@@ -199,12 +195,59 @@ export default function ConfigLayoutPage() {
       const newBackground = `data:${file.type};base64,${base64}`;
       await setBackground(newBackground);
       toast.success("背景设置成功！");
-      
-      // 清空文件输入，允许重新上传同一文件
-      event.target.value = '';
+      return true;
     } catch (e) {
       toast.error(`背景设置失败: ${e instanceof Error ? e.message : e}`);
+      return false;
     }
+  };
+
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    await processFile(file);
+    
+    // 清空文件输入，允许重新上传同一文件
+    event.target.value = '';
+  };
+
+  // 拖拽上传相关状态
+  const [isDragging, setIsDragging] = React.useState(false);
+
+  // 处理拖拽进入
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  // 处理拖拽离开
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  // 处理拖拽悬停
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // 处理文件拖放
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length === 0) return;
+
+    const file = files[0];
+    await processFile(file);
   };
 
   return (
@@ -359,15 +402,37 @@ export default function ConfigLayoutPage() {
                       />
                       <Label
                         htmlFor="background-upload"
-                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-gray-400 transition-colors duration-200"
+                        onDragEnter={handleDragEnter}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200 ${
+                          isDragging
+                            ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20 border-solid scale-[1.02] shadow-lg"
+                            : "border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700"
+                        }`}
                       >
                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <Image className="w-8 h-8 mb-4 text-gray-500 transition-colors" />
-                          <p className="mb-2 text-sm text-gray-600">
-                            <span className="font-semibold">点击上传</span>{" "}
-                            或拖拽文件到此处
+                          <Image
+                            className={`w-8 h-8 mb-4 transition-colors ${
+                              isDragging
+                                ? "text-blue-500"
+                                : "text-gray-500 dark:text-gray-400"
+                            }`}
+                          />
+                          <p className="mb-2 text-sm text-gray-600 dark:text-gray-300">
+                            {isDragging ? (
+                              <span className="font-semibold text-blue-600 dark:text-blue-400">
+                                松开以上传文件
+                              </span>
+                            ) : (
+                              <>
+                                <span className="font-semibold">点击上传</span>{" "}
+                                或拖拽文件到此处
+                              </>
+                            )}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             JPG, PNG, WebP, BMP, GIF, SVG (最大 10MB)
                           </p>
                         </div>

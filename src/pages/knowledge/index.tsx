@@ -24,6 +24,7 @@ import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { useChatApi } from "../../stores/useChatApi";
 import { isElectron } from "../../lib/electron";
+import { PageHeader } from "../../components/PageHeader";
 
 interface QAItem {
   id: string;
@@ -186,19 +187,14 @@ export default function KnowledgePage() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden bg-gray-50/50 dark:bg-gray-900/50">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-white dark:bg-gray-900">
+      {/* Header */}
+      <PageHeader
+        title="📚 知识库管理"
+        subtitle="从API加载、编辑和管理您的问答知识库"
+      />
       <div className="flex-1 overflow-y-auto scroll-smooth px-6 py-5">
         <div className="mx-auto space-y-3 max-w-5xl">
-          {/* Header */}
-          <div className="text-center space-y-1 py-2">
-            <h1 className="text-2xl font-bold bg-linear-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-              📚 知识库管理
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-xs">
-              从API加载、编辑和管理您的问答知识库
-            </p>
-          </div>
-
           {/* Action Buttons */}
           <Card className="shadow-sm border border-gray-200 dark:border-gray-700">
             <CardContent className="p-3">

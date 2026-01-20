@@ -10,6 +10,7 @@ import "../../styles/chat.css";
 import { toast } from "sonner";
 import { EmptyState, LoadingStates, MessageItem } from "../../components/chat";
 import { PromptBox } from "../../components/chatgpt-prompt-input/";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function ChatPage() {
   const disabled = useStates((state) => state.disabled);
@@ -82,29 +83,11 @@ export default function ChatPage() {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="w-full h-full relative overflow-hidden bg-white dark:bg-gray-900 flex flex-col">
-        {/* 头部区域 - 紧凑优化 */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200/30 bg-linear-to-b from-white to-gray-50/50 dark:from-gray-900 dark:to-gray-800/50 backdrop-blur-sm shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <div className="relative">
-              <div className="h-9 w-9 rounded-lg bg-linear-to-br from-blue-500 to-indigo-600 shadow-md flex items-center justify-center transition-all duration-300 hover:shadow-lg">
-                <div className="h-5 w-5 rounded-md bg-white/25 backdrop-blur-sm flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
-                </div>
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-900 shadow-sm">
-                <div className="w-full h-full bg-emerald-400 rounded-full animate-ping opacity-60"></div>
-              </div>
-            </div>
-            <div>
-              <h2 className="text-base font-bold bg-linear-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                RWKV展会助手
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                智能展会助手，为您提供专业服务
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* 头部区域 */}
+        <PageHeader
+          title="RWKV展会助手"
+          subtitle="智能展会助手，为您提供专业服务"
+        />
 
         {/* 聊天区域 - 优化背景和渐变 */}
         <div

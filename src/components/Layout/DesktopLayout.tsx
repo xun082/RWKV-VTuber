@@ -1,6 +1,5 @@
 import { Outlet } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Navigation } from "./Navigation";
 
 /**
  * 桌面布局组件 - 使用 Tailwind CSS + Framer Motion
@@ -59,9 +58,6 @@ export function DesktopLayout() {
         <div className="flex flex-col h-full">
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <Outlet />
-          </div>
-          <div className="shrink-0">
-            <Navigation />
           </div>
         </div>
       </div>

@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { useResponsive } from "../../../hooks/useResponsive";
 import { toBase64 } from "../../../lib/utils.ts";
 import { useLive2dApi } from "../../../stores/useLive2dApi.ts";
+import { PageHeader } from "../../../components/PageHeader";
 
 export default function ConfigLayoutPage() {
   const { screenType, isMobile } = useResponsive();
@@ -207,27 +208,18 @@ export default function ConfigLayoutPage() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden">
+    <div className="w-full h-full flex flex-col overflow-hidden bg-white dark:bg-gray-900">
+      {/* Header */}
+      <PageHeader
+        title="🎨 布局配置"
+        subtitle="自定义聊天形象和界面布局设置"
+      />
       <div
         className={`flex-1 overflow-y-auto scroll-smooth ${
           isMobile ? "px-3 py-3" : "px-4 py-4"
         }`}
       >
         <div className="mx-auto space-y-4 max-w-full">
-          {/* Header */}
-          <div className="text-center space-y-2 py-3">
-            <h1
-              className={`font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent ${
-                isMobile ? "text-2xl" : "text-3xl"
-              }`}
-            >
-              🎨 布局配置
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              自定义聊天形象和界面布局设置
-            </p>
-          </div>
-
           {/* Main Configuration Card */}
           <Card className="shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:shadow-xl transition-shadow duration-300">
             <CardHeader className="p-4 pb-3">

@@ -14,8 +14,6 @@ import { Slider } from "@/components/ui/slider";
 import {
   Image,
   Maximize2,
-  Minimize2,
-  Monitor,
   Move,
   RotateCcw,
   Settings,
@@ -36,8 +34,6 @@ export default function ConfigLayoutPage() {
     live2dList,
     live2dName,
     setBackground,
-    isFullScreen,
-    setIsFullScreen,
     live2dPositionY,
     setLive2dPositionY,
     live2dPositionX,
@@ -45,27 +41,6 @@ export default function ConfigLayoutPage() {
     live2dScale,
     setLive2dScale,
   } = useLive2dApi();
-
-  // 添加ESC键退出全屏功能
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (isFullScreen && event.key === "Escape") {
-        event.preventDefault();
-        setIsFullScreen(false);
-        toast.success("已退出全屏模式");
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isFullScreen, setIsFullScreen]);
-
-  // 全屏模式下不显示任何配置内容
-  if (isFullScreen) {
-    return null;
-  }
 
   const selfName = "小助手";
 
@@ -443,7 +418,7 @@ export default function ConfigLayoutPage() {
                   {/* Reset Background Button */}
                   <Button
                     variant="outline"
-                    className="w-full h-11 border-2 hover:bg-gray-50 font-semibold transition-all duration-200"
+                    className="w-full h-11 border-2 hover:bg-gray-50 dark:hover:bg-gray-800 font-semibold transition-all duration-200"
                     onClick={async () => {
                       await setBackground();
                       toast.success("已恢复默认背景！");
@@ -452,39 +427,6 @@ export default function ConfigLayoutPage() {
                     <RotateCcw className="w-4 h-4 mr-2" />
                     恢复默认背景
                   </Button>
-
-                  {/* Background Display Area */}
-                  <div className="space-y-3">
-                    <ConfigLabel icon={Monitor} color="text-teal-600">
-                      背景图片显示区域
-                    </ConfigLabel>
-                    <Select
-                      value={isFullScreen.toString()}
-                      onValueChange={(value: string) =>
-                        setIsFullScreen(value === "true")
-                      }
-                    >
-                      <SelectTrigger
-                        className={`border-2 focus:border-teal-500 transition-colors ${styles.input.height}`}
-                      >
-                        <SelectValue placeholder="选择显示区域" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">
-                          <div className="flex items-center gap-2">
-                            <Maximize2 className="h-4 w-4" />
-                            全屏
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="false">
-                          <div className="flex items-center gap-2">
-                            <Minimize2 className="h-4 w-4" />
-                            模型区域
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
               </div>
             </CardContent>

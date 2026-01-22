@@ -284,7 +284,7 @@ export function useChatOperations({
         setTips(finalContent);
 
         if (autoTTS && finalContent && finalContent !== "...") {
-          // 保存旧的活跃消息 ID
+          // 保存旧的活跃消息 ID 和状态
           const oldActiveMessageId = ttsActiveMessageId;
           const oldPlaybackState = ttsPlaybackState;
 
@@ -297,12 +297,7 @@ export function useChatOperations({
               )}, 当前状态: ${oldPlaybackState}`
             );
 
-            // 先设置新状态（空闲状态，准备播放新消息）
-            setTtsPlaybackState("idle");
-            setTtsActiveMessageId(null);
-            setTtsLoadingMessageId(null);
-
-            // 然后处理旧消息
+            // 先处理旧消息（在更新状态之前）
             if (oldActiveMessageId) {
               // 记录被打断消息的进度
               const progress = getAudioCurrentTime();
@@ -322,9 +317,14 @@ export function useChatOperations({
               addTtsPausedMessageId(oldActiveMessageId);
             }
 
-            // 最后停止音频和清空队列
+            // 然后停止音频和清空队列
             stopCurrentAudio();
             clearAutoTtsQueue();
+
+            // 最后设置新状态（空闲状态，准备播放新消息）
+            setTtsPlaybackState("idle");
+            setTtsActiveMessageId(null);
+            setTtsLoadingMessageId(null);
           }
 
           console.log(

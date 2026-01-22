@@ -150,30 +150,38 @@ export function MessageItem({
     // 标记当前消息正在播放
     playingRef.current = true;
     
-    // 保存旧的活跃消息 ID
+    // 保存旧的活跃消息 ID 和状态
     const oldActiveMessageId = ttsActiveMessageId;
+    const oldPlaybackState = ttsPlaybackState;
     
-    // 先设置新状态，再停止旧音频
-    setTtsPlaybackState("playing");
-    setTtsActiveMessageId(uuid);
-    removeTtsPausedMessageId(uuid);
-    setTtsLoadingMessageId(uuid);
-    
-    // 然后处理旧消息
+    // 先处理旧消息（在更新状态之前）
     if (oldActiveMessageId && oldActiveMessageId !== uuid) {
       // 记录被打断消息的进度
       const progress = getAudioCurrentTime();
       if (!isNaN(progress) && progress > 0) {
         setTtsProgress(oldActiveMessageId, progress);
+        console.log(`[MessageItem] 保存旧消息进度: ${oldActiveMessageId.slice(0, 8)}, ${progress.toFixed(2)}秒`);
       }
-      // 添加到暂停列表
-      if (ttsPlaybackState === "playing" || ttsPlaybackState === "paused") {
+      // 添加到暂停列表（只有正在播放或暂停的才添加）
+      if (oldPlaybackState === "playing" || oldPlaybackState === "paused") {
         addTtsPausedMessageId(oldActiveMessageId);
+        console.log(`[MessageItem] 旧消息添加到暂停列表: ${oldActiveMessageId.slice(0, 8)}`);
       }
+      // 停止旧音频
       stopCurrentAudio();
     }
+    
+    // 然后设置新状态
+    setTtsPlaybackState("playing");
+    setTtsActiveMessageId(uuid);
+    removeTtsPausedMessageId(uuid);
+    setTtsLoadingMessageId(uuid);
+    console.log(`[MessageItem] 开始播放新消息: ${uuid.slice(0, 8)}`);
 
     const startOffsetSeconds = ttsProgress[uuid] ?? 0;
+    if (startOffsetSeconds > 0) {
+      console.log(`[MessageItem] 从进度 ${startOffsetSeconds.toFixed(2)}秒 开始播放`);
+    }
 
     try {
       await generateAndPlayTTS(content, timestamp, {
@@ -224,6 +232,7 @@ export function MessageItem({
             }
             
             // 正常播放结束：清空状态
+            console.log(`[MessageItem] 播放结束: ${uuid.slice(0, 8)}`);
             setTtsPlaybackState("idle");
             setTtsActiveMessageId(null);
             clearTtsProgress(uuid);
@@ -241,23 +250,30 @@ export function MessageItem({
   };
 
   const handlePause = () => {
+    // 只有当前消息正在播放时才能暂停
+    if (!isActiveMessage || ttsPlaybackState !== "playing") {
+      console.log(`[MessageItem] 无法暂停: 不是活跃消息或未在播放 ${uuid.slice(0, 8)}`);
+      return;
+    }
+    
     // 立即设置暂停标记，防止回调中清空状态
     pausingRef.current = true;
     playingRef.current = false;
+    
+    // 暂停音频（必须在记录进度之前暂停，否则进度会继续增加）
+    pauseCurrentAudio();
     
     // 记录当前进度
     const progress = getAudioCurrentTime();
     if (!isNaN(progress) && progress > 0) {
       setTtsProgress(uuid, progress);
+      console.log(`[MessageItem] 暂停并保存进度: ${uuid.slice(0, 8)}, ${progress.toFixed(2)}秒`);
     }
     
-    // 先设置暂停状态
+    // 设置暂停状态
     setTtsPlaybackState("paused");
     setTtsActiveMessageId(uuid);
     addTtsPausedMessageId(uuid);
-    
-    // 最后暂停音频
-    pauseCurrentAudio();
     
     // 100ms 后重置暂停标记
     setTimeout(() => {
@@ -270,39 +286,48 @@ export function MessageItem({
     playingRef.current = true;
     pausingRef.current = false;
     
-    // 保存旧的活跃消息 ID
+    // 保存旧的活跃消息 ID 和状态
     const oldActiveMessageId = ttsActiveMessageId;
+    const oldPlaybackState = ttsPlaybackState;
     
-    // 先设置新状态，再停止旧音频
-    setTtsPlaybackState("playing");
-    setTtsActiveMessageId(uuid);
-    removeTtsPausedMessageId(uuid);
+    // 检查当前是否是同一个消息的恢复播放
+    const isSameMessage = oldActiveMessageId === uuid && oldPlaybackState === "paused";
     
-    // 然后处理旧消息
+    // 如果是不同消息，先处理旧消息
     if (oldActiveMessageId && oldActiveMessageId !== uuid) {
       // 记录被打断消息的进度
       const progress = getAudioCurrentTime();
       if (!isNaN(progress) && progress > 0) {
         setTtsProgress(oldActiveMessageId, progress);
+        console.log(`[MessageItem] 保存旧消息进度: ${oldActiveMessageId.slice(0, 8)}, ${progress.toFixed(2)}秒`);
       }
       // 添加到暂停列表
-      if (ttsPlaybackState === "playing") {
+      if (oldPlaybackState === "playing" || oldPlaybackState === "paused") {
         addTtsPausedMessageId(oldActiveMessageId);
+        console.log(`[MessageItem] 旧消息添加到暂停列表: ${oldActiveMessageId.slice(0, 8)}`);
       }
+      // 停止旧音频
       stopCurrentAudio();
     }
     
+    // 然后设置新状态
+    setTtsPlaybackState("playing");
+    setTtsActiveMessageId(uuid);
+    removeTtsPausedMessageId(uuid);
+    
     // 获取保存的播放进度
     const startOffsetSeconds = ttsProgress[uuid] ?? 0;
+    console.log(`[MessageItem] 恢复播放消息: ${uuid.slice(0, 8)}, 进度: ${startOffsetSeconds.toFixed(2)}秒`);
     
-    // 先尝试恢复播放
-    const canResume = isAudioPaused();
+    // 如果是同一个消息的恢复，且音频已暂停，尝试直接恢复
+    const canResume = isSameMessage && isAudioPaused();
     let playSuccess = false;
     
     if (canResume) {
       try {
         await resumeCurrentAudio();
         playSuccess = true;
+        console.log(`[MessageItem] 直接恢复播放成功: ${uuid.slice(0, 8)}`);
         
         // 轮询检测播放是否完成
         const checkInterval = setInterval(() => {
@@ -314,6 +339,7 @@ export function MessageItem({
             // 检查是否在暂停列表中
             const currentState = useStates.getState();
             if (!currentState.ttsPausedMessageIds.includes(uuid)) {
+              console.log(`[MessageItem] 播放结束: ${uuid.slice(0, 8)}`);
               setTtsPlaybackState("idle");
               setTtsActiveMessageId(null);
               clearTtsProgress(uuid);
@@ -326,12 +352,14 @@ export function MessageItem({
           clearInterval(checkInterval);
         }, 30000);
       } catch (err) {
+        console.error(`[MessageItem] 直接恢复失败: ${uuid.slice(0, 8)}`, err);
         playingRef.current = false;
       }
     }
     
     // 如果恢复失败或无法恢复，重新生成播放
     if (!playSuccess) {
+      console.log(`[MessageItem] 重新生成播放: ${uuid.slice(0, 8)}`);
       setTtsLoadingMessageId(uuid);
       try {
         await generateAndPlayTTS(content, timestamp, {
@@ -379,6 +407,7 @@ export function MessageItem({
                 return;
               }
               
+              console.log(`[MessageItem] 播放结束: ${uuid.slice(0, 8)}`);
               setTtsPlaybackState("idle");
               setTtsActiveMessageId(null);
               clearTtsProgress(uuid);
@@ -397,9 +426,20 @@ export function MessageItem({
   };
 
   const handleStop = () => {
+    // 只有当前消息是活跃消息时才能停止
+    if (!isActiveMessage) {
+      console.log(`[MessageItem] 无法停止: 不是活跃消息 ${uuid.slice(0, 8)}`);
+      return;
+    }
+    
+    console.log(`[MessageItem] 停止播放: ${uuid.slice(0, 8)}`);
     playingRef.current = false;
     pausingRef.current = false;
+    
+    // 停止音频
     stopCurrentAudio();
+    
+    // 清除所有状态
     setTtsPlaybackState("idle");
     setTtsActiveMessageId(null);
     removeTtsPausedMessageId(uuid);

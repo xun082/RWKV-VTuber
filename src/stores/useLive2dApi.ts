@@ -40,6 +40,9 @@ type Live2dAPI = {
   _loadLive2d: () => Promise<Model>;
   setLoadLive2d: (name: string) => Promise<void>;
 
+  // 动作控制（亦供画布上的鼠标/触控手势调用）
+  playMotion: (group: string, index?: number) => Promise<boolean>;
+
   // 位置和缩放
   live2dPositionX: number;
   live2dPositionY: number;
@@ -201,6 +204,25 @@ export const useLive2dApi = create<Live2dAPI>()((setState, getState) => ({
       setState({ _loadLive2d: item.load, live2dName: name, live2d: model });
     } else {
       setState({ _loadLive2d: item.load, live2dName: name, live2d: null });
+    }
+  },
+
+  /**
+   * 播放指定动作组的动作
+   * @param group 动作组名（如 Idle、Tap、FlickUp）
+   * @param index 可选，指定该组内第几个动作；不传则随机
+   */
+  playMotion: async (group, index) => {
+    const { live2d } = getState();
+    if (!live2d) return false;
+    try {
+      if (index !== undefined) {
+        return await live2d.playMotion(group, index);
+      }
+      return await live2d.playMotion(group);
+    } catch (e) {
+      console.warn("playMotion failed", group, index, e);
+      return false;
     }
   },
 

@@ -1,10 +1,14 @@
 import { Outlet } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useLive2dMouseControl } from "../../hooks/useLive2dMouseControl";
 
 /**
  * 桌面布局组件 - 使用 Tailwind CSS + Framer Motion
+ * 左侧 Live2D：点击=Tap，上滑=FlickUp，下滑=FlickDown，左右滑=Flick（鼠标/触控）
  */
 export function DesktopLayout() {
+  useLive2dMouseControl();
+
   return (
     <>
       {/* 左侧：Live2D 和背景 */}

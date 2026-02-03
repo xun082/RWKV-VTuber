@@ -14,6 +14,7 @@ import { useSpeakApi } from "../../stores/useSpeakApi.ts";
 import { useStates } from "../../stores/useStates.ts";
 import { isElectron } from "../../lib/electron.ts";
 import { openLink } from "../../lib/utils.ts";
+import { LinkPreviewCard } from "./LinkPreviewCard.tsx";
 
 interface MessageItemProps {
   role: "user" | "assistant" | "system";
@@ -94,6 +95,35 @@ export function MessageItem({
       return md.render(displayContent);
     }
     return displayContent;
+  }, [displayContent, isAssistant]);
+
+  // 提取消息中的 URL（仅对 AI 回复）
+  const extractedUrls = useMemo(() => {
+    if (!isAssistant) return [];
+    
+    const urls: string[] = [];
+    
+    // 1. 从 Markdown 链接语法中提取 URL: [文本](URL)
+    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    let match;
+    while ((match = markdownLinkRegex.exec(displayContent)) !== null) {
+      const url = match[2];
+      // 确保是 http/https 链接
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        urls.push(url);
+      }
+    }
+    
+    // 2. 从普通文本中提取 URL（排除已经在 markdown 链接中的）
+    // 先移除 markdown 链接，避免重复提取
+    const contentWithoutMarkdownLinks = displayContent.replace(markdownLinkRegex, '');
+    // URL 正则：不包含 ) 以避免匹配到 markdown 语法的括号
+    const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)/gi;
+    const plainUrls = contentWithoutMarkdownLinks.match(urlRegex) || [];
+    urls.push(...plainUrls);
+    
+    // 去重并限制数量（最多显示 3 个链接预览）
+    return [...new Set(urls)].slice(0, 3);
   }, [displayContent, isAssistant]);
 
   // 监听全局播放状态
@@ -469,14 +499,24 @@ export function MessageItem({
         )}
 
         {isAssistant ? (
-          <div
-            ref={contentRef}
-            className="prose prose-sm dark:prose-invert max-w-none leading-relaxed text-[15px] relative z-10"
-            style={{
-              color: "inherit",
-            }}
-            dangerouslySetInnerHTML={{ __html: renderedContent }}
-          />
+          <>
+            <div
+              ref={contentRef}
+              className="prose prose-sm dark:prose-invert max-w-none leading-relaxed text-[15px] relative z-10"
+              style={{
+                color: "inherit",
+              }}
+              dangerouslySetInnerHTML={{ __html: renderedContent }}
+            />
+            {/* 链接预览卡片 */}
+            {extractedUrls.length > 0 && (
+              <div className="relative z-10 space-y-2">
+                {extractedUrls.map((url) => (
+                  <LinkPreviewCard key={url} url={url} />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div className="whitespace-pre-wrap leading-relaxed text-[15px] relative z-10">
             {displayContent}

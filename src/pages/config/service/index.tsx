@@ -47,6 +47,12 @@ export default function ConfigServicePage() {
   const {
     chatApiType,
     setChatApiType,
+    volcanoApiKey,
+    setVolcanoApiKey,
+    volcanoEndpoint,
+    setVolcanoEndpoint,
+    volcanoModel,
+    setVolcanoModel,
     rwkvEndpoint,
     setRwkvEndpoint,
   } = useChatApi();
@@ -76,6 +82,12 @@ export default function ConfigServicePage() {
   // MiniMax API Key 配置
   const [miniMaxApiKey, setMiniMaxApiKey] = useState("");
   const [savingApiKey, setSavingApiKey] = useState(false);
+
+  // 火山引擎配置
+  const [volcanoApiKeyInput, setVolcanoApiKeyInput] = useState(volcanoApiKey || "");
+  const [volcanoEndpointInput, setVolcanoEndpointInput] = useState(volcanoEndpoint || "");
+  const [volcanoModelInput, setVolcanoModelInput] = useState(volcanoModel || "");
+  const [savingVolcano, setSavingVolcano] = useState(false);
 
   // 本地模型配置
   const [rwkvUrl, setRwkvUrl] = useState(rwkvEndpoint || "");
@@ -319,16 +331,45 @@ export default function ConfigServicePage() {
 
   // 切换聊天服务
   const handleChatApiChange = async (apiType: ChatApiType) => {
-      try {
+    try {
       await setChatApiType(apiType);
       toast.success(
         `已切换到 ${
-          apiType === "siliconflow" ? "硅基流动 (线上)" : "本地模型"
+          apiType === "volcano" ? "火山引擎 (线上)" : "本地模型"
         }`
       );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "未知错误";
       toast.error(`切换失败: ${errorMessage}`);
+    }
+  };
+
+  // 保存火山引擎配置
+  const saveVolcanoConfig = async () => {
+    if (!volcanoApiKeyInput.trim()) {
+      toast.error("请输入 API Key");
+      return;
+    }
+    if (!volcanoEndpointInput.trim()) {
+      toast.error("请输入服务地址");
+      return;
+    }
+    if (!volcanoModelInput.trim()) {
+      toast.error("请输入模型名称");
+      return;
+    }
+
+    try {
+      setSavingVolcano(true);
+      await setVolcanoApiKey(volcanoApiKeyInput.trim());
+      await setVolcanoEndpoint(volcanoEndpointInput.trim());
+      await setVolcanoModel(volcanoModelInput.trim());
+      toast.success("火山引擎配置保存成功！");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(`保存失败: ${errorMessage}`);
+    } finally {
+      setSavingVolcano(false);
     }
   };
 
@@ -423,6 +464,11 @@ export default function ConfigServicePage() {
           setMiniMaxApiKey(miniMaxConfigResult.apiKey);
         }
 
+        // 初始化火山引擎配置
+        setVolcanoApiKeyInput(volcanoApiKey || "");
+        setVolcanoEndpointInput(volcanoEndpoint || "");
+        setVolcanoModelInput(volcanoModel || "");
+
         // 初始化本地模型 URL
         setRwkvUrl(rwkvEndpoint || "");
       } catch (error) {
@@ -439,6 +485,13 @@ export default function ConfigServicePage() {
     initializeConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 空依赖数组：只在组件挂载时执行一次
+
+  // 同步火山引擎配置的变化
+  useEffect(() => {
+    setVolcanoApiKeyInput(volcanoApiKey || "");
+    setVolcanoEndpointInput(volcanoEndpoint || "");
+    setVolcanoModelInput(volcanoModel || "");
+  }, [volcanoApiKey, volcanoEndpoint, volcanoModel]);
 
   // 同步 rwkvEndpoint 的变化
   useEffect(() => {
@@ -644,18 +697,74 @@ export default function ConfigServicePage() {
                         <SelectValue placeholder="选择聊天服务" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="siliconflow">
-                          硅基流动 (线上)
+                        <SelectItem value="volcano">
+                          火山引擎 (线上)
                         </SelectItem>
                         <SelectItem value="rwkv-local">本地模型</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      {chatApiType === "siliconflow"
+                      {chatApiType === "volcano"
                         ? "在线服务 · 高质量多语言 · 需要 API Key"
                         : "本地服务 · 需要配置服务地址"}
                     </p>
                   </div>
+
+                  {/* 火山引擎配置 - 仅在选择火山引擎时显示 */}
+                  {chatApiType === "volcano" && (
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                      {/* API Key 配置 */}
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                          API Key
+                        </label>
+                        <Input
+                          type="password"
+                          placeholder="请输入火山引擎 API Key"
+                          value={volcanoApiKeyInput}
+                          onChange={(e) => setVolcanoApiKeyInput(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* 服务地址配置 */}
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                          服务地址
+                        </label>
+                        <Input
+                          type="url"
+                          placeholder="https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+                          value={volcanoEndpointInput}
+                          onChange={(e) => setVolcanoEndpointInput(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* 模型名称配置 */}
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                          模型名称
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="ep-20260204163225-8jdxs"
+                          value={volcanoModelInput}
+                          onChange={(e) => setVolcanoModelInput(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {/* 保存按钮 */}
+                      <Button
+                        onClick={saveVolcanoConfig}
+                        disabled={savingVolcano || !volcanoApiKeyInput.trim() || !volcanoEndpointInput.trim() || !volcanoModelInput.trim()}
+                        className="w-full"
+                      >
+                        {savingVolcano ? "保存中..." : "保存配置"}
+                      </Button>
+                    </div>
+                  )}
 
                   {/* 本地模型配置 - 仅在选择本地模型时显示 */}
                   {chatApiType === "rwkv-local" && (

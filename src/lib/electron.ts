@@ -71,5 +71,10 @@ if (isElectron()) {
     fetchKnowledgeBase: async () => {
       return invoke("fetch_knowledge_base");
     },
+
+    // 获取链接HTML内容
+    fetchLinkHtml: async (url: string) => {
+      return invoke("fetch_link_html", { url });
+    },
   };
 }

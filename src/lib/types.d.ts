@@ -44,9 +44,9 @@ declare type ConfigKeys =
   | "f5_tts_endpoint"
   | "fish_speech_endpoint"
   | "web_speech_config"
-  | "openai_api_key"
-  | "openai_endpoint"
-  | "openai_model_name"
+  | "volcano_api_key"
+  | "volcano_endpoint"
+  | "volcano_model"
   | "s3_endpoint"
   | "s3_access_key"
   | "s3_secret_key"
@@ -163,6 +163,11 @@ interface Window {
     fetchKnowledgeBase: () => Promise<{
       success: boolean;
       data?: any;
+      error?: string;
+    }>;
+    fetchLinkHtml: (url: string) => Promise<{
+      success: boolean;
+      html?: string;
       error?: string;
     }>;
   };

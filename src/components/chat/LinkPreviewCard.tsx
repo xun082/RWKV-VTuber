@@ -1,14 +1,8 @@
 import { ExternalLink, ImageOff } from "lucide-react";
 import { useEffect, useState } from "react";
-
-interface LinkPreviewData {
-  url: string;
-  title?: string;
-  description?: string;
-  image?: string;
-  siteName?: string;
-  favicon?: string;
-}
+import { useChatApi } from "../../stores/useChatApi";
+import { isElectron } from "../../lib/electron";
+import { useLinkPreviewCache, type LinkPreviewData } from "../../stores/useLinkPreviewCache";
 
 interface LinkPreviewCardProps {
   url: string;
@@ -19,46 +13,110 @@ export function LinkPreviewCard({ url }: LinkPreviewCardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const extractLinkMetadata = useChatApi((state) => state.extractLinkMetadata);
+  const cache = useLinkPreviewCache();
 
   useEffect(() => {
     const fetchPreview = async () => {
       try {
         setLoading(true);
         setError(false);
-        
-        // 使用 microlink.io API（免费且稳定）
-        // 添加额外参数以获取更好的预览效果
-        const encodedUrl = encodeURIComponent(url);
-        const apiUrl = `https://api.microlink.io/?url=${encodedUrl}&screenshot=false&video=false`;
-        
-        const response = await fetch(apiUrl, {
-          headers: {
-            'Accept': 'application/json',
-          },
-        });
-        
-        if (!response.ok) {
-          throw new Error(`API request failed: ${response.status}`);
+
+        // 验证 URL 格式
+        try {
+          const urlObj = new URL(url);
+          if (
+            (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") ||
+            !urlObj.hostname.includes(".") ||
+            urlObj.hostname.length < 4
+          ) {
+            // 无效URL，直接标记为失败，不显示组件
+            cache.setFailed(url, "Invalid URL format");
+            setError(true);
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          // 无效URL，直接标记为失败，不显示组件
+          cache.setFailed(url, "Invalid URL");
+          setError(true);
+          setLoading(false);
+          return;
         }
-        
-        const result = await response.json();
-        
-        if (result.status !== 'success' || !result.data) {
-          throw new Error('Invalid response from preview API');
+
+        // 【关键修复】先检查是否已失败（在冷却期内）
+        if (cache.isFailed(url)) {
+          // 已经标记为失败且在冷却期内，直接不显示
+          setError(true);
+          setLoading(false);
+          return;
         }
+
+        // 检查缓存（成功的数据）
+        const cached = cache.get(url);
+        if (cached) {
+          // 只有成功的数据才会被 get 返回
+          setPreview(cached);
+          setLoading(false);
+          return;
+        }
+
+        // 【关键修复】如果没有缓存，也没有失败记录，才尝试获取
+        // 但如果用户已经在知识库预取过了，这里应该不会执行到
         
-        const data = result.data;
+        // 使用新方案：直接fetch HTML + AI提取元数据
+        let html: string;
         
-        setPreview({
+        if (isElectron() && window.electron?.fetchLinkHtml) {
+          // Electron环境：使用IPC获取HTML
+          const result = await window.electron.fetchLinkHtml(url);
+          if (!result.success || !result.html) {
+            throw new Error(result.error || "获取HTML失败");
+          }
+          html = result.html;
+        } else {
+          // Web环境：使用fetch（可能受CORS限制）
+          const response = await fetch(url, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+          }
+          
+          html = await response.text();
+        }
+
+        // 使用AI提取元数据
+        const metadata = await extractLinkMetadata(html, url);
+        
+        // 生成favicon URL
+        const faviconUrl = `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`;
+        
+        const previewData: LinkPreviewData = {
           url,
-          title: data.title || data.og?.title,
-          description: data.description || data.og?.description,
-          image: data.image?.url || data.og?.image,
-          siteName: data.publisher || data.og?.site_name,
-          favicon: data.logo?.url || data.favicon,
-        });
-      } catch (err) {
-        console.error("Failed to fetch link preview:", err);
+          title: metadata.title,
+          description: metadata.description,
+          image: metadata.image,
+          siteName: metadata.siteName,
+          favicon: faviconUrl,
+          timestamp: Date.now(),
+        };
+        
+        // 保存到缓存
+        cache.set(previewData);
+        setPreview(previewData);
+      } catch (err: any) {
+        // 标记为失败，避免重复请求
+        cache.setFailed(url, err.message);
+        
+        // 静默处理错误，不在控制台显示（避免大量无效链接产生错误日志）
+        // 只在开发环境下记录警告
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Failed to fetch link preview for:", url, err.message);
+        }
         setError(true);
       } finally {
         setLoading(false);
@@ -66,7 +124,7 @@ export function LinkPreviewCard({ url }: LinkPreviewCardProps) {
     };
 
     fetchPreview();
-  }, [url]);
+  }, [url, extractLinkMetadata, cache]);
 
   const handleCardClick = () => {
     window.open(url, "_blank", "noopener,noreferrer");

@@ -31,7 +31,7 @@ export function registerIPCHandlers(): void {
     async (_event, args: { path: string; data: string }) => {
       await fs.writeFile(args.path, args.data, "utf-8");
       return { success: true, path: args.path };
-    }
+    },
   );
 
   // 保存临时音频
@@ -39,7 +39,7 @@ export function registerIPCHandlers(): void {
     "save_temp_audio",
     async (_event, args: { audioData: number[] }) => {
       return args.audioData;
-    }
+    },
   );
 
   // Sherpa-ONNX ASR 语音识别
@@ -55,13 +55,13 @@ export function registerIPCHandlers(): void {
           const asrModelsDir = getASRModelsDir();
           const modelBasePath = path.join(
             asrModelsDir,
-            "sherpa-onnx-streaming-paraformer-bilingual-zh-en"
+            "sherpa-onnx-streaming-paraformer-bilingual-zh-en",
           );
 
           const initialized = initRecognizer(
             path.join(modelBasePath, "encoder.int8.onnx"),
             path.join(modelBasePath, "decoder.int8.onnx"),
-            path.join(modelBasePath, "tokens.txt")
+            path.join(modelBasePath, "tokens.txt"),
           );
 
           if (initialized) {
@@ -71,7 +71,7 @@ export function registerIPCHandlers(): void {
         }
         throw error;
       }
-    }
+    },
   );
 
   // Sherpa-ONNX ASR 重新加载配置（流式识别器）
@@ -83,11 +83,11 @@ export function registerIPCHandlers(): void {
         encoderPath: string;
         decoderPath: string;
         tokensPath: string;
-      }
+      },
     ) => {
       reloadConfig(args.encoderPath, args.decoderPath, args.tokensPath);
       return { success: true };
-    }
+    },
   );
 
   // Sherpa-ONNX TTS 语音合成（旧版，已注释）
@@ -95,7 +95,7 @@ export function registerIPCHandlers(): void {
     "sherpa_tts_generate",
     async (_event, args: SherpaTTSGenerateArgs) => {
       return await generateSpeech(args);
-    }
+    },
   );
 
   // MiniMax TTS 语音合成（新版）
@@ -115,11 +115,11 @@ export function registerIPCHandlers(): void {
         modelsDir,
         (progress) => {
           event.sender.send("download_progress", progress);
-        }
+        },
       );
 
       return { success: true, path: modelPath };
-    }
+    },
   );
 
   // 检查 TTS 模型（使用跨平台路径）
@@ -128,7 +128,7 @@ export function registerIPCHandlers(): void {
     async (_event, args: { modelType: ModelType }) => {
       const modelsDir = getTTSModelsDir();
       return checkTTSModel(args.modelType, modelsDir);
-    }
+    },
   );
 
   // 下载 ASR 模型（使用跨平台路径）
@@ -160,7 +160,7 @@ export function registerIPCHandlers(): void {
       } catch (error: any) {
         return { success: false, error: error.message };
       }
-    }
+    },
   );
 
   // 删除 ASR 模型
@@ -201,18 +201,18 @@ export function registerIPCHandlers(): void {
         const { app } = await import("electron");
         const configPath = path.join(
           app.getPath("userData"),
-          "minimax-config.json"
+          "minimax-config.json",
         );
         await fs.writeFile(
           configPath,
           JSON.stringify({ apiKey: args.apiKey }, null, 2),
-          "utf-8"
+          "utf-8",
         );
         return { success: true };
       } catch (error: any) {
         return { success: false, error: error.message };
       }
-    }
+    },
   );
 
   // 读取 MiniMax 配置
@@ -221,7 +221,7 @@ export function registerIPCHandlers(): void {
       const { app } = await import("electron");
       const configPath = path.join(
         app.getPath("userData"),
-        "minimax-config.json"
+        "minimax-config.json",
       );
       try {
         const data = await fs.readFile(configPath, "utf-8");
@@ -323,7 +323,7 @@ export function registerIPCHandlers(): void {
       } catch (error: any) {
         return { success: false, error: error.message };
       }
-    }
+    },
   );
 
   // 选择文件夹
@@ -361,6 +361,88 @@ export function registerIPCHandlers(): void {
       } catch (error: any) {
         return { success: false, error: error.message };
       }
-    }
+    },
   );
+
+  // 获取链接的HTML内容（核心逻辑函数）
+  const fetchLinkHtmlCore = async (
+    url: string,
+  ): Promise<{ success: boolean; html?: string; error?: string }> => {
+    try {
+      const https = await import("https");
+      const http = await import("http");
+      const { URL } = await import("url");
+
+      const parsedUrl = new URL(url);
+      const isHttps = parsedUrl.protocol === "https:";
+      const client = isHttps ? https : http;
+
+      return new Promise((resolve, reject) => {
+        const options = {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+          },
+          timeout: 10000,
+        };
+
+        const request = client.get(url, options, (res) => {
+          // 处理重定向
+          if (
+            res.statusCode &&
+            res.statusCode >= 300 &&
+            res.statusCode < 400 &&
+            res.headers.location
+          ) {
+            const redirectUrl = new URL(res.headers.location, url).href;
+            // 递归处理重定向
+            fetchLinkHtmlCore(redirectUrl).then(resolve).catch(reject);
+            return;
+          }
+
+          if (res.statusCode !== 200) {
+            reject(
+              new Error(`HTTP错误: ${res.statusCode} ${res.statusMessage}`),
+            );
+            return;
+          }
+
+          let html = "";
+          res.setEncoding("utf8");
+
+          res.on("data", (chunk) => {
+            html += chunk;
+            // 限制最大大小为500KB，避免过大的HTML
+            if (html.length > 500000) {
+              request.destroy();
+              reject(new Error("HTML内容过大"));
+            }
+          });
+
+          res.on("end", () => {
+            resolve({ success: true, html });
+          });
+        });
+
+        request.on("error", (error) => {
+          reject(new Error(`请求失败: ${error.message}`));
+        });
+
+        request.on("timeout", () => {
+          request.destroy();
+          reject(new Error("请求超时"));
+        });
+      });
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  };
+
+  // 获取链接的HTML内容（IPC 处理器）
+  ipcMain.handle("fetch_link_html", async (_event, args: { url: string }) => {
+    return await fetchLinkHtmlCore(args.url);
+  });
 }

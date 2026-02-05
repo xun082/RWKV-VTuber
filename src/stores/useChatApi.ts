@@ -12,18 +12,20 @@ export interface ChatMessage {
   content: string;
 }
 
-export type ChatApiType = "siliconflow" | "rwkv-local";
+export type ChatApiType = "volcano" | "rwkv-local";
 
 type API = {
   // 服务类型配置
   chatApiType: ChatApiType;
   setChatApiType: (type: ChatApiType) => Promise<void>;
 
-  // 硅基流动配置
-  apiKey: string;
-  setApiKey: (key: string) => Promise<void>;
-  modelName: string;
-  setModelName: (name: string) => Promise<void>;
+  // 火山引擎配置
+  volcanoApiKey: string;
+  setVolcanoApiKey: (key: string) => Promise<void>;
+  volcanoEndpoint: string;
+  setVolcanoEndpoint: (endpoint: string) => Promise<void>;
+  volcanoModel: string;
+  setVolcanoModel: (model: string) => Promise<void>;
   usedToken: number;
   setUsedToken: (token: number) => Promise<void>;
 
@@ -34,7 +36,7 @@ type API = {
   // 聊天API
   chat: (
     messages: ChatMessage[],
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ) => Promise<AsyncIterable<string>>;
   testConnection: () => Promise<boolean>;
 
@@ -47,21 +49,28 @@ type API = {
   loadKnowledgeBase: () => void;
   getKnowledgeBasePrompt: () => string;
   getSystemPrompt: () => string;
+
+  // Link metadata extraction
+  extractLinkMetadata: (html: string, url: string) => Promise<{
+    title?: string;
+    description?: string;
+    image?: string;
+    siteName?: string;
+  }>;
 };
 
-// 硅基流动配置
-const SILICONFLOW_ENDPOINT = "https://api.siliconflow.cn/v1/chat/completions";
-const SILICONFLOW_MODEL = "deepseek-ai/DeepSeek-V3";
+// 火山引擎配置
+const DEFAULT_VOLCANO_ENDPOINT = "https://ark.cn-beijing.volces.com/api/v3/chat/completions";
+const DEFAULT_VOLCANO_MODEL = "ep-20260204163225-8jdxs";
 const KNOWLEDGE_BASE_STORAGE_KEY = "knowledge_base_qa";
-// 硬编码的API密钥
-const HARDCODED_API_KEY = "sk-akaemjzequsiwfzyfpijamrnsuvvfeicsbtsqnzqshfvxexv";
 
 const localUsedToken = await get("last_used_token");
 const defaultUsedToken = localUsedToken ? Number(localUsedToken) : -1;
-const defaultApiKey = HARDCODED_API_KEY;
-const defaultModelName = SILICONFLOW_MODEL;
+const defaultVolcanoApiKey = ((await get("volcano_api_key")) as string) || "";
+const defaultVolcanoEndpoint = ((await get("volcano_endpoint")) as string) || DEFAULT_VOLCANO_ENDPOINT;
+const defaultVolcanoModel = ((await get("volcano_model")) as string) || DEFAULT_VOLCANO_MODEL;
 const defaultChatApiType =
-  ((await get("chat_api_type")) as ChatApiType) || "siliconflow";
+  ((await get("chat_api_type")) as ChatApiType) || "volcano";
 const defaultRwkvEndpoint =
   ((await get("rwkv_endpoint")) as string) ||
   "http://192.168.0.18:8000/v1/chat/completions";
@@ -84,8 +93,9 @@ export const useChatApi = create<API>()((setState, getState) => {
 
   return {
     chatApiType: defaultChatApiType,
-    apiKey: defaultApiKey,
-    modelName: defaultModelName,
+    volcanoApiKey: defaultVolcanoApiKey,
+    volcanoEndpoint: defaultVolcanoEndpoint,
+    volcanoModel: defaultVolcanoModel,
     usedToken: defaultUsedToken,
     rwkvEndpoint: defaultRwkvEndpoint,
 
@@ -94,14 +104,19 @@ export const useChatApi = create<API>()((setState, getState) => {
       await set("chat_api_type", type);
     },
 
-    setApiKey: async (key) => {
-      setState({ apiKey: key });
-      await set("openai_api_key", key);
+    setVolcanoApiKey: async (key) => {
+      setState({ volcanoApiKey: key });
+      await set("volcano_api_key", key);
     },
 
-    setModelName: async (name) => {
-      setState({ modelName: name });
-      await set("openai_model_name", name);
+    setVolcanoEndpoint: async (endpoint) => {
+      setState({ volcanoEndpoint: endpoint });
+      await set("volcano_endpoint", endpoint);
+    },
+
+    setVolcanoModel: async (model) => {
+      setState({ volcanoModel: model });
+      await set("volcano_model", model);
     },
 
     setUsedToken: async (token) => {
@@ -114,7 +129,7 @@ export const useChatApi = create<API>()((setState, getState) => {
       await set("rwkv_endpoint", endpoint);
     },
 
-    // 聊天API（支持硅基流动和本地 OpenAI 兼容模型）
+    // 聊天API（支持火山引擎和本地 OpenAI 兼容模型）
     chat: async (messages: ChatMessage[], signal?: AbortSignal) => {
       const { chatApiType, rwkvEndpoint } = getState();
 
@@ -136,7 +151,7 @@ export const useChatApi = create<API>()((setState, getState) => {
 
         if (!response.ok) {
           throw new Error(
-            `服务错误: ${response.status} ${response.statusText}`
+            `服务错误: ${response.status} ${response.statusText}`,
           );
         }
 
@@ -191,20 +206,24 @@ export const useChatApi = create<API>()((setState, getState) => {
         };
       }
 
-      // 硅基流动聊天API（默认）
-      const { apiKey: apiKeyForFetch, modelName: modelNameForFetch } =
-        getState();
+      // 火山引擎聊天API（默认）
+      const { volcanoApiKey, volcanoEndpoint, volcanoModel } = getState();
 
-      const response = await fetch(SILICONFLOW_ENDPOINT, {
+      const response = await fetch(volcanoEndpoint, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKeyForFetch}`,
+          Authorization: `Bearer ${volcanoApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: modelNameForFetch,
+          model: volcanoModel,
           messages,
           stream: true,
+          temperature: 1,
+          top_p: 0.5,
+          presence_penalty: 0,
+          frequency_penalty: 0.05,
+          thinking: { type: "disabled" },
         }),
         signal,
       });
@@ -255,7 +274,7 @@ export const useChatApi = create<API>()((setState, getState) => {
     },
 
     testConnection: async () => {
-      const { chatApiType, apiKey, modelName, rwkvEndpoint } = getState();
+      const { chatApiType, volcanoApiKey, volcanoEndpoint, volcanoModel, rwkvEndpoint } = getState();
 
       try {
         if (chatApiType === "rwkv-local") {
@@ -273,17 +292,19 @@ export const useChatApi = create<API>()((setState, getState) => {
 
           return response.ok;
         } else {
-          // 测试硅基流动服务
-          const response = await fetch(SILICONFLOW_ENDPOINT, {
+          // 测试火山引擎服务
+          const response = await fetch(volcanoEndpoint, {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${apiKey}`,
+              Authorization: `Bearer ${volcanoApiKey}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: modelName,
+              model: volcanoModel,
               messages: [{ role: "user", content: "hi" }],
-              max_tokens: 10,
+              temperature: 1,
+              top_p: 0.5,
+              thinking: { type: "disabled" },
             }),
           });
 
@@ -339,6 +360,94 @@ export const useChatApi = create<API>()((setState, getState) => {
         .join("\n");
 
       return `知识库:\n${knowledgeContent}`;
+    },
+
+    // 使用AI从HTML中提取链接元数据
+    extractLinkMetadata: async (html: string, url: string) => {
+      const { chat } = getState();
+
+      // 提取HTML的前10000个字符，包含head和部分body，足够获取元数据
+      const truncatedHtml = html.slice(0, 10000);
+
+      const extractionPrompt = `请从以下HTML内容中提取网页的元数据信息。
+
+目标URL: ${url}
+
+HTML内容:
+\`\`\`html
+${truncatedHtml}
+\`\`\`
+
+请提取以下信息（优先查找meta标签，如og:title, og:description, og:image等）：
+1. title: 网页标题
+2. description: 网页描述
+3. image: 网页预览图片的完整URL
+4. siteName: 网站名称
+
+要求：
+- 必须返回纯JSON格式，不要有任何其他文字
+- 如果某个字段找不到，返回null
+- image字段必须是完整的URL（如果是相对路径，需要基于目标URL转换为绝对路径）
+- JSON格式如下：
+{
+  "title": "标题",
+  "description": "描述",
+  "image": "图片URL",
+  "siteName": "网站名称"
+}`;
+
+      try {
+        const messages: ChatMessage[] = [
+          {
+            role: "user",
+            content: extractionPrompt,
+          },
+        ];
+
+        let fullResponse = "";
+        const stream = await chat(messages);
+
+        for await (const chunk of stream) {
+          fullResponse += chunk;
+        }
+
+        // 提取JSON内容（去除可能的markdown代码块标记）
+        let jsonStr = fullResponse.trim();
+        if (jsonStr.startsWith("```json")) {
+          jsonStr = jsonStr.slice(7);
+        } else if (jsonStr.startsWith("```")) {
+          jsonStr = jsonStr.slice(3);
+        }
+        if (jsonStr.endsWith("```")) {
+          jsonStr = jsonStr.slice(0, -3);
+        }
+        jsonStr = jsonStr.trim();
+
+        const metadata = JSON.parse(jsonStr);
+
+        // 处理相对URL
+        if (metadata.image && !metadata.image.startsWith("http")) {
+          try {
+            const baseUrl = new URL(url);
+            metadata.image = new URL(metadata.image, baseUrl.origin).href;
+          } catch (e) {
+            console.warn("处理图片URL失败:", e);
+          }
+        }
+
+        return {
+          title: metadata.title || undefined,
+          description: metadata.description || undefined,
+          image: metadata.image || undefined,
+          siteName: metadata.siteName || undefined,
+        };
+      } catch (error) {
+        console.error("AI提取元数据失败:", error);
+        // 返回基本信息作为降级方案
+        return {
+          title: new URL(url).hostname,
+        };
+      }
     },
   };
 });

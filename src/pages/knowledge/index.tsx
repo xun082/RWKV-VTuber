@@ -251,6 +251,53 @@ export default function KnowledgePage() {
     }
   };
 
+  // 预取成功后，将知识库中的原始 URL 替换为 [标题](链接) 格式
+  const replaceUrlWithMarkdownInKnowledgeBase = (
+    url: string,
+    title: string,
+    showToast = true
+  ) => {
+    const markdown = `[${title}](${url})`;
+    const escapeForRegex = (s: string) =>
+      s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedUrl = escapeForRegex(url);
+    // 1. 先替换已有的 [xxx](url) 格式，只更新标题
+    const replaceMarkdownLink = new RegExp(
+      `\\[[^\\]]*\\]\\(${escapedUrl}\\)`,
+      "g"
+    );
+    // 2. 再替换裸 URL（使用负向后行断言，排除已在 ]( 后的情况）
+    const replaceBareUrl = new RegExp(`(?<!\\]\\()${escapedUrl}`, "g");
+
+    const doReplace = (text: string) =>
+      text
+        .replace(replaceMarkdownLink, markdown)
+        .replace(replaceBareUrl, markdown);
+
+    const updated = qaList.map((item) => {
+      const newQuestion = item.question.includes(url)
+        ? doReplace(item.question)
+        : item.question;
+      const newAnswer = item.answer.includes(url)
+        ? doReplace(item.answer)
+        : item.answer;
+      if (newQuestion !== item.question || newAnswer !== item.answer) {
+        return { ...item, question: newQuestion, answer: newAnswer };
+      }
+      return item;
+    });
+    const hasChange = updated.some(
+      (item, i) =>
+        item.question !== qaList[i].question || item.answer !== qaList[i].answer
+    );
+    if (hasChange) {
+      saveToStorage(updated);
+      if (showToast) {
+        toast.success("已将链接格式应用到知识库");
+      }
+    }
+  };
+
   // 验证 URL 是否有效
   const isValidUrl = (url: string): boolean => {
     try {
@@ -304,6 +351,11 @@ export default function KnowledgePage() {
     // 检查是否已经缓存
     const cached = linkCache.get(url);
     if (cached && !cached.failed) {
+      // 已缓存时也应用格式到知识库
+      replaceUrlWithMarkdownInKnowledgeBase(
+        url,
+        cached.title || cached.siteName || url
+      );
       if (!silent) {
         toast.info("该链接已缓存");
       }
@@ -341,6 +393,8 @@ export default function KnowledgePage() {
       
       // 保存到缓存
       linkCache.set(previewData);
+      // 预取成功后，将知识库中的原始 URL 替换为 [标题](链接) 格式
+      replaceUrlWithMarkdownInKnowledgeBase(url, previewData.title || previewData.siteName || url);
       if (!silent) {
         toast.success("预取成功");
       }
@@ -376,6 +430,11 @@ export default function KnowledgePage() {
       // 检查是否已成功缓存
       const cached = linkCache.get(url);
       if (cached && !cached.failed) {
+        replaceUrlWithMarkdownInKnowledgeBase(
+          url,
+          cached.title || cached.siteName || url,
+          false
+        );
         skippedCached++;
         continue;
       }

@@ -56,6 +56,9 @@ export default function KnowledgePage() {
   const [extractedLinks, setExtractedLinks] = useState<string[]>([]);
   const [fetchingLinks, setFetchingLinks] = useState<Set<string>>(new Set());
   const [isScanningLinks, setIsScanningLinks] = useState(false);
+  const [editingLinkUrl, setEditingLinkUrl] = useState<string | null>(null);
+  const [editLinkTitle, setEditLinkTitle] = useState("");
+  const [editLinkDescription, setEditLinkDescription] = useState("");
 
   // 从API获取知识库数据
   const fetchKnowledgeBase = async () => {
@@ -660,9 +663,13 @@ export default function KnowledgePage() {
                           )}
                         </div>
 
-                        {/* 操作按钮 - 悬浮在右上角 */}
+                        {/* 操作按钮 - 编辑和删除，展开时始终显示，否则悬停显示 */}
                         <div
-                          className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                          className={`absolute top-0 right-0 flex gap-1 transition-all duration-200 ${
+                            expandedIds.has(item.id)
+                              ? "opacity-100"
+                              : "opacity-0 group-hover:opacity-100"
+                          }`}
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Button
@@ -746,38 +753,33 @@ export default function KnowledgePage() {
                       <Save className="h-4 w-4 mr-1.5" />
                       批量预取全部
                     </Button>
-                    <Button
-                      onClick={() => {
-                        linkCache.clearFailed();
-                        toast.success("已清除所有失败记录");
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1.5" />
-                      清除失败记录
-                    </Button>
                   </div>
                   {/* 统计信息 */}
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
                     {(() => {
-                      const stats = linkCache.getStats();
+                      const cachedInList = extractedLinks.filter((url) =>
+                        linkCache.get(url)
+                      ).length;
+                      const failedInList = extractedLinks.filter((url) =>
+                        linkCache.isFailed(url)
+                      ).length;
+                      const uncached = Math.max(
+                        0,
+                        extractedLinks.length - cachedInList - failedInList
+                      );
                       return (
                         <>
                           <span className="text-green-600 dark:text-green-400 font-medium">
-                            ✓ 已缓存: {stats.success}
+                            ✓ 已缓存: {cachedInList}
+                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 font-medium">
+                            未缓存: {uncached}
                           </span>
                           <span className="text-red-600 dark:text-red-400 font-medium">
-                            ✗ 失败: {stats.failed}
+                            ✗ 失败: {failedInList}
                           </span>
-                          {stats.expired > 0 && (
-                            <span className="text-orange-600 dark:text-orange-400 font-medium">
-                              ⏰ 过期: {stats.expired}
-                            </span>
-                          )}
                           <span className="text-gray-500 dark:text-gray-400">
-                            总计: {stats.total}
+                            共 {extractedLinks.length} 个
                           </span>
                         </>
                       );
@@ -842,28 +844,96 @@ export default function KnowledgePage() {
                             {/* 链接信息 */}
                             <div className="flex-1 min-w-0">
                               {cached && !isFailed ? (
-                                <>
-                                  <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1 truncate">
-                                    {cached.title || cached.siteName || "无标题"}
-                                  </h4>
-                                  {cached.description && (
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-1.5">
-                                      {cached.description}
-                                    </p>
-                                  )}
-                                  <a
-                                    href={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 truncate block"
-                                  >
-                                    {url}
-                                  </a>
-                                  <div className="mt-1.5 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400" />
-                                    已缓存
+                                editingLinkUrl === url ? (
+                                  <div className="space-y-2">
+                                    <div className="space-y-1">
+                                      <Label className="text-xs font-medium">标题</Label>
+                                      <Input
+                                        value={editLinkTitle}
+                                        onChange={(e) => setEditLinkTitle(e.target.value)}
+                                        placeholder="链接标题"
+                                        className="h-8 text-sm"
+                                      />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-xs font-medium">描述</Label>
+                                      <Textarea
+                                        value={editLinkDescription}
+                                        onChange={(e) => setEditLinkDescription(e.target.value)}
+                                        placeholder="链接描述"
+                                        rows={3}
+                                        className="text-sm resize-none"
+                                      />
+                                    </div>
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-500 hover:underline block"
+                                    >
+                                      {url}
+                                    </a>
+                                    <div className="flex gap-1.5 pt-1">
+                                      <Button
+                                        onClick={() => {
+                                          linkCache.set({
+                                            ...cached,
+                                            title: editLinkTitle || undefined,
+                                            description: editLinkDescription || undefined,
+                                          });
+                                          replaceUrlWithMarkdownInKnowledgeBase(
+                                            url,
+                                            editLinkTitle || cached.siteName || url,
+                                            false
+                                          );
+                                          setEditingLinkUrl(null);
+                                          toast.success("已保存修改");
+                                        }}
+                                        size="sm"
+                                        className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                                      >
+                                        <Save className="h-3 w-3 mr-1" />
+                                        保存
+                                      </Button>
+                                      <Button
+                                        onClick={() => {
+                                          setEditingLinkUrl(null);
+                                          setEditLinkTitle("");
+                                          setEditLinkDescription("");
+                                        }}
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs"
+                                      >
+                                        <X className="h-3 w-3 mr-1" />
+                                        取消
+                                      </Button>
+                                    </div>
                                   </div>
-                                </>
+                                ) : (
+                                  <>
+                                    <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1 truncate">
+                                      {cached.title || cached.siteName || "无标题"}
+                                    </h4>
+                                    {cached.description && (
+                                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-1.5">
+                                        {cached.description}
+                                      </p>
+                                    )}
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 truncate block"
+                                    >
+                                      {url}
+                                    </a>
+                                    <div className="mt-1.5 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400" />
+                                      已缓存
+                                    </div>
+                                  </>
+                                )
                               ) : isFailed ? (
                                 <>
                                   <a
@@ -958,15 +1028,7 @@ export default function KnowledgePage() {
                             {isFailed && (
                               <Button
                                 onClick={() => {
-                                  // 清除失败标记，允许重试
-                                  const newCache = { ...linkCache.cache };
-                                  delete newCache[url];
-                                  linkCache.clear();
-                                  Object.values(newCache).forEach((data) => {
-                                    if (data.url !== url) {
-                                      linkCache.set(data);
-                                    }
-                                  });
+                                  linkCache.remove(url);
                                   prefetchLink(url);
                                 }}
                                 size="sm"
@@ -986,6 +1048,60 @@ export default function KnowledgePage() {
                                   </>
                                 )}
                               </Button>
+                            )}
+                            {cached && !isFailed && editingLinkUrl !== url && (
+                              <div className="flex gap-1.5 shrink-0">
+                                <Button
+                                  onClick={() => {
+                                    setEditingLinkUrl(url);
+                                    setEditLinkTitle(cached.title || cached.siteName || "");
+                                    setEditLinkDescription(cached.description || "");
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 text-xs border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                  title="编辑"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5 mr-1" />
+                                  编辑
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    linkCache.remove(url);
+                                    toast.success("已删除缓存");
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 text-xs border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"
+                                  title="删除缓存"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                  删除
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    linkCache.remove(url);
+                                    prefetchLink(url);
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 text-xs border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                  disabled={isFetching}
+                                  title="重新预取"
+                                >
+                                  {isFetching ? (
+                                    <>
+                                      <RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                      预取中
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                                      重新预取
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1010,12 +1126,12 @@ export default function KnowledgePage() {
                         <li>系统会自动扫描问答中的所有链接</li>
                         <li>点击"预取"按钮获取链接内容，使用AI提取标题、描述等信息</li>
                         <li>预取的数据会缓存到本地，聊天时可离线显示链接卡片</li>
-                        <li>缓存有效期为7天，过期后需要重新预取</li>
+                        <li>缓存永久有效，无需重新预取</li>
                         <li>批量预取会自动跳过已缓存和失败冷却期内的链接</li>
+                        <li>已缓存的链接可点击"编辑"修改标题和描述，修改后会同步到知识库</li>
                         <li className="text-orange-600 dark:text-orange-400">
-                          <strong>失败处理：</strong>失败的链接会进入24小时冷却期（失败3次以上延长到7天），冷却期内不会重试，避免重复请求无效链接
+                          <strong>失败处理：</strong>失败的链接会显示失败原因和可重试时间，可点击"重试"按钮重新获取
                         </li>
-                        <li>如需立即重试失败的链接，可点击"重试"按钮或"清除失败记录"</li>
                       </ul>
                     </div>
                   </div>

@@ -38,7 +38,7 @@ interface LinkPreviewCacheState {
   // 清除所有失败记录
   clearFailed: () => void;
 
-  // 清除过期缓存（默认7天）
+  // 清除过期缓存（永久缓存下此方法保留但不生效）
   clearExpired: (maxAge?: number) => void;
 
   // 清空所有缓存
@@ -53,8 +53,7 @@ interface LinkPreviewCacheState {
   };
 }
 
-const DEFAULT_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7天
-const FAILED_COOLDOWN = 24 * 60 * 60 * 1000; // 失败后24小时内不重试（增加到24小时）
+const FAILED_COOLDOWN = 24 * 60 * 60 * 1000; // 失败后24小时内不重试
 
 export const useLinkPreviewCache = create<LinkPreviewCacheState>()(
   persist(
@@ -68,18 +67,7 @@ export const useLinkPreviewCache = create<LinkPreviewCacheState>()(
         // 如果是失败记录，不返回
         if (cached.failed) return null;
 
-        // 检查是否过期
-        const now = Date.now();
-        if (now - cached.timestamp > DEFAULT_MAX_AGE) {
-          // 过期则删除并返回null
-          set((state) => {
-            const newCache = { ...state.cache };
-            delete newCache[url];
-            return { cache: newCache };
-          });
-          return null;
-        }
-
+        // 缓存永久有效，不过期
         return cached;
       },
 
@@ -183,24 +171,8 @@ export const useLinkPreviewCache = create<LinkPreviewCacheState>()(
         });
       },
 
-      clearExpired: (maxAge = DEFAULT_MAX_AGE) => {
-        set((state) => {
-          const now = Date.now();
-          const newCache: Record<string, LinkPreviewData> = {};
-
-          for (const [url, data] of Object.entries(state.cache)) {
-            // 成功的记录检查过期时间
-            if (!data.failed && now - data.timestamp <= maxAge) {
-              newCache[url] = data;
-            }
-            // 失败的记录保留（由 isFailed 自动清理）
-            if (data.failed) {
-              newCache[url] = data;
-            }
-          }
-
-          return { cache: newCache };
-        });
+      clearExpired: () => {
+        // 缓存永久有效，无需清理
       },
 
       clear: () => {
@@ -209,16 +181,12 @@ export const useLinkPreviewCache = create<LinkPreviewCacheState>()(
 
       getStats: () => {
         const state = get();
-        const now = Date.now();
         let success = 0;
         let failed = 0;
-        let expired = 0;
 
         for (const data of Object.values(state.cache)) {
           if (data.failed) {
             failed++;
-          } else if (now - data.timestamp > DEFAULT_MAX_AGE) {
-            expired++;
           } else {
             success++;
           }
@@ -228,7 +196,7 @@ export const useLinkPreviewCache = create<LinkPreviewCacheState>()(
           total: Object.keys(state.cache).length,
           success,
           failed,
-          expired,
+          expired: 0, // 永久缓存，无过期
         };
       },
     }),
